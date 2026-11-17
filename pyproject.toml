@@ -1,0 +1,24 @@
+[build-system]
+requires = ["setuptools>=77"]
+build-backend = "setuptools.build_meta"
+
+[project]
+name = "ravora-case-study"
+version = "0.1.0"
+description = "A reproducible case study of early reactions, streaming conversation, and source-backed memory"
+requires-python = ">=3.11"
+dependencies = []
+
+[project.optional-dependencies]
+console = ["websockets==17.4"]
+cloud = ["grpcio==1.85.1", "google-cloud-speech==2.41.0", "google-cloud-texttospeech==2.38.0", "google-ai-generativelanguage==0.12.1"]
+phone-alignment = ["pocketsphinx==5.1.1"]
+
+[project.scripts]
+ravora-case-study = "ravora.case_study:main"
+
+[tool.setuptools.packages.find]
+where = ["src"]
+
+[tool.setuptools.package-data]
+ravora = ["migrations/*.sql", "personas/*.txt", "web/*.js", "web/*.mjs", "web/developer/*.js", "web/developer/*.html", "web/developer/*.css"]

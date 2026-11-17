@@ -1,0 +1,38 @@
+{
+  "status": "PASS_RELATIONSHIP_REPLAY",
+  "synthetic_data": true,
+  "schema_version": 10,
+  "backgrounds": {
+    "new": {
+      "contact_history": "limited_history",
+      "prior_contact": "none_recorded",
+      "recent_pattern": "first_recorded_contact",
+      "prior_spoken_contact": "none_recorded"
+    },
+    "regular": {
+      "contact_history": "established_contact",
+      "prior_contact": "across_prior_days",
+      "recent_pattern": "ongoing_contact",
+      "prior_spoken_contact": "previously_played"
+    },
+    "returning": {
+      "contact_history": "established_contact",
+      "prior_contact": "across_prior_days",
+      "recent_pattern": "reconnecting_after_a_gap",
+      "prior_spoken_contact": "previously_played"
+    }
+  },
+  "same_post_count": {
+    "comments_each": 100,
+    "one_day_units": 3,
+    "twenty_day_units": 60
+  },
+  "duplicate_receipts_and_playback_acks_idempotent": true,
+  "generated_but_unplayed_excluded": true,
+  "developer_and_scope_isolation": true,
+  "external_api_calls": 0,
+  "playback_acknowledgement": "simulated",
+  "generated_response_quality_evaluated": false,
+  "latency_measurement": false,
+  "temporary_database_removed_on_exit": true
+}

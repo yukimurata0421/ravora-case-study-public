@@ -1,0 +1,17 @@
+<!doctype html>
+<html lang="en">
+<meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1">
+<title>RAVORA | Case-study console</title><link rel="stylesheet" href="/style.css">
+<main>
+<header><div class="eyebrow">RAVORA / CASE STUDY</div><h1>Try a conversation.</h1>
+<p>Explore streaming playback and local, source-backed memory.</p><span id="mode">Connecting</span></header>
+<aside id="notice" role="note"></aside>
+<p id="reaction" role="status">Reaction: neutral</p><p id="interim" aria-live="polite"></p>
+<section id="messages" aria-label="Conversation" aria-live="polite"><p class="intro">Start with text, or hold the microphone button.</p></section>
+<div class="controls"><button id="talk" disabled>Hold to talk</button><button id="stop" class="secondary">Stop</button>
+<label for="language">Input language</label><select id="language"><option value="en-US">English</option><option value="ja-JP">Japanese (mock)</option></select>
+<span id="status" role="status">Connecting...</span></div>
+<form id="form"><label for="text">Send a message</label><div class="input-row"><textarea id="text" rows="2" maxlength="1000" placeholder="I like coffee and jazz."></textarea><button id="send" disabled>Send</button></div></form>
+<footer>No cloud API is used. Text is stored only in this temporary session. Microphone audio is not saved.<span id="limit"></span></footer>
+</main><script type="module" src="/app.js"></script>
+</html>

@@ -1,0 +1,169 @@
+{
+  "status": "PASS_LOCAL_RELATIONSHIP_CASE_STUDY_PORT",
+  "validated_at_jst": "2026-11-17T22:47:59.713395+09:00",
+  "scope": "Portable archive snapshot before commit and push; historical live API and recording results are curated separately.",
+  "checks": {
+    "checkout_tests": {
+      "status": "PASS",
+      "tests": 147,
+      "failures": 0,
+      "errors": 0,
+      "skipped": 0,
+      "outbound_connection_attempts": 0
+    },
+    "installed_package": {
+      "status": "PASS_INSTALLED_PACKAGE",
+      "tests": 147,
+      "failures": 0,
+      "errors": 0,
+      "skipped": 0,
+      "outbound_connection_attempts": 0,
+      "python": "3.14.4",
+      "sqlite": "3.46.1",
+      "installed_outside_source_tree": true,
+      "schema_resources_packaged": 9,
+      "cloud_sdk_installed": false
+    },
+    "synthetic_replay": {
+      "status": "PASS_CASE_STUDY_REPLAY",
+      "synthetic_data": true,
+      "schema_version": 9,
+      "tier_order": [
+        1,
+        1,
+        2,
+        2,
+        3,
+        3
+      ],
+      "private_developer_context_excluded_from_public_reply": true,
+      "reviewed_summary_shared_without_private_transcript": true,
+      "sharing_revocation_verified": true,
+      "pcm_before_text_complete": true,
+      "stale_audio_fenced_after_cancel": true,
+      "context_rows_prepared": 22,
+      "external_api_calls": 0,
+      "playback_acknowledgement": "simulated",
+      "physical_audio_or_avatar_verified": false,
+      "temporary_database_removed_on_exit": true
+    },
+    "early_reaction_replay": {
+      "status": "PASS_EARLY_REACTION_REPLAY",
+      "synthetic_data": true,
+      "low_stability_prefix_used": true,
+      "reaction_before_input_end": true,
+      "llm_received_final_only": true,
+      "partial_text_absent_from_sources": true,
+      "reaction_slots_used": 1,
+      "mock_reaction_calls": 1,
+      "external_api_calls": 0,
+      "playback_acknowledgement": "simulated",
+      "latency_measurement": false,
+      "physical_audio_or_avatar_verified": false,
+      "temporary_database_removed_on_exit": true
+    },
+    "relationship_replay": {
+      "status": "PASS_RELATIONSHIP_REPLAY",
+      "synthetic_data": true,
+      "schema_version": 9,
+      "backgrounds": {
+        "new": {
+          "contact_history": "limited_history",
+          "prior_contact": "none_recorded",
+          "recent_pattern": "first_recorded_contact",
+          "prior_spoken_contact": "none_recorded"
+        },
+        "regular": {
+          "contact_history": "established_contact",
+          "prior_contact": "across_prior_days",
+          "recent_pattern": "ongoing_contact",
+          "prior_spoken_contact": "previously_played"
+        },
+        "returning": {
+          "contact_history": "established_contact",
+          "prior_contact": "across_prior_days",
+          "recent_pattern": "reconnecting_after_a_gap",
+          "prior_spoken_contact": "previously_played"
+        }
+      },
+      "same_post_count": {
+        "comments_each": 100,
+        "one_day_units": 3,
+        "twenty_day_units": 60
+      },
+      "duplicate_receipts_and_playback_acks_idempotent": true,
+      "generated_but_unplayed_excluded": true,
+      "developer_and_scope_isolation": true,
+      "external_api_calls": 0,
+      "playback_acknowledgement": "simulated",
+      "generated_response_quality_evaluated": false,
+      "latency_measurement": false,
+      "temporary_database_removed_on_exit": true
+    },
+    "secret_scan": {
+      "tool": "gitleaks",
+      "status": "PASS",
+      "findings": 0,
+      "private_value_matches": 0
+    },
+    "source_integrity": {
+      "checked_source_files": 179,
+      "changed_source_files": 0,
+      "private_env_unchanged": true
+    },
+    "wheel_binding": {
+      "status": "PASS",
+      "sha256": "5b96caffe16276620a716da3fa2c2f96eb5481c8d455fd327df22dc24fc16e22",
+      "installed_package_matches_candidate_source": true,
+      "source_files_checked": 43,
+      "three_installed_replays_match_checkout": true
+    },
+    "browser_console": {
+      "rerun_this_update": false,
+      "previous_result": "publication/history/2026-11-17-early-reaction-validation.json",
+      "reason": "Console rendering files unchanged; controller changes covered by offline state and request-assembly tests."
+    },
+    "public_payload": {
+      "status": "PASS_PUBLIC_PAYLOAD",
+      "files": 81,
+      "hashes_checked": 79,
+      "unexpected_files": 0,
+      "private_defaults_found": 0,
+      "broken_local_links": 0
+    }
+  },
+  "remote_ci": {
+    "configured": true,
+    "configured_python_versions": [
+      "3.11",
+      "3.13"
+    ],
+    "result_included_in_this_local_record": false
+  },
+  "delivery": {
+    "base_commit": "9d32e54630a4c58142b1d07fe76c726caf24f0d0",
+    "private_repository_verified": true,
+    "commit_and_push_are_separate_from_this_record": true
+  },
+  "project_license_selected": false,
+  "open_source_release_ready": false,
+  "included_private_databases_or_recordings": false,
+  "original_runtime_source_modified": false,
+  "new_inference_api_calls": 0,
+  "earlier_validation_preserved": "publication/history/2026-11-17-early-reaction-validation.json",
+  "failed_local_checks_preserved": [
+    {
+      "tests": 146,
+      "errors": 2,
+      "failures": 0,
+      "causes": [
+        "Legacy schema fixture tried to use relationship tables before migration.",
+        "New relationship test referenced an excluded synthetic fixture module."
+      ],
+      "resolutions": [
+        "Ported legacy fixture option that disables mechanisms not present in its original schema.",
+        "Extracted only the fictional comment/page helpers into portable test support."
+      ]
+    }
+  ]
+}

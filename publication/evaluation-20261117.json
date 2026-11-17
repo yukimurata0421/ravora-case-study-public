@@ -1,0 +1,249 @@
+{
+  "status": "HISTORICAL_CURATED_REFERENCE",
+  "measurement_date_jst": "2026-11-17",
+  "new_api_calls_during_port": 0,
+  "raw_evidence_included": false,
+  "relationship_evaluation": {
+    "source_sha256": "d641257aa8d1be7f71d9e953acc8e908399fde835ad880cf849aa6ceb82f9a71",
+    "synthetic_profiles": true,
+    "final_comparison_samples": 40,
+    "separate_http_checks": 1,
+    "requests_across_three_stages": 115,
+    "summary": {
+      "control": {
+        "first_text_ms": {
+          "n": 10,
+          "median": 796.632,
+          "p95": 1032.496,
+          "max": 1032.496
+        },
+        "complete_ms": {
+          "n": 10,
+          "median": 889.568,
+          "p95": 1141.393,
+          "max": 1141.393
+        },
+        "words": {
+          "n": 10,
+          "median": 8.5,
+          "p95": 12,
+          "max": 12
+        },
+        "over_12_words": 0,
+        "unique_replies": 10,
+        "repeated_three_word_openers": {
+          "my evening is": 2
+        }
+      },
+      "new": {
+        "first_text_ms": {
+          "n": 10,
+          "median": 811.221,
+          "p95": 1194.502,
+          "max": 1194.502
+        },
+        "complete_ms": {
+          "n": 10,
+          "median": 913.197,
+          "p95": 1321.287,
+          "max": 1321.287
+        },
+        "words": {
+          "n": 10,
+          "median": 8.5,
+          "p95": 10,
+          "max": 10
+        },
+        "over_12_words": 0,
+        "unique_replies": 10,
+        "repeated_three_word_openers": {
+          "oh look at": 2
+        }
+      },
+      "regular": {
+        "first_text_ms": {
+          "n": 10,
+          "median": 811.647,
+          "p95": 1261.101,
+          "max": 1261.101
+        },
+        "complete_ms": {
+          "n": 10,
+          "median": 925.134,
+          "p95": 1361.084,
+          "max": 1361.084
+        },
+        "words": {
+          "n": 10,
+          "median": 8.5,
+          "p95": 13,
+          "max": 13
+        },
+        "over_12_words": 1,
+        "unique_replies": 10,
+        "repeated_three_word_openers": {}
+      },
+      "returning": {
+        "first_text_ms": {
+          "n": 10,
+          "median": 731.024,
+          "p95": 1218.143,
+          "max": 1218.143
+        },
+        "complete_ms": {
+          "n": 10,
+          "median": 819.905,
+          "p95": 1324.386,
+          "max": 1324.386
+        },
+        "words": {
+          "n": 10,
+          "median": 8.0,
+          "p95": 10,
+          "max": 10
+        },
+        "over_12_words": 0,
+        "unique_replies": 9,
+        "repeated_three_word_openers": {
+          "my evening is": 2,
+          "glad that actually": 2
+        }
+      }
+    },
+    "with_background": {
+      "samples": 30,
+      "within_12_words": 29,
+      "one_sentence": 29,
+      "unique_replies": 27,
+      "lookup_median_ms": 2.431,
+      "lookup_p95_nearest_rank_ms": 3.948
+    },
+    "quality_complete": false,
+    "remaining_issues": [
+      "Repeated comfort phrasing",
+      "Unfair teasing",
+      "Invented shared details",
+      "Weak regular/returning distinction"
+    ]
+  },
+  "voice_expression_recording": {
+    "source_sha256": "754b2fc4cec581e4d256dd9e03dc6daaca55ed0209326cf9b9c9be2a189bfdf9",
+    "duration_seconds": 53.566,
+    "turns": 6,
+    "synthetic_questions": true,
+    "one_continuous_take": true,
+    "recording_speed": 1,
+    "question_preparation_excluded_from_response_latency": true,
+    "audio_window_ms": 10,
+    "threshold_db": -48,
+    "expression_weight_threshold": 0.05,
+    "capture_fps_max": 15,
+    "output_fps": 30,
+    "reaction_requests_per_input_max": 1,
+    "reaction_notifications_during_input": 6,
+    "visible_expression_changes_during_input": 2,
+    "rows": [
+      {
+        "number": 1,
+        "title": "01 / Happy to see you",
+        "stt_first_partial_from_voice_start_ms": 411.3,
+        "jev_notification_from_voice_start_ms": 1200.7,
+        "reaction": "joy",
+        "expression_visible_from_voice_start_ms": 1392.7,
+        "expression_lead_before_speech_end_ms": 1907.3,
+        "first_text_from_speech_end_ms": 1516.7,
+        "browser_speech_end_to_reply_audio_ms": 1772.7,
+        "encoded_speech_end_to_reply_audio_ms": 1770.0,
+        "encoded_vs_browser_gap_difference_ms": -2.7,
+        "underflow_frames": 0
+      },
+      {
+        "number": 2,
+        "title": "02 / Something surprising",
+        "stt_first_partial_from_voice_start_ms": 422.0,
+        "jev_notification_from_voice_start_ms": 1910.0,
+        "reaction": "surprise",
+        "expression_visible_from_voice_start_ms": 2096.7,
+        "expression_lead_before_speech_end_ms": 1843.3,
+        "first_text_from_speech_end_ms": 1522.0,
+        "browser_speech_end_to_reply_audio_ms": 1845.3,
+        "encoded_speech_end_to_reply_audio_ms": 1850.0,
+        "encoded_vs_browser_gap_difference_ms": 4.7,
+        "underflow_frames": 0
+      },
+      {
+        "number": 3,
+        "title": "03 / A game that went badly",
+        "stt_first_partial_from_voice_start_ms": 443.3,
+        "jev_notification_from_voice_start_ms": 1446.0,
+        "reaction": "neutral",
+        "expression_visible_from_voice_start_ms": null,
+        "expression_lead_before_speech_end_ms": null,
+        "first_text_from_speech_end_ms": 1480.0,
+        "browser_speech_end_to_reply_audio_ms": 1733.3,
+        "encoded_speech_end_to_reply_audio_ms": 1730.0,
+        "encoded_vs_browser_gap_difference_ms": -3.3,
+        "underflow_frames": 0
+      },
+      {
+        "number": 4,
+        "title": "04 / A tiring day",
+        "stt_first_partial_from_voice_start_ms": 544.7,
+        "jev_notification_from_voice_start_ms": 1419.3,
+        "reaction": "neutral",
+        "expression_visible_from_voice_start_ms": null,
+        "expression_lead_before_speech_end_ms": null,
+        "first_text_from_speech_end_ms": 1569.3,
+        "browser_speech_end_to_reply_audio_ms": 2136.0,
+        "encoded_speech_end_to_reply_audio_ms": 2130.0,
+        "encoded_vs_browser_gap_difference_ms": -6.0,
+        "underflow_frames": 0
+      },
+      {
+        "number": 5,
+        "title": "05 / Coffee and music",
+        "stt_first_partial_from_voice_start_ms": 358.0,
+        "jev_notification_from_voice_start_ms": 1686.0,
+        "reaction": "neutral",
+        "expression_visible_from_voice_start_ms": null,
+        "expression_lead_before_speech_end_ms": null,
+        "first_text_from_speech_end_ms": 1236.7,
+        "browser_speech_end_to_reply_audio_ms": 1842.7,
+        "encoded_speech_end_to_reply_audio_ms": 1850.0,
+        "encoded_vs_browser_gap_difference_ms": 7.3,
+        "underflow_frames": 0
+      },
+      {
+        "number": 6,
+        "title": "06 / Following up",
+        "stt_first_partial_from_voice_start_ms": 438.0,
+        "jev_notification_from_voice_start_ms": 1323.3,
+        "reaction": "neutral",
+        "expression_visible_from_voice_start_ms": null,
+        "expression_lead_before_speech_end_ms": null,
+        "first_text_from_speech_end_ms": 1995.3,
+        "browser_speech_end_to_reply_audio_ms": 2220.7,
+        "encoded_speech_end_to_reply_audio_ms": 2220.0,
+        "encoded_vs_browser_gap_difference_ms": -0.7,
+        "underflow_frames": 0
+      }
+    ],
+    "decoded_audio_max_gap_difference_ms": 7.3,
+    "decoded_audio_timestamp_gaps_over_50ms": 0,
+    "accepted_playback_acks": 6,
+    "long_term_memory_items_retrieved": 0,
+    "quiet_speaking_frames_observed": 2,
+    "expression_mouth_pop_frames": 0,
+    "api_requests": {
+      "question_synthesis": 6,
+      "recognition": 6,
+      "reaction": 6,
+      "generation": 6,
+      "reply_synthesis": 6
+    },
+    "human_microphone_verified": false,
+    "physical_speaker_measured": false,
+    "receiver_av_measured": false,
+    "long_soak_verified": false
+  }
+}

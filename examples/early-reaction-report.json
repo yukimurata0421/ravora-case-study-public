@@ -1,0 +1,27 @@
+{
+  "status": "PASS_EARLY_REACTION_REPLAY",
+  "synthetic_data": true,
+  "low_stability_prefix_used": true,
+  "reaction_before_input_end": true,
+  "llm_received_final_only": true,
+  "partial_text_absent_from_sources": true,
+  "reaction_slots_used": 2,
+  "mock_reaction_calls": 2,
+  "external_api_calls": 0,
+  "reactions": [
+    {
+      "phase": "partial",
+      "reaction": "joy",
+      "transition": "switch"
+    },
+    {
+      "phase": "final",
+      "reaction": "neutral",
+      "transition": "return_neutral"
+    }
+  ],
+  "playback_acknowledgement": "simulated",
+  "latency_measurement": false,
+  "physical_audio_or_avatar_verified": false,
+  "temporary_database_removed_on_exit": true
+}

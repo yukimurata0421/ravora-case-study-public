@@ -1,0 +1,56 @@
+{
+  "status": "PASS_MEDIA_TIMING_REPLAY",
+  "synthetic_data": true,
+  "pcm_sample_rate": 24000,
+  "capture_fps": 30,
+  "source_ticks": [
+    0,
+    1,
+    2,
+    4,
+    5
+  ],
+  "missing_source_ticks": [
+    3
+  ],
+  "video_timestamp_filter": "setts=pts=(N+0+1*gte(N\\,3))/(30*TB):dts=(N+0+1*gte(N\\,3))/(30*TB):duration=1/(30*TB)",
+  "mouth_plan": [
+    {
+      "shape": "closed",
+      "amount": 0.0,
+      "start": -0.015,
+      "end": 0.065,
+      "phone": "m"
+    },
+    {
+      "shape": "I",
+      "amount": 0.48,
+      "start": 0.065,
+      "end": 0.195,
+      "phone": "iy"
+    },
+    {
+      "shape": "closed",
+      "amount": 0.0,
+      "start": 0.195,
+      "end": 0.265,
+      "phone": "b"
+    },
+    {
+      "shape": "U",
+      "amount": 0.48,
+      "start": 0.265,
+      "end": 0.425,
+      "phone": "uw"
+    },
+    {
+      "shape": "closed",
+      "amount": 0.0,
+      "start": 0.425,
+      "end": 0.585,
+      "phone": "sil"
+    }
+  ],
+  "external_api_calls": 0,
+  "encoded_media_or_avatar_verified": false
+}

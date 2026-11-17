@@ -1,0 +1,145 @@
+{
+  "status": "PASS_LOCAL_CASE_STUDY_PORT",
+  "validated_at_jst": "2026-11-17T10:47:58+09:00",
+  "scope": "Portable archive snapshot before commit and push; remote delivery is verified separately.",
+  "checks": {
+    "checkout_tests": {
+      "status": "PASS",
+      "tests": 113,
+      "failures": 0,
+      "errors": 0
+    },
+    "installed_package": {
+      "status": "PASS_INSTALLED_PACKAGE",
+      "tests": 113,
+      "failures": 0,
+      "errors": 0,
+      "python": "3.14.4",
+      "sqlite": "3.46.1",
+      "installed_outside_source_tree": true,
+      "schema_resources_packaged": true,
+      "console_resources_packaged": true,
+      "cloud_sdk_installed": false,
+      "character_resources_packaged": true
+    },
+    "synthetic_replay": {
+      "status": "PASS_CASE_STUDY_REPLAY",
+      "synthetic_data": true,
+      "schema_version": 8,
+      "tier_order": [
+        1,
+        1,
+        2,
+        2,
+        3,
+        3
+      ],
+      "private_developer_context_excluded_from_public_reply": true,
+      "reviewed_summary_shared_without_private_transcript": true,
+      "sharing_revocation_verified": true,
+      "pcm_before_text_complete": true,
+      "stale_audio_fenced_after_cancel": true,
+      "context_rows_prepared": 22,
+      "external_api_calls": 0,
+      "playback_acknowledgement": "simulated",
+      "physical_audio_or_avatar_verified": false,
+      "temporary_database_removed_on_exit": true
+    },
+    "early_reaction_replay": {
+      "status": "PASS_EARLY_REACTION_REPLAY",
+      "synthetic_data": true,
+      "low_stability_prefix_used": true,
+      "reaction_before_input_end": true,
+      "llm_received_final_only": true,
+      "partial_text_absent_from_sources": true,
+      "reaction_slots_used": 1,
+      "mock_reaction_calls": 1,
+      "external_api_calls": 0,
+      "playback_acknowledgement": "simulated",
+      "latency_measurement": false,
+      "physical_audio_or_avatar_verified": false,
+      "temporary_database_removed_on_exit": true
+    },
+    "browser_console": {
+      "status": "PASS_INSTALLED_CONSOLE",
+      "fake_microphone": true,
+      "human_microphone_verified": false,
+      "physical_audio_verified": false,
+      "played_turns": 2,
+      "cancelled_reply_unacknowledged": true,
+      "microphone_released_after_cancel": true,
+      "url_fragment_cleared": true,
+      "auth_rejections": [
+        401,
+        403
+      ],
+      "browser_exceptions": [],
+      "context_rows_prepared": 3,
+      "external_api_calls": 0,
+      "early_reaction_while_listening": true,
+      "reaction_reset_after_stop": true,
+      "pcm_frame_counts_match": true,
+      "underflow_frames": [
+        0,
+        0
+      ]
+    },
+    "secret_scan": {
+      "tool": "gitleaks",
+      "status": "PASS",
+      "findings": 0,
+      "private_value_matches": 0
+    },
+    "source_integrity": {
+      "checked_source_files": 171,
+      "changed_source_files": 0,
+      "private_env_unchanged": true
+    },
+    "wheel_binding": {
+      "status": "PASS",
+      "sha256": "f119989bfa0fb2643c85758678285f3a937fdd653ca575356b8eedfcd651c496",
+      "installed_package_matches_candidate_source": true
+    },
+    "host_observation": {
+      "guard_issues": [],
+      "owned_units_stopped": true,
+      "receiver_or_long_term_qualification": false
+    },
+    "public_payload": {
+      "status": "PASS_PUBLIC_PAYLOAD",
+      "files": 72,
+      "hashes_checked": 70,
+      "unexpected_files": 0,
+      "private_defaults_found": 0,
+      "broken_local_links": 0
+    }
+  },
+  "remote_ci": {
+    "configured": true,
+    "configured_python_versions": [
+      "3.11",
+      "3.13"
+    ],
+    "result_included_in_this_local_record": false
+  },
+  "delivery": {
+    "base_commit": "c09a086199617d430631bc4d10b382ef75bebab9",
+    "private_repository_verified": true,
+    "commit_and_push_are_separate_from_this_record": true
+  },
+  "project_license_selected": false,
+  "open_source_release_ready": false,
+  "included_private_databases_or_recordings": false,
+  "original_runtime_source_modified": false,
+  "new_inference_api_calls": 0,
+  "earlier_validation_preserved": "publication/history/2026-11-16-validation.json",
+  "failed_local_checks_preserved": [
+    {
+      "tests": 113,
+      "errors": 1,
+      "cause": "Older portable persistence rejected a pending provisional reaction after generation completed.",
+      "resolution": "Ported runtime persistence condition without regressing completed state."
+    }
+  ],
+  "optional_dependency_cache_miss_preserved": true
+}

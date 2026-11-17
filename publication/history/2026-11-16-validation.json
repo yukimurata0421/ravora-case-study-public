@@ -1,0 +1,106 @@
+{
+  "status": "PASS_LOCAL_CASE_STUDY_PORT",
+  "validated_at_jst": "2026-11-16T19:39:54.343271+09:00",
+  "scope": "local archive case-study snapshot",
+  "checks": {
+    "installed_package": {
+      "status": "PASS_INSTALLED_PACKAGE",
+      "tests": 79,
+      "failures": 0,
+      "errors": 0,
+      "python": "3.14.4",
+      "sqlite": "3.46.1",
+      "installed_outside_source_tree": true,
+      "schema_resources_packaged": true,
+      "console_resources_packaged": true,
+      "cloud_sdk_installed": false
+    },
+    "synthetic_replay": {
+      "status": "PASS_CASE_STUDY_REPLAY",
+      "synthetic_data": true,
+      "schema_version": 6,
+      "tier_order": [
+        1,
+        1,
+        2,
+        2,
+        3,
+        3
+      ],
+      "private_developer_context_excluded_from_public_reply": true,
+      "reviewed_summary_shared_without_private_transcript": true,
+      "sharing_revocation_verified": true,
+      "pcm_before_text_complete": true,
+      "stale_audio_fenced_after_cancel": true,
+      "context_rows_prepared": 22,
+      "external_api_calls": 0,
+      "playback_acknowledgement": "simulated",
+      "physical_audio_or_avatar_verified": false,
+      "temporary_database_removed_on_exit": true
+    },
+    "browser_console": {
+      "status": "PASS_INSTALLED_CONSOLE",
+      "fake_microphone": true,
+      "human_microphone_verified": false,
+      "physical_audio_verified": false,
+      "played_turns": 2,
+      "cancelled_reply_unacknowledged": true,
+      "microphone_released_after_cancel": true,
+      "url_fragment_cleared": true,
+      "auth_rejections": [
+        401,
+        403
+      ],
+      "browser_exceptions": [],
+      "context_rows_prepared": 3,
+      "external_api_calls": 0,
+      "pcm_frame_counts_match": true,
+      "underflow_frames": [
+        0,
+        0
+      ]
+    },
+    "secret_scan": {
+      "tool": "gitleaks",
+      "status": "PASS",
+      "findings": 0,
+      "private_value_matches": 0
+    },
+    "source_integrity": {
+      "checked_source_files": 120,
+      "changed_source_files": 0,
+      "private_env_unchanged": true
+    },
+    "public_payload": {
+      "status": "PASS_PUBLIC_PAYLOAD",
+      "files": 59,
+      "hashes_checked": 57,
+      "unexpected_files": 0,
+      "private_defaults_found": 0,
+      "broken_local_links": 0
+    },
+    "host_observation": {
+      "status": "No raw-state change against the experiment baseline during owned checks",
+      "receiver_or_long_term_qualification": false
+    }
+  },
+  "remote_ci": {
+    "configured": true,
+    "executed": false,
+    "configured_python_versions": [
+      "3.11",
+      "3.13"
+    ]
+  },
+  "git_initialized": true,
+  "commit_performed": false,
+  "push_performed": false,
+  "remote_publication_performed": false,
+  "project_license_selected": false,
+  "open_source_release_ready": false,
+  "license_note": "A project-wide redistribution license remains to be selected before an open-source release.",
+  "included_private_databases_or_recordings": false,
+  "original_runtime_source_modified": false,
+  "new_inference_api_calls": 0,
+  "earlier_local_fixture_failure_preserved": true
+}

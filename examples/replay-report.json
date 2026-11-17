@@ -1,0 +1,23 @@
+{
+  "status": "PASS_CASE_STUDY_REPLAY",
+  "synthetic_data": true,
+  "schema_version": 10,
+  "tier_order": [
+    1,
+    1,
+    2,
+    2,
+    3,
+    3
+  ],
+  "private_developer_context_excluded_from_public_reply": true,
+  "reviewed_summary_shared_without_private_transcript": true,
+  "sharing_revocation_verified": true,
+  "pcm_before_text_complete": true,
+  "stale_audio_fenced_after_cancel": true,
+  "context_rows_prepared": 22,
+  "external_api_calls": 0,
+  "playback_acknowledgement": "simulated",
+  "physical_audio_or_avatar_verified": false,
+  "temporary_database_removed_on_exit": true
+}

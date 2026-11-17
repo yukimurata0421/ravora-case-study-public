@@ -1,0 +1,179 @@
+{
+  "status": "HISTORICAL_AGGREGATE_REFERENCE",
+  "measurement_date_jst": "2026-11-16",
+  "raw_evidence_included": false,
+  "direct_trial": {
+    "samples_per_profile": 3,
+    "stage": "last_input_send_to_browser_worklet_signal_notification",
+    "mean_ms": {
+      "legacy_sentence": 2012.6666666666667,
+      "hd_sentence": 2427.399999936422,
+      "hd_bidirectional": 1740.7000000476837
+    },
+    "input_duration_seconds": 2.475625,
+    "input_paced_in_real_time": true,
+    "channels_established_before_turns": true,
+    "regions": {
+      "recognition": "asia-southeast1",
+      "text_generation": "global",
+      "synthesis": "asia-northeast1"
+    },
+    "vm_created": false,
+    "cloud_relay_created": false
+  },
+  "normal_console_trial": {
+    "samples_per_input_type": 1,
+    "audio_end_to_signal_ms": 2158.2000000476837,
+    "text_submit_to_signal_ms": 1141.2999999523163,
+    "external_inference_requests": 7,
+    "synthesized_characters": 157,
+    "fake_microphone": true,
+    "physical_audio_or_avatar_verified": false
+  },
+  "limitations": [
+    "Small sample sizes",
+    "Text and voice tier are not held constant across every profile",
+    "No physical microphone or speaker qualification",
+    "No receiver AV or long-term coexistence qualification"
+  ],
+  "later_study_2026_11_17": {
+    "status": "HISTORICAL_RUNTIME_AGGREGATE",
+    "raw_evidence_included": false,
+    "synthetic_questions": true,
+    "new_inference_calls_for_port": 0,
+    "brief_reply_trial": {
+      "turns": 6,
+      "word_range": [
+        4,
+        8
+      ],
+      "reply_audio_seconds_min": 1.6,
+      "reply_audio_seconds_max": 2.84,
+      "reply_audio_seconds_mean": 2.1373333333333333
+    },
+    "earlier_voice_recording": {
+      "turns": 4,
+      "reply_signal_relative_to_voice_end_ms": {
+        "min": 2044.67,
+        "max": 2606.0,
+        "mean": 2383.335
+      },
+      "stt_notifications_during_input": 0
+    },
+    "recognition_profile_probe": [
+      {
+        "model": "chirp_2",
+        "region": "asia-southeast1",
+        "state": "accepted",
+        "input_seconds": 2.25,
+        "first_stt_from_stream_start_ms": 3082.91,
+        "notifications_before_stream_end": 0
+      },
+      {
+        "model": "long",
+        "region": "asia-northeast1",
+        "state": "accepted",
+        "input_seconds": 2.25,
+        "first_stt_from_stream_start_ms": 535.41,
+        "notifications_before_stream_end": 13
+      }
+    ],
+    "early_expression_trial": {
+      "turns": [
+        {
+          "input": "Long positive input",
+          "first_stt_after_voice_start_ms": 624.667,
+          "reaction_after_voice_start_ms": 1616.667,
+          "reaction": "joy",
+          "reaction_relative_to_voice_end_ms": -7783.333,
+          "first_visible_expression_after_voice_start_ms": 1776.667,
+          "first_visible_expression_relative_to_voice_end_ms": -7623.333,
+          "reply_signal_relative_to_voice_end_ms": 1932.0,
+          "reaction_requests": 1
+        },
+        {
+          "input": "Greeting",
+          "first_stt_after_voice_start_ms": 504.0,
+          "reaction_after_voice_start_ms": 1816.0,
+          "reaction": "joy",
+          "reaction_relative_to_voice_end_ms": -294.0,
+          "first_visible_expression_after_voice_start_ms": 2008.0,
+          "first_visible_expression_relative_to_voice_end_ms": -102.0,
+          "reply_signal_relative_to_voice_end_ms": 1402.667,
+          "reaction_requests": 1
+        },
+        {
+          "input": "Game loss",
+          "first_stt_after_voice_start_ms": 422.0,
+          "reaction_after_voice_start_ms": 1296.667,
+          "reaction": "neutral",
+          "reaction_relative_to_voice_end_ms": -883.333,
+          "first_visible_expression_after_voice_start_ms": null,
+          "first_visible_expression_relative_to_voice_end_ms": null,
+          "reply_signal_relative_to_voice_end_ms": 1384.667,
+          "reaction_requests": 1
+        },
+        {
+          "input": "Preference",
+          "first_stt_after_voice_start_ms": 348.0,
+          "reaction_after_voice_start_ms": 1537.333,
+          "reaction": "neutral",
+          "reaction_relative_to_voice_end_ms": -572.667,
+          "first_visible_expression_after_voice_start_ms": null,
+          "first_visible_expression_relative_to_voice_end_ms": null,
+          "reply_signal_relative_to_voice_end_ms": 1840.667,
+          "reaction_requests": 1
+        },
+        {
+          "input": "Recall",
+          "first_stt_after_voice_start_ms": 422.0,
+          "reaction_after_voice_start_ms": 1035.333,
+          "reaction": "neutral",
+          "reaction_relative_to_voice_end_ms": -604.667,
+          "first_visible_expression_after_voice_start_ms": null,
+          "first_visible_expression_relative_to_voice_end_ms": null,
+          "reply_signal_relative_to_voice_end_ms": 1338.0,
+          "reaction_requests": 1
+        }
+      ],
+      "summary": {
+        "turns_completed": 5,
+        "jev_requests": 5,
+        "jev_notifications_during_input": 5,
+        "smiles_visible_during_input": 2,
+        "neutral_reactions": 3,
+        "reply_after_voice_end_ms_min": 1338.0,
+        "reply_after_voice_end_ms_max": 1932.0,
+        "reply_after_voice_end_ms_mean": 1579.6001999999999,
+        "total_underflow_frames": 0
+      },
+      "recognition_region": "asia-northeast1",
+      "recognition_model": "long",
+      "text_generation_region": "global",
+      "synthesis_region": "asia-northeast1",
+      "stable_prefix_wait_ms": 120,
+      "maximum_reaction_requests_per_input": 1,
+      "expression_trace_weight_threshold": 0.05,
+      "source_render_fps_cap": 15,
+      "recording_seconds": 43.824
+    },
+    "utterance_mouth_change": {
+      "voiced_and_speaking_separated": true,
+      "onset_fade_seconds": 0.15,
+      "release_seconds": 0.5,
+      "internal_quiet_frames_checked": 3,
+      "expression_mouth_pop_frames": 0,
+      "quiet_frame_expression": "neutral",
+      "smile_with_long_internal_pause_observed": false
+    },
+    "historical_runtime_tests": 223,
+    "historical_runtime_api_requests": 22,
+    "limitations": [
+      "The before/after recordings are different input and generated-reply sets, not a controlled performance comparison.",
+      "The 5% render threshold is not calibrated for human perception.",
+      "Synthetic questions, no human microphone or physical speaker qualification.",
+      "No receiver AV or long-term coexistence qualification.",
+      "Latest recall used conversation history, not live long-term memory extraction."
+    ]
+  }
+}

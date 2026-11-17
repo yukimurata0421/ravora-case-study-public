@@ -1,0 +1,33 @@
+{
+  "status": "HISTORICAL_LIVE_CAPTURE_MEASUREMENTS",
+  "measurement_date_jst": "2026-11-18",
+  "new_inference_api_calls_during_port": 0,
+  "raw_evidence_included": false,
+  "synthetic_question_turns": 5,
+  "api_attempts_in_selected_take": 25,
+  "provisional_and_final_reaction_calls": 10,
+  "native_frame_rate_fps": 29.718,
+  "native_frame_gap_p95_ms": 33.333,
+  "native_frame_gap_max_ms": 100.0,
+  "held_frames_in_fixed_rate_export": 19,
+  "export": {
+    "width": 1920,
+    "height": 1080,
+    "fps": 30,
+    "duration_seconds": 67.466667
+  },
+  "max_encoded_speaking_indicator_offset_ms": 53.3,
+  "max_encoded_vs_playout_gap_error_ms": 8.0,
+  "reply_start_after_question_ms": {
+    "minimum": 2642.0,
+    "median": 3073.3,
+    "maximum": 3275.3
+  },
+  "reply_playout_underflow_frames": 0,
+  "used_phone_alignment_at_onset": 4,
+  "waveform_fallback_turns": 1,
+  "sampled_lip_closures": 10,
+  "sampled_lip_closures_at_or_below_0_12": 10,
+  "long_running_capture_qualified": false,
+  "human_microphone_measured": false
+}
