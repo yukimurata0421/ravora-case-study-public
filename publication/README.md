@@ -15,7 +15,8 @@ Included:
 - common character and concise-reply instruction policies;
 - reference provider interfaces and a mock-only portable entrypoint;
 - a packaged browser console, synthetic fixtures, and focused tests;
-- aggregate historical observations with explicit measurement limits.
+- aggregate historical observations with explicit measurement limits;
+- one rendered [public conversation demo](../docs/media/balcony-tomato-conversation.mp4) with two synthetic voices.
 
 The reaction replay and tests cover provisional and final results, prefix
 agreement, correction, late completion, cancellation, and preservation of prior
@@ -25,7 +26,7 @@ decisions, outcomes, and the separately maintained v13 rendering change.
 Excluded:
 
 - dotenv secrets, existing databases, raw evidence, caches, and virtual environments;
-- original avatars, model weights, media recordings, and renderer vendor bundles;
+- avatar source assets, model weights, raw capture files, private recordings, and renderer vendor bundles;
 - host storage identifiers, private project defaults, deployment tooling, and
   production-stream observation/control paths.
 

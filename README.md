@@ -7,8 +7,19 @@ allowed to influence the next reply?
 This snapshot contains the streaming controller, a source-backed SQLite memory
 policy, viewer contact state, two-stage transcript reactions, configurable reply
 instructions, and synthetic replays. It includes model-independent mouth and
-capture timing code. The original avatar, recordings, conversation database, and
-deployment environment are excluded.
+capture timing code. The avatar source assets, private recordings, conversation
+database, and deployment environment are excluded.
+
+## Watch RAVORA in conversation
+
+A synthetic speaker tells RAVORA about the first ripe tomato on their balcony. The opening
+line is fixed. For the next three turns, the partner waits for RAVORA to finish
+speaking and uses the exchange so far to decide what to say next. Both voices,
+the speech-recognition captions, and the pauses are captured in one take.
+
+[![RAVORA and live captions from the balcony conversation](docs/images/balcony-tomato-preview.png)](docs/media/balcony-tomato-conversation.mp4)
+
+[Watch the 56-second demo (MP4)](docs/media/balcony-tomato-conversation.mp4)
 
 ## Start here
 

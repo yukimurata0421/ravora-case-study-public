@@ -40,6 +40,11 @@ def main():
         if hashlib.sha256(path.read_bytes()).hexdigest()!=entry['sha256']:raise ValueError('PUBLIC_HASH_MISMATCH:'+entry['path'])
     for path in payload_files():
         relative=str(path.relative_to(ROOT))
+        if relative == 'docs/media/balcony-tomato-conversation.mp4':
+            with path.open('rb') as media:
+                if media.read(12)[4:8] != b'ftyp':
+                    raise ValueError('INVALID_CONVERSATION_DEMO_MP4')
+            continue
         if path.suffix.lower() in ('.sqlite3','.db','.wav','.vrm','.vroid','.mp4','.webm','.log') or path.name in ('.env','settings.json'):raise ValueError('PRIVATE_ARTIFACT_IN_PAYLOAD')
         if path.suffix.lower()=='.png':continue
         text=path.read_text()

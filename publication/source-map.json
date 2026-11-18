@@ -11,12 +11,12 @@
     "credentials",
     "existing conversation databases",
     "raw operational evidence",
-    "original avatars and recordings",
+    "avatar source assets and private recordings",
     "model weights",
     "third-party renderer bundles",
     "host deployment and production controls"
   ],
-  "updated_at_jst": "2026-11-18T20:51:50.784108+09:00",
+  "updated_at_jst": "2026-11-18T22:33:59.102810+09:00",
   "files": [
     {
       "path": ".env.example",
@@ -34,7 +34,7 @@
     },
     {
       "path": ".gitignore",
-      "sha256": "0c70edc0d0c31abb1c70633f2864e06996d57049a1e26441be88426bff704cd5",
+      "sha256": "f87c00f81528267826f57bfe9afc04aa90b76c5694567d08db1c5ad2960e9167",
       "kind": "generated",
       "note": "Case-study documentation, replay, packaging, or local validation support."
     },
@@ -47,7 +47,7 @@
     },
     {
       "path": "README.md",
-      "sha256": "f7156a8739901ebb7439a994f4cc2442fd93dd09e188f8f7cf40bb9172e1e246",
+      "sha256": "23c195efbd729569bfde4c34a12c9c4b3c25d8bcc0dc2c325990a146161b33c9",
       "kind": "generated",
       "source": "case-study",
       "note": "Portable documentation, fixture, or package validation."
@@ -74,6 +74,13 @@
       "note": "Portable documentation, fixture, or package validation."
     },
     {
+      "path": "docs/images/balcony-tomato-preview.png",
+      "sha256": "6ac37c438a519d228210adb55a7b49ab9573827b9024f03d28acd2cf20e223fb",
+      "kind": "generated",
+      "source": "case-study",
+      "note": "Preview frame from the public conversation demo."
+    },
+    {
       "path": "docs/images/console.png",
       "sha256": "8d2c54631a999c2ecf6e7e97b2d28b110be437635d00967e68fb7dc8f7b1e41e",
       "kind": "generated",
@@ -97,6 +104,13 @@
       "sha256": "6bb938ee4759dc9d430fe1158983240e57260a55da87285d36648f53e5c76172",
       "kind": "generated",
       "note": "Case-study documentation, replay, packaging, or local validation support."
+    },
+    {
+      "path": "docs/media/balcony-tomato-conversation.mp4",
+      "sha256": "f34819675f436ab5f7bb445dcfe77d0ab402a6691fd1b061049f8f90ae2fb000",
+      "kind": "generated",
+      "source": "case-study",
+      "note": "One continuous English conversation recorded for public viewing, with a synthetic partner and live replies."
     },
     {
       "path": "docs/privacy.md",
@@ -147,7 +161,7 @@
     },
     {
       "path": "publication/README.md",
-      "sha256": "8a116c30a3d6a4b096b72addfa2e6e4bf2b75357f9696c6bcd278718c4cced2b",
+      "sha256": "a5b164f68aa674d4aadb2174ea616937f4b21121cc567caefa6e5ecfdd060a76",
       "kind": "generated",
       "source": "case-study",
       "note": "Portable documentation, fixture, or package validation."
@@ -214,7 +228,7 @@
     },
     {
       "path": "scripts/validate_public.py",
-      "sha256": "7d05353517cb6b981260113629fc71c1552362cff416c8bace5809e6bfc6b2cf",
+      "sha256": "d01c312edcc4b8f2ce6c8ff4ba162126918436c5ac4c215c4c43731a94f3b66b",
       "kind": "generated",
       "note": "Case-study documentation, replay, packaging, or local validation support."
     },
