@@ -101,3 +101,21 @@ export function composeExpression(lip,expression,speechActive=false,manualMouth=
     expression:{...expression,mouthArt:keepMouth?0:rest}
   };
 }
+
+// Blend landmark poses on the playback clock. Packet arrival and gaps between
+// words cannot restart the transition. A seek discards the previous segment.
+export function createMouthHandoff() {
+  let lastTime = -Infinity, start = 0, from = 1, target = 1;
+  function valueAt(time) {
+    const duration = target === 0 ? .23 : .42;
+    const t = Math.min(1, Math.max(0, (time - start) / duration));
+    return from + (target - from) * t * t * (3 - 2 * t);
+  }
+  return (time, speaking) => {
+    const next = speaking ? 0 : 1;
+    if (time < lastTime) { from = next; target = next; start = time; }
+    if (next !== target) { from = valueAt(time); start = time; target = next; }
+    lastTime = time;
+    return valueAt(time);
+  };
+}

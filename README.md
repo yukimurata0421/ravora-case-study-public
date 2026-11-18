@@ -19,7 +19,12 @@ the speech-recognition captions, and the pauses are captured in one take.
 
 [![RAVORA and live captions from the balcony conversation](docs/images/balcony-tomato-preview.png)](docs/media/balcony-tomato-conversation.mp4)
 
-[Watch the 56-second demo (MP4)](docs/media/balcony-tomato-conversation.mp4)
+[Watch the 65-second demo (MP4)](docs/media/balcony-tomato-conversation.mp4)
+
+Around **0:11**, RAVORA keeps her smile while the reply audio buffers, then
+starts forming the words. Around **0:17**, she glances aside between turns.
+The [rendering notes](docs/audio-timing.md) show how speech and idle time drive
+those movements.
 
 ## Start here
 

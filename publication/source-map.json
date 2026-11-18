@@ -16,7 +16,7 @@
     "third-party renderer bundles",
     "host deployment and production controls"
   ],
-  "updated_at_jst": "2026-11-18T22:33:59.102810+09:00",
+  "updated_at_jst": "2026-11-18T23:11:39.947684+09:00",
   "files": [
     {
       "path": ".env.example",
@@ -47,18 +47,18 @@
     },
     {
       "path": "README.md",
-      "sha256": "23c195efbd729569bfde4c34a12c9c4b3c25d8bcc0dc2c325990a146161b33c9",
+      "sha256": "fa7767ac7de1d519078111e382e435cd5a357cab30de437bebc55f50505b4700",
       "kind": "generated",
       "source": "case-study",
       "note": "Portable documentation, fixture, or package validation."
     },
     {
       "path": "docs/audio-timing.md",
-      "sha256": "cefd47857fa75f0d789cee4b649b447780a8c57bba2226c16ade70ccda679550",
+      "sha256": "2a4b68884e6b7844a415c820c24fa558278a236d2477c1403758bc99f8ed79dc",
       "source": "docs/v13-sync-live-20261118.md",
       "source_sha256": "9f2f4b662ce99b817f04ba8c6f1e7fa66190c03051e6568744e20b3dbe334fe2",
       "kind": "adapted",
-      "note": "Adapted to the portable archive without host tooling or original media."
+      "note": "Historical capture notes plus current rendering behavior verified with the public demo."
     },
     {
       "path": "docs/case-study.md",
@@ -75,7 +75,7 @@
     },
     {
       "path": "docs/images/balcony-tomato-preview.png",
-      "sha256": "6ac37c438a519d228210adb55a7b49ab9573827b9024f03d28acd2cf20e223fb",
+      "sha256": "c37d8b9b1161ebbf28707ad71ba3ee5958571c6262893015313277933668116e",
       "kind": "generated",
       "source": "case-study",
       "note": "Preview frame from the public conversation demo."
@@ -107,7 +107,7 @@
     },
     {
       "path": "docs/media/balcony-tomato-conversation.mp4",
-      "sha256": "f34819675f436ab5f7bb445dcfe77d0ab402a6691fd1b061049f8f90ae2fb000",
+      "sha256": "6b120b2920a7ec71d0a8b044955818705ddaa0d326e0b71688aa958e3422e6dd",
       "kind": "generated",
       "source": "case-study",
       "note": "One continuous English conversation recorded for public viewing, with a synthetic partner and live replies."
@@ -161,7 +161,7 @@
     },
     {
       "path": "publication/README.md",
-      "sha256": "a5b164f68aa674d4aadb2174ea616937f4b21121cc567caefa6e5ecfdd060a76",
+      "sha256": "fad8e222eb3426ba679871365947b5f88506c1274593b0b41fbaad37e280b750",
       "kind": "generated",
       "source": "case-study",
       "note": "Portable documentation, fixture, or package validation."
@@ -225,6 +225,14 @@
       "sha256": "7d05df02e58556a6f8ae396854d908cd76ff17c187c2a5d4c6e48141d06a7cb3",
       "kind": "generated",
       "note": "Case-study documentation, replay, packaging, or local validation support."
+    },
+    {
+      "path": "scripts/glance_frames.py",
+      "source": "scripts/glance_frames.py",
+      "kind": "copied",
+      "sha256": "8b50202ab4b915fd03f86ce13a5e297790f8be6d01a30fe9fb087114a5a833c2",
+      "source_sha256": "8b50202ab4b915fd03f86ce13a5e297790f8be6d01a30fe9fb087114a5a833c2",
+      "note": "Portable renderer or frame preparation code. Artwork is supplied separately."
     },
     {
       "path": "scripts/validate_public.py",
@@ -591,9 +599,9 @@
     },
     {
       "path": "src/ravora/web/expressions.mjs",
-      "sha256": "0ed0ec623a249e69db009ca49aa5bebf5c671b1f90442a5ba490c4f06c32261b",
+      "sha256": "ea68f43b0ee845296325fc66cbfc02154fef46a1447348f8b2f53dbe128c465a",
       "source": "renderer/expressions.js",
-      "source_sha256": "0ed0ec623a249e69db009ca49aa5bebf5c671b1f90442a5ba490c4f06c32261b",
+      "source_sha256": "ea68f43b0ee845296325fc66cbfc02154fef46a1447348f8b2f53dbe128c465a",
       "kind": "copied",
       "note": ""
     },
@@ -607,7 +615,7 @@
     },
     {
       "path": "src/ravora/web/mouth-plan.mjs",
-      "sha256": "5ee8317bddc73d65e47ede07a22cb3fac8eebc8e85024d783cbebbfe17788afb",
+      "sha256": "4cddb639ac9b116c608bc8db6f07ab36f64da5a7aaea95b67a61141aedf10dba",
       "source": "renderer/pngtuber-core.js",
       "source_sha256": "32605711ddb29a89dd6dc30b4b9c9058a23f9f71b3ce5ea9cbbc0e2fe228a699",
       "kind": "adapted",
@@ -620,6 +628,22 @@
       "source_sha256": "095fae443837d432fbe344435c6a51e1d9690b525747c520ef242c60eb927c49",
       "kind": "copied",
       "note": ""
+    },
+    {
+      "path": "src/ravora/web/pngtuber-surface.mjs",
+      "source": "renderer/pngtuber-core.js",
+      "kind": "copied",
+      "sha256": "516bc88193497c428e01c8ae2da8d0088b81114bedcf7cd89cefbe84dfc1c8dd",
+      "source_sha256": "516bc88193497c428e01c8ae2da8d0088b81114bedcf7cd89cefbe84dfc1c8dd",
+      "note": "Portable renderer or frame preparation code. Artwork is supplied separately."
+    },
+    {
+      "path": "src/ravora/web/presence.mjs",
+      "source": "renderer/presence.js",
+      "kind": "copied",
+      "sha256": "106e3fe54c110071c94b11d708c2951424c657ae2466e12cf098dcbb9a64e006",
+      "source_sha256": "106e3fe54c110071c94b11d708c2951424c657ae2466e12cf098dcbb9a64e006",
+      "note": "Portable renderer or frame preparation code. Artwork is supplied separately."
     },
     {
       "path": "src/ravora/web/recording-tap.js",
@@ -639,7 +663,7 @@
     },
     {
       "path": "tests/check_media.mjs",
-      "sha256": "d7764d998f4618c90a573e9144c65482ce0ce0d76cad7241429690e72d6ce705",
+      "sha256": "b47282c762fb9a452eb5ba169f0da280503f77d3f34d60f00fe8af7224a07a70",
       "kind": "generated",
       "source": "case-study",
       "note": "Portable documentation, fixture, or package validation."

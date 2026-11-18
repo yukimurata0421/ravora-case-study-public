@@ -13,16 +13,53 @@ and keeps lip closures during a reply.
   uses waveform-based shapes.
 - The mouth plan maps English phones to five vowel shapes, consonant
   constrictions, and lip closures. It samples the intensity from the same PCM.
-  Neighboring shapes share a weighted target mesh so that they can blend
-  without two separate lip contours.
+  On a registered rig, neighboring vowels and the current expression displace
+  the same set of lip landmarks. One image supplies the outer lip contour.
+  Inside the lip seam, the renderer reveals the expression's teeth and tongue
+  from the upper lip down as the jaw opens. A closed mouth samples the neutral
+  portrait. A narrow feather blends the surrounding skin.
 - The playout worklet reports the sample index at which it consumes the first
-  PCM. The speaking mouth keeps control through pauses. Listening-mouth art
-  returns after playback.
+  PCM. While audio is buffered the listening pose holds. When playback starts,
+  its resting geometry eases into articulation over 230 ms. A pause between
+  words keeps the lips under speech control. At playback end, returning to the
+  listening pose takes 420 ms.
 
 The reference code lives in the Python `ravora.phone_alignment` and
 `ravora.speech` modules and the packaged browser mouth-plan, articulation, and
 expression modules. The [media timing replay](../examples/media-timing-report.json)
 uses a synthetic phone sequence. The aligner is optional and runs locally.
+
+## A glance between turns
+
+The renderer starts a short sideways glance after an uninterrupted idle interval.
+An incoming turn releases the glance from its current position within 180 ms.
+The eyelid animation suppresses it as the eyes close. To build the movement,
+I marked the pupils and the inside of each eyelid on a neutral crop and a
+generated left-looking pose. I aligned the pupils before blending the two images
+into nine small frames. The mask leaves the surrounding face in place. The
+[frame builder](../scripts/glance_frames.py) takes two crops and the marked eye
+regions and runs offline with Pillow.
+
+The [surface](../src/ravora/web/pngtuber-surface.mjs) consumes the registered
+poses, the [presence module](../src/ravora/web/presence.mjs) schedules the glance,
+and the [expression module](../src/ravora/web/expressions.mjs) provides the
+playback handoff. With an owned rig, keep both samplers alive across frames:
+
+```js
+const restPose = createMouthHandoff();
+const idleGlance = createIdleGlance(seed);
+
+function draw(time, playing, idle, lip, emotion, movement) {
+  const face = composeExpression(lip, emotion, playing);
+  face.expression.restPose = restPose(time, playing);
+  movement.idleGlance = idleGlance(time, idle);
+  return surface.render(face.open, face.blink, face.width,
+    face.expression, movement, face.vowels);
+}
+```
+
+Here `time` is the playback clock in seconds. `playing` spans the whole utterance
+including quiet phones. `idle` means the system is ready for another turn.
 
 ## One clock for both tracks
 

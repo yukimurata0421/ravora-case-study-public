@@ -12,6 +12,7 @@ Included:
 - streaming orchestration, input ledgers, and session-bound playback fences;
 - provisional and final transcript reactions with a durable reservation for each stage;
 - phone timing, mouth geometry, and PCM-based video timestamps without avatar assets;
+- a registered WebGL face renderer and a masked gaze-frame builder for user-supplied artwork;
 - common character and concise-reply instruction policies;
 - reference provider interfaces and a mock-only portable entrypoint;
 - a packaged browser console, synthetic fixtures, and focused tests;

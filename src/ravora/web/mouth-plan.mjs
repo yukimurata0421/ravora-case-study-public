@@ -21,8 +21,8 @@ export function sampleMouthPlan(plan,time){
 }
 
 // Interleaved mesh vertices have 11 values. The two registered target
-// positions begin at offsets 2 and 6. The renderer projects both textures
-// through this shared shape so their lip contours do not separate.
+// positions begin at offsets 2 and 6. This helper preserves the target-average calculation
+// used by the timing replay. The live surface also handles resting poses.
 export function sharedMouthTargets(layers) {
   if (layers.length < 2) return null;
   const size = layers[0].vertices.length;
