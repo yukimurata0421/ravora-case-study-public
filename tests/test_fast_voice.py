@@ -37,6 +37,19 @@ class FastVoiceTests(unittest.IsolatedAsyncioTestCase):
     async def text(self,value):
         await self.session.start_text(uuid.uuid4().hex,value);await asyncio.wait_for(self.session.task,4)
         self.assertEqual(self.session.phase,'generated',self.events)
+    async def test_audio_stream_is_finished_before_optional_phone_alignment(self):
+        def align(text, pcm):
+            end = next(e for e in self.events if e['kind'] == 'audio_end')
+            self.assertEqual(end['frames'], len(pcm) // 2)
+            return {'status':'word_alignment_incomplete'}
+        self.session.phone_aligner = align
+        await self.text('Hello.')
+        messages = [e['kind'] for e in self.events]
+        self.assertLess(messages.index('audio_end'), messages.index('phonemes'))
+        self.assertLess(messages.index('phonemes'), messages.index('complete'))
+        self.assertEqual(next(e['status'] for e in self.events if e['kind']=='phonemes'),
+                         'word_alignment_incomplete')
+
     async def test_playback_ack_then_memory_recall_and_close_preserves_completed(self):
         await self.text('I like coffee and jazz.');token=self.session.token
         with self.store.connect() as db:self.assertEqual(db.execute('SELECT COUNT(*) FROM memory_jobs').fetchone()[0],0)

@@ -23,6 +23,10 @@ class PhoneAlignmentTests(unittest.TestCase):
         result = PhoneAligner()(text, pcm)
         self.assertEqual(result["status"], "aligned")
         self.assertEqual(result["frames"], len(pcm) // 2)
+        words = result["words"]
+        self.assertEqual([w["word"] for w in words], text.lower().strip(".").split())
+        self.assertTrue(all(0 <= w["start"] < w["end"] <= len(pcm)/48000 for w in words))
+        self.assertTrue(all(a["end"] <= b["start"] for a,b in zip(words, words[1:])))
         self.assertTrue({"I", "U", "closed"}.issubset({key["shape"] for key in result["plan"]}))
         self.assertTrue(all(key["amount"] == 0 for key in result["plan"] if key["phone"] in ("m", "b", "p")))
         self.assertGreaterEqual(sum(key["phone"] == "m" for key in result["plan"]), 2)

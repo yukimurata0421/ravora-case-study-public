@@ -238,6 +238,8 @@ class FastVoiceSession:
             if not self.source_current(turn):raise EdgeError('COMMENT_NO_LONGER_AVAILABLE')
             path=self.output/(turn+'-0.wav');path.write_bytes(pcm_wave(audio,24000));self.expected_frames=len(audio)//2
             self.store.record_utterance(turn,0,''.join(reply),path,self.expected_frames/24000)
+            # The worklet can drain a short reply while its phonemes are still being estimated.
+            await emit({'kind': 'audio_end', 'frames': self.expected_frames})
             if self.phone_aligner is not None:
                 try:
                     aligned = await asyncio.to_thread(self.phone_aligner, ''.join(reply), bytes(audio))
@@ -255,7 +257,7 @@ class FastVoiceSession:
             if not self.mock:metrics['provider_requests']+=self.early.sequence
             metrics.update(total_ms=elapsed(),pcm_frames=self.expected_frames)
             self.store.finish(turn,''.join(reply),'completed',metrics);self.inbox.finish(self.receipt,'generated');self.phase='generated'
-            await emit({'kind':'audio_end','frames':self.expected_frames});await emit({'kind':'complete','metrics':metrics})
+            await emit({'kind':'complete','metrics':metrics})
         except BaseException as exc:
             code=error_code(exc)
             if token:

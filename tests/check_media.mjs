@@ -1,6 +1,6 @@
 import assert from 'node:assert/strict';
 import test from 'node:test';
-import {alignedMouth} from '../src/ravora/web/articulation.mjs';
+import {alignedMouth, createWordHandoff} from '../src/ravora/web/articulation.mjs';
 import {createAudioClockCapture} from '../src/ravora/web/audio-clock-capture.mjs';
 import {createExpressionMotion, createMouthHandoff} from '../src/ravora/web/expressions.mjs';
 import {createIdleGlance} from '../src/ravora/web/presence.mjs';
@@ -124,4 +124,27 @@ test('Rest, expression and two vowels displace a single registered lip contour',
   assert.deepEqual(Array.from(donor.array.slice(9)), [46.25,64.75]);
   writeMouthLandmarks(donor, []);
   assert.deepEqual(Array.from(donor.array.slice(9)), [40,60]);
+});
+
+test('A late phoneme track joins the next word on the playback clock', () => {
+  const track = {frames:24000, hop_frames:240, db:Array(100).fill(-20), reference_db:-20,
+    words:[{word:'we',start:.10,end:.39}, {word:'met',start:.4,end:.8}],
+    plan:[{start:0,end:1,amount:.6,shape:'I'}]};
+  const wave = {open:.2, width:.8, db:-20, shape:'A', vowels:{A:1,amount:.2}};
+  const start = 1, handoff = createWordHandoff(track, 1.25);
+  assert.equal(handoff.sample(wave, 1.36, start, 24000), wave);
+  assert.equal(handoff.startedAt, null);
+  const first = handoff.sample(wave, 1.41, start, 24000);
+  assert.equal(first.wordBlend, 0);
+  assert.equal(first.open, wave.open);
+  assert.equal(handoff.boundary.word, 'met');
+  const middle = handoff.sample(wave, 1.455, start, 24000);
+  assert.ok(Math.abs(middle.wordBlend-.5)<1e-6);
+  assert.ok(middle.vowels.A>0 && middle.vowels.I>0);
+  assert.equal(handoff.sample(wave, 1.52, start, 24000).wordBlend, 1);
+  for (const [words, arrival, draw] of [[track.words,1.46,1.55],
+      [track.words,1.25,1.71],[undefined,1.1,1.41]]) {
+    const late = createWordHandoff({...track,words}, arrival);
+    assert.equal(late.sample(wave, draw, start, 24000), wave);
+  }
 });

@@ -16,7 +16,7 @@
     "third-party renderer bundles",
     "host deployment and production controls"
   ],
-  "updated_at_jst": "2026-11-19T06:18:15.351495+09:00",
+  "updated_at_jst": "2026-11-19T06:43:10.169747+09:00",
   "files": [
     {
       "path": ".env.example",
@@ -47,14 +47,14 @@
     },
     {
       "path": "README.md",
-      "sha256": "21774425bb1411954555da6d25a7039a125e63f72a94d40db0f7f41e29f1ea48",
+      "sha256": "63d81be0706951d7395255920a16786d3da2293fe9114ad36c6715f8fdf0f413",
       "kind": "generated",
       "source": "case-study",
       "note": "Portable documentation, fixture, or package validation."
     },
     {
       "path": "docs/audio-timing.md",
-      "sha256": "2a4b68884e6b7844a415c820c24fa558278a236d2477c1403758bc99f8ed79dc",
+      "sha256": "83f29790f0250b80dd1a6d9d03f3bbdea10aca2ba4718945089fe1418c9407cb",
       "source": "docs/v13-sync-live-20261118.md",
       "source_sha256": "9f2f4b662ce99b817f04ba8c6f1e7fa66190c03051e6568744e20b3dbe334fe2",
       "kind": "adapted",
@@ -75,7 +75,7 @@
     },
     {
       "path": "docs/images/balcony-tomato-preview.png",
-      "sha256": "c37d8b9b1161ebbf28707ad71ba3ee5958571c6262893015313277933668116e",
+      "sha256": "1d5e7529cca1858f31ac3a419caf14c20ed670dbdc51fa2ffbc398de5ee51b3e",
       "kind": "generated",
       "source": "case-study",
       "note": "Preview frame from the public conversation demo."
@@ -107,7 +107,7 @@
     },
     {
       "path": "docs/media/balcony-tomato-conversation.mp4",
-      "sha256": "6b120b2920a7ec71d0a8b044955818705ddaa0d326e0b71688aa958e3422e6dd",
+      "sha256": "92e9cb0a85ee243d19a57e8f55dc6c29bb11b0aa3df304668d76fadcf3032135",
       "kind": "generated",
       "source": "case-study",
       "note": "One continuous English conversation recorded for public viewing, with a synthetic partner and live replies."
@@ -313,9 +313,9 @@
     },
     {
       "path": "src/ravora/fast_voice.py",
-      "sha256": "2306de6335bf4cbc0be08ff89136bb9b1c5b2956a2c7325d5d31b3de0e5e68cc",
+      "sha256": "e6bf7b2ac6364c10d49f53d9731e48d52d67fa5efb14f1ed1daf90a4d41f1024",
       "source": "src/ravora/fast_voice.py",
-      "source_sha256": "fa53433e910d82c3cdc217262077ed9f6e84df1320d3be31625c0bf099546f45",
+      "source_sha256": "683b8713e0982b39f2c3d5b4f0501a76d449228cbd0f525ddce2833cc01624af",
       "kind": "adapted",
       "note": "Adapted to the portable archive without host tooling or original media."
     },
@@ -497,9 +497,9 @@
     },
     {
       "path": "src/ravora/phone_alignment.py",
-      "sha256": "9d900a01b54ed63977cfa78fcb9dc4ec4c709585c0820da6c548ba345cccae03",
+      "sha256": "e6607497c8073fcf817f29041b722a92a586e921cc54199c8c45d34a8780c6b8",
       "source": "src/ravora/phone_alignment.py",
-      "source_sha256": "9d900a01b54ed63977cfa78fcb9dc4ec4c709585c0820da6c548ba345cccae03",
+      "source_sha256": "e6607497c8073fcf817f29041b722a92a586e921cc54199c8c45d34a8780c6b8",
       "kind": "copied",
       "note": ""
     },
@@ -551,9 +551,9 @@
     },
     {
       "path": "src/ravora/web/articulation.mjs",
-      "sha256": "f96f8eb9bdb4ff3029d08f2f6f38ceb85d5dc1c3daf9f8d37838418b0310c912",
+      "sha256": "7fca018ee8b764198ead1636a4718461f67b31717ae7cafa6b807c7fe603f8fa",
       "source": "renderer/developer/v13-articulation.js",
-      "source_sha256": "eaf93e1045003b474404a3feeecd4ab14f48729949c6ca3fc5275fe3dc7a9d81",
+      "source_sha256": "04e6d7db1d8b6a37b633214f862a103441060eadf59611f36dbb10f436c216e0",
       "kind": "adapted",
       "note": "Adapted to the portable archive without host tooling or original media."
     },
@@ -663,7 +663,7 @@
     },
     {
       "path": "tests/check_media.mjs",
-      "sha256": "b47282c762fb9a452eb5ba169f0da280503f77d3f34d60f00fe8af7224a07a70",
+      "sha256": "f15ee7073341e922118afa3cf584d3d21e89ef10f95083921b7cb5e4d177f345",
       "kind": "generated",
       "source": "case-study",
       "note": "Portable documentation, fixture, or package validation."
@@ -718,10 +718,10 @@
     {
       "path": "tests/test_fast_voice.py",
       "source": "tests/test_fast_voice.py",
-      "source_sha256": "26015cdff0df82ad9f668d923af24ea98fde59b0bb15513a02ecad8a157b088f",
+      "source_sha256": "3f95bd2ceb8e2d9a9f8fb771881d3063dad3da0fd563d4440ff59397b3c0f512",
       "kind": "adapted",
       "note": "Retain the portable disabled-by-default check and the updated streaming profile expectation.",
-      "sha256": "4e277dee5f8238570cb7a9bc1d01e3455f6e8ffcc28b07cfb31b9b2000e8460a"
+      "sha256": "80d61ecdf29a2506ff70264f02f1128b68fbc40aabe1a17474da44b0a6e8cb32"
     },
     {
       "path": "tests/test_gemini_memory.py",
@@ -756,9 +756,9 @@
     },
     {
       "path": "tests/test_phone_alignment.py",
-      "sha256": "17cf8ab2cb64a45b12528054b03e9ab5f15d3a9ae7fdfc96aa1919e96a4e908e",
+      "sha256": "2c78b3c10a00d8c29f8612125a2f868911eb80c3e16c27fb4fac3735788cd604",
       "source": "tests/test_phone_alignment.py",
-      "source_sha256": "17cf8ab2cb64a45b12528054b03e9ab5f15d3a9ae7fdfc96aa1919e96a4e908e",
+      "source_sha256": "2c78b3c10a00d8c29f8612125a2f868911eb80c3e16c27fb4fac3735788cd604",
       "kind": "copied",
       "note": ""
     },

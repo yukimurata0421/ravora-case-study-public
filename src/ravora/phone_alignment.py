@@ -98,6 +98,8 @@ class PhoneAligner:
             return {"status": "alignment_no_voice"}
         return {
             "status": "aligned", "method": method, "plan": plan,
+            "words": [{"word": word, "start": start, "end": min(end, length)}
+                      for word, start, end in anchors if 0 <= start < min(end, length)],
             "phones": phones, "frames": len(samples), "hop_frames": HOP, "db": db,
             "reference_db": median(voiced), "elapsed_ms": round((time.monotonic() - started) * 1000, 1),
         }

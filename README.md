@@ -17,14 +17,14 @@ line is fixed. For the next three turns, the partner waits for RAVORA to finish
 speaking and uses the exchange so far to decide what to say next. Both voices,
 the speech-recognition captions, and the pauses are captured in one take.
 
-https://github.com/user-attachments/assets/8ff8ae19-7e44-41ef-b8a5-ee1fb3fc4408
+https://github.com/user-attachments/assets/30952fab-4a84-477b-b390-63726973f02d
 
-[Download the 65-second demo (MP4, 7.0 MiB)](https://github.com/yukimurata0421/ravora-case-study-public/raw/refs/heads/main/docs/media/balcony-tomato-conversation.mp4)
+[Download the 49-second demo (MP4, 5.5 MiB)](https://github.com/yukimurata0421/ravora-case-study-public/raw/refs/heads/main/docs/media/balcony-tomato-conversation.mp4)
 
-Around **0:11**, RAVORA keeps her smile while the reply audio buffers, then
-starts forming the words. Around **0:17**, she glances aside between turns.
-The [rendering notes](docs/audio-timing.md) show how speech and idle time drive
-those movements.
+RAVORA starts her first reply at **0:08.4**. Her mouth follows the audio
+immediately, then picks up the pronunciation of *just* at **0:10**. Across the
+four exchanges, the average pause before her reply fell from 4.48 s to 2.20 s.
+See the [per-turn measurements and mouth timing](docs/audio-timing.md#reply-timing-in-the-balcony-conversation).
 
 ## Start here
 
