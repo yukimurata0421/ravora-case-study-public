@@ -14,8 +14,33 @@ from ravora.conversation import MemoryStore
 from ravora.database import Database,MIGRATIONS
 from ravora.input_records import InputRecords
 from ravora.early_reaction import EarlyReactions
-from ravora.providers import ProviderError
+from ravora.providers import JevReaction, ProviderError
 from ravora.settings import ProviderSettings
+from support import HTTP
+
+
+class ReactionAdapterTests(unittest.TestCase):
+    def test_pinned_model_and_scores_required_to_keep_an_expression(self):
+        outcomes = [
+            ((.60, .70, .03), False, 'surprise', ['joy', 'surprise']),
+            ((.60, .71, .03), False, 'surprise', []),
+            ((.59, .65, .03), False, 'surprise', []),
+            ((.76, .80, .87), False, 'neutral', []),
+            ((.76, .80, .87), True, 'concerned', []),
+        ]
+        for scores, dialogue, expression, alternatives in outcomes:
+            with self.subTest(scores=scores, dialogue=dialogue):
+                answers = {
+                    name: {'type': 'noul', 'noul': score}
+                    for name, score in zip(('joy', 'surprise', 'concern'), scores)
+                }
+                transport = HTTP(reply={'model': 'jev-1.14.0', 'answers': answers})
+                result = JevReaction(ProviderSettings(), transport).classify('That was great.', dialogue=dialogue)
+                payload = transport.calls[0][2]
+                self.assertEqual(payload['model'], 'jev-1.14.0')
+                self.assertEqual(set(payload['questions']), set(answers))
+                self.assertEqual(result['reaction'], expression)
+                self.assertEqual(result['continuity_reactions'], alternatives)
 
 
 class DualReactionTests(unittest.IsolatedAsyncioTestCase):
@@ -60,6 +85,27 @@ class DualReactionTests(unittest.IsolatedAsyncioTestCase):
     async def test_changed_expression_supersedes_the_provisional_expression(self):
         _,_,_,updates=await self.completed_pair('surprise')
         self.assertEqual(updates[1]['transition'],'switch');self.assertEqual(updates[1]['reaction'],'surprise')
+
+    async def test_final_keeps_a_supported_expression_and_records_jev_recommendation(self):
+        async def classify(text):
+            if text=='I like coffee':return {'reaction':'joy'},{}
+            return {'reaction':'surprise','continuity_reactions':['joy','surprise']},{}
+
+        session,store,events,_,identifier=await self.start(classify=classify)
+        await fixtures.until(lambda:any(e['kind']=='reaction' for e in events))
+        await session.end_audio(identifier);await asyncio.wait_for(session.task,2)
+        await asyncio.wait_for(session.early.task,2)
+        first,final=[e for e in events if e['kind']=='reaction']
+        self.assertEqual(first['reaction'],'joy')
+        with store.connect() as db:
+            rank,payload=db.execute('SELECT reaction_applied_sequence,reaction_result FROM developer_inputs').fetchone()
+            turn=json.loads(db.execute('SELECT reaction FROM conversation_turns').fetchone()[0])
+        self.assertEqual(rank,2)
+        for decision in (final,json.loads(payload),turn):
+            self.assertEqual(decision['reaction'],'joy')
+            self.assertEqual(decision['jev_recommendation'],'surprise')
+            self.assertEqual(decision['reaction_selection'],'kept_supported_expression')
+        self.assertEqual(final['transition'],'continue')
 
     async def test_neutral_final_returns_from_the_provisional_expression(self):
         _,_,_,updates=await self.completed_pair('neutral')

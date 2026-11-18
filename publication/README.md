@@ -41,9 +41,12 @@ counts and API measurements are not substituted for portable-package validation.
 
 The [earlier reaction-port validation](history/2026-11-17-early-reaction-validation.json)
 and [relationship-port validation](history/2026-11-17-relationship-port-validation.json)
-record the earlier snapshot boundaries. The [media timing update](../docs/audio-timing.md)
-adds two-stage reactions and reusable timing modules. The original artwork and
-recordings are excluded from the package.
+record the earlier snapshot boundaries. The
+[two-stage and media timing validation](history/2026-11-18-reaction-and-media-timing-validation.json)
+records the initial public snapshot. The
+[reaction policy update](../docs/early-reactions.md#expression-selection) adds
+speaker-grounded classification and an explicit rule for retaining a provisional
+expression. The original artwork and recordings are excluded from the package.
 
 Run `python3 scripts/validate_public.py` to check the declared public payload.
 It validates local files and hashes; it does not contact the development workspace.

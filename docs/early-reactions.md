@@ -33,9 +33,11 @@ slot behavior. A stage remains consumed on timeout, failure, or cancellation.
 
 The final request can start while the provisional request is pending. A stored
 sequence ranks the final result above the provisional result. A same-expression
-result confirms the current face without restarting its motion. A different
-result transitions to the new expression, including a return to neutral. The
-browser checks input and turn identity and rejects duplicates and lower sequences.
+decision confirms the current face without restarting its motion. The final
+decision may keep a supported provisional expression under the rule below.
+Otherwise a changed decision updates the expression, including a return to
+neutral. The browser checks input and turn identity and rejects duplicates and
+lower sequences.
 Deleting or expiring the source clears the cached result while preserving the
 stage reservations.
 
@@ -44,6 +46,31 @@ generation, source state, and playback state reject stale callbacks. An in-fligh
 reaction whose submitted words no longer match the latest prefix is discarded
 without refunding the slot. A valid late reaction may update a generated but
 unplayed turn; it cannot undo the turn's completed state.
+
+## Expression selection
+
+Each stage asks whether the speaker conveys joy, surprise, or concern. The
+judgment uses words the speaker has actually said and gives later corrections
+priority. It requires evidence of the speaker's own emotion beyond a quote,
+a negation, or a hypothetical. A speaker recounting an event can still convey
+a reaction they endorse.
+
+The highest score must be at least 0.60 and belong to a supported expression.
+For ordinary display, joy maps to a smile, surprise maps to surprise, and concern
+maps to neutral. When the final joy and surprise scores are both at least 0.60
+and at most 0.10 apart, the current turn can retain its provisional smile or
+surprise. If this differs from the model's first choice, the stored and emitted
+decisions include `jev_recommendation` and
+`reaction_selection=kept_supported_expression`.
+
+Historical development replay used 12 selected English utterances from human
+conversations. On the same final transcripts, the earlier questions matched the
+preassigned acceptable expressions on 11 of 12, and the updated questions on 12
+of 12. One recording showed surprise about 2.04 seconds before speech ended and
+a smile after the final transcript. The rule retained a provisional expression
+twice in a separate synthetic-speech replay and zero times in the natural-speech
+sample. The sample used fixed utterance endpoints. Conversation-wide accuracy,
+perceived naturalness, and live turn-taking remain unevaluated.
 
 ## Offline replay
 

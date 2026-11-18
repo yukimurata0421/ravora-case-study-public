@@ -117,34 +117,57 @@ class GeminiText:
         if not ended:raise ProviderError('GENERATION_STREAM_INTERRUPTED')
 
 
+_REACTION_CONTEXT = (
+    'Consider only what the speaker has actually said so far, including the end of the available text. '
+    'This may be a partial speech transcript. Judge the speaker’s current feeling about what they are telling the listener. '
+    'A quoted or reported feeling of another person, a negation, a hypothetical, and a feeling the speaker says has passed '
+    'do not establish a current feeling. If the speaker endorses a quote as their own feeling, use that evidence. '
+    'A speaker can convey their own genuine reaction while recounting an actual event in the past tense. '
+    'Count that reaction when it is presented as their stance in the current telling. '
+    'A later correction takes priority over an earlier impression. Incomplete clauses, unsupported assumptions and '
+    'emotion words used as labels or examples are insufficient evidence. '
+    'If the only apparent evidence is a word or phrase being defined, spelled, quoted, read aloud, or given as an example, '
+    'answer no. A word with positive or negative meaning by itself tells you nothing about the speaker’s feeling.'
+)
+_REACTION_QUESTIONS = {
+    'joy': 'Does the speaker themselves now express clear positive warmth, delight, pride, relief or genuine appreciation?',
+    'surprise': 'Does the speaker themselves now express actual surprise or amazement about an unexpected outcome?',
+    'concern': 'Does the speaker themselves now express clear worry, distress, disappointment, frustration or sadness?',
+}
+_REACTION_MIN_SCORE = .60
+_REACTION_CONTINUITY_MARGIN = .10
+
+
 class JevReaction:
     def __init__(self,settings,transport=None):self.s=settings;self.http=transport or Transport(min(settings.timeout,3),enabled=settings.api_enabled)
 
     def classify(self,comment,*,dialogue=False):
         self.usage={}
-        labels={'joy':'Does this viewer message express joy, friendliness or thanks?','surprise':'Does this viewer message express surprise or amazement?','concern':'Does this viewer message express worry, sadness or frustration?'}
-        if dialogue:
-            current = 'Use the feeling by the end of this spoken transcript. Earlier feelings may be reversed or overtaken. '
-            labels = {
-                'joy': current + 'Is the speaker mainly expressing present delight, pride, or gratitude?',
-                'surprise': current + 'Is the speaker reacting to a sudden or unexpected discovery with shock, amazement, or disbelief? Surprise can be pleasant.',
-                'concern': current + 'Is the speaker now upset, disappointed, or worried about a setback or problem?',
-            }
-        payload={'model':self.s.jev_model,'state':comment,'questions':{k:{'type':'noul','instructions':v} for k,v in labels.items()}}
+        questions = {
+            label: {'type': 'noul', 'instructions': f'{_REACTION_CONTEXT} {question}'}
+            for label, question in _REACTION_QUESTIONS.items()
+        }
+        payload={'model':self.s.jev_model,'state':comment,'questions':questions}
         answer=self.http.json('https://api.typesafe.ai/v1/systemone',{'Authorization':'Bearer '+self.s.jev_key},payload)
         self.usage={'response_model':answer.get('model')}
         scores={}
-        for name in labels:
+        for name in questions:
             item=answer.get('answers',{}).get(name,{})
             value=item.get('noul')
             if item.get('type')!='noul' or isinstance(value,bool) or not isinstance(value,(float,int)) or not 0<=value<=1:raise ProviderError('INVALID_JEV_REACTION')
             scores[name]=value
         label=max(scores,key=scores.get)
         allowed = ('joy', 'surprise', 'concern') if dialogue else ('joy', 'surprise')
-        reaction=label if scores[label]>=.6 and label in allowed else 'neutral'
+        reaction=label if scores[label]>=_REACTION_MIN_SCORE and label in allowed else 'neutral'
         if reaction == 'concern':
             reaction = 'concerned'
-        return {'reaction':reaction,'scores':scores,'source':'jev-noul','model':answer.get('model',self.s.jev_model)}
+        continuity = []
+        if (reaction in ('joy', 'surprise')
+                and min(scores['joy'], scores['surprise']) >= _REACTION_MIN_SCORE
+                and round(abs(scores['joy'] - scores['surprise']), 10) <= _REACTION_CONTINUITY_MARGIN):
+            continuity = ['joy', 'surprise']
+        return {'reaction':reaction,'scores':scores,'source':'jev-noul','model':answer.get('model',self.s.jev_model),
+                'continuity_reactions':continuity}
 
 
 class WaveNetSpeech:

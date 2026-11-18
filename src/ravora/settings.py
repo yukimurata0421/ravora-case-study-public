@@ -78,7 +78,7 @@ class ProviderSettings:
     persona: str = DEFAULT_PERSONA
     persona_file: str = field(default='', repr=False)
     reply_style: str = 'brief'
-    jev_model: str = 'jev-latest'
+    jev_model: str = 'jev-1.14.0'
     voice: str = 'en-US-Wavenet-F'
     language: str = 'en-US'
     speaking_rate: float = .96

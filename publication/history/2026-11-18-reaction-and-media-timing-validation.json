@@ -1,0 +1,41 @@
+{
+  "status": "PASS_LOCAL_REACTION_AND_MEDIA_TIMING_CHECKS",
+  "validated_at_jst": "2026-11-18T07:56:58.807028+09:00",
+  "scope": "Portable archive checks. Runtime recording observations are historical.",
+  "checks": {
+    "checkout_python_tests": {
+      "total": 169,
+      "passed": 168,
+      "optional_native_alignment_skipped": 1
+    },
+    "synthetic_replays": 4,
+    "browser_module_tests_in_v8": 4,
+    "installed_python_tests_with_optional_phone_alignment": {
+      "tests": 169,
+      "failures": 0,
+      "errors": 0,
+      "skipped": 0,
+      "outbound_connection_attempts": 0
+    },
+    "installed_replays_match_examples": 4,
+    "wheel_runtime_resources_checked": 7,
+    "allowlisted_files": 97,
+    "manifest_hashes": 95,
+    "secret_scan_findings": 0,
+    "configured_credential_matches": 0,
+    "development_source_hashes_unchanged": 20
+  },
+  "remote_ci": {
+    "configured": true,
+    "configured_python_versions": [
+      "3.11",
+      "3.13"
+    ]
+  },
+  "project_license_selected": false,
+  "open_source_release_ready": false,
+  "included_private_databases_or_recordings": false,
+  "original_runtime_source_modified": false,
+  "new_inference_api_calls": 0,
+  "earlier_validation_preserved": "publication/history/2026-11-17-relationship-port-validation.json"
+}

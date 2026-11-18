@@ -113,10 +113,16 @@ class EarlyReactions:
             WHERE turn_id=? AND (status='running' OR (status='completed' AND played=0))""",(payload,turn))
 
     def accept(self,key,snapshot,value):
-        rank=2 if snapshot['phase']=='final' else 1;payload=json.dumps(value);now=time.time()
+        rank=2 if snapshot['phase']=='final' else 1;now=time.time()
         with self.store.connect() as db:
             db.execute('BEGIN IMMEDIATE')
             previous=db.execute('SELECT reaction_result FROM developer_inputs WHERE id=?',(self.key,)).fetchone()
+            before=json.loads(previous[0])['reaction'] if previous and previous[0] else 'neutral'
+            if (rank == 2 and before != value['reaction']
+                    and before in value.get('continuity_reactions', ())):
+                value = {**value, 'reaction':before, 'jev_recommendation':value['reaction'],
+                         'reaction_selection':'kept_supported_expression'}
+            payload = json.dumps(value)
             changed=db.execute('''UPDATE developer_inputs SET reaction_applied_sequence=?,reaction_result=?
                 WHERE id=? AND reaction_applied_sequence<? AND input_state IN ('dispatched','simulated','accepted')
                   AND EXISTS(SELECT 1 FROM reaction_stage_claims WHERE input_id=developer_inputs.id AND stage=? AND call_id=?)
@@ -127,10 +133,9 @@ class EarlyReactions:
                 (rank,payload,self.key,rank,snapshot['phase'],key,now))
             if not changed.rowcount:return None
             if self.turn is not None:self._turn_reaction(db,self.turn,payload)
-        before=json.loads(previous[0])['reaction'] if previous and previous[0] else 'neutral'
         self.value=value
         transition='continue' if before==value['reaction'] else 'return_neutral' if value['reaction']=='neutral' else 'switch'
-        return {'reaction_sequence':rank,'previous_reaction':before,'transition':transition}
+        return value, {'reaction_sequence':rank,'previous_reaction':before,'transition':transition}
 
     async def run(self):
         while self.active:
@@ -181,10 +186,11 @@ class EarlyReactions:
             elif snapshot['phase']=='partial' and not self.latest['key'].startswith(snapshot['key']):
                 self.finish(key,'superseded',value=value,usage=usage)
             else:
-                update=self.accept(key,snapshot,value)
-                if update is None:
+                accepted=self.accept(key,snapshot,value)
+                if accepted is None:
                     self.finish(key,'superseded_or_closed',value=value,usage=usage)
                     return
+                value,update=accepted
                 self.finish(key,'accepted',value=value,usage=usage)
                 await self.emit({'kind':'reaction','phase':snapshot['phase'],'provisional':snapshot['phase']=='partial',
                     'input_id':self.input_id,**update,**value})

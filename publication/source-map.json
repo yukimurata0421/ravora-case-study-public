@@ -16,11 +16,11 @@
     "third-party renderer bundles",
     "host deployment and production controls"
   ],
-  "updated_at_jst": "2026-11-18T07:56:58.807028+09:00",
+  "updated_at_jst": "2026-11-18T20:51:50.784108+09:00",
   "files": [
     {
       "path": ".env.example",
-      "sha256": "dca8758dc565f5624128ca94b7cfd8cd45e64cd939aaae38738e4e8da6f93aa0",
+      "sha256": "556cc0e8c1c4cabeac17b8ee7c09b658f1d8e205b088ea483d0389a4f2edd1c2",
       "kind": "generated",
       "source": "case-study",
       "note": "Portable documentation, fixture, or package validation."
@@ -68,7 +68,7 @@
     },
     {
       "path": "docs/early-reactions.md",
-      "sha256": "6ab64d268c831f06c4a704e0e12702c387ba171fdb909c29826f5ad7d436353e",
+      "sha256": "52a8eabeb93d0ca3ffc9eb686db14bcaeaa4aa4c40bee42a5df8385ce9d637cb",
       "kind": "generated",
       "source": "case-study",
       "note": "Portable documentation, fixture, or package validation."
@@ -147,7 +147,7 @@
     },
     {
       "path": "publication/README.md",
-      "sha256": "1d6c7826358fbe2ed11e346a9065ff7a06d57f75c88caad7ad084427eb08225a",
+      "sha256": "8a116c30a3d6a4b096b72addfa2e6e4bf2b75357f9696c6bcd278718c4cced2b",
       "kind": "generated",
       "source": "case-study",
       "note": "Portable documentation, fixture, or package validation."
@@ -183,6 +183,13 @@
       "kind": "generated",
       "source": "case-study",
       "note": "Portable documentation, fixture, or package validation."
+    },
+    {
+      "path": "publication/history/2026-11-18-reaction-and-media-timing-validation.json",
+      "sha256": "fc583c6aeff47fe365d964d7a88154a8f56a8c66a7a3f712cc2b58c7401e264c",
+      "kind": "generated",
+      "source": "case-study",
+      "note": "Exact local validation record for the initial public snapshot."
     },
     {
       "path": "publication/measurement-summary.json",
@@ -268,9 +275,9 @@
     },
     {
       "path": "src/ravora/early_reaction.py",
-      "sha256": "562b1d608405bb03eaa8f3cf5c0ea312a8c831fdc4ec6f54125813516231c198",
+      "sha256": "c49415cf9cdabeda2891fc26aafebe1aaebbe732b7ea623c752fd18c0d5fe9a5",
       "source": "src/ravora/early_reaction.py",
-      "source_sha256": "562b1d608405bb03eaa8f3cf5c0ea312a8c831fdc4ec6f54125813516231c198",
+      "source_sha256": "c49415cf9cdabeda2891fc26aafebe1aaebbe732b7ea623c752fd18c0d5fe9a5",
       "kind": "copied",
       "note": ""
     },
@@ -476,9 +483,9 @@
     },
     {
       "path": "src/ravora/providers.py",
-      "sha256": "8370089475d2796dc23f12035b8d33bd5bd056860e2febc9996894d71c5b8e33",
+      "sha256": "341f5fc074ef966684fc2674bc87967dd7acb3ece33b4fa24d345725f953a33b",
       "source": "src/ravora/providers.py",
-      "source_sha256": "8370089475d2796dc23f12035b8d33bd5bd056860e2febc9996894d71c5b8e33",
+      "source_sha256": "341f5fc074ef966684fc2674bc87967dd7acb3ece33b4fa24d345725f953a33b",
       "kind": "copied",
       "note": ""
     },
@@ -506,9 +513,9 @@
     },
     {
       "path": "src/ravora/settings.py",
-      "sha256": "a5d583395eb40be63ff1c22a3998d7850b3702ab974d42e1ecdf9c405983853d",
+      "sha256": "f34252d2fa675978b151e3847454442079b65b44f8d96e294e7bdc5c2440be85",
       "source": "src/ravora/settings.py",
-      "source_sha256": "02df89a5dee8a572455308e269f76a81342fd0102eddc225d5b61f26e5704a7f",
+      "source_sha256": "61580eddacae0ab3bb25703af7bc38932d4f0081dc250156e7b090199f7af50f",
       "kind": "adapted",
       "note": "Adapted to the portable archive without host tooling or original media."
     },
@@ -656,9 +663,9 @@
     },
     {
       "path": "tests/test_dual_reaction.py",
-      "sha256": "1361c3cc2ec1247b228a3a1b49ec273b2668376748b74a013b0c892caa9f1a6f",
+      "sha256": "aa8e1b48cfcbf0034cc436a326dc50ebc3d387c1bda326fd538ad662dfc77a6a",
       "source": "tests/test_dual_reaction.py",
-      "source_sha256": "02f9658d889005a44d50b4731a5d4820f18c7aae7cad268b90a839ab91c8a64f",
+      "source_sha256": "c2d9a9cf6c8113700ccbaa5f3361afe3471332cf1d95720e9325611c625c5074",
       "kind": "adapted",
       "note": "Adapted to the portable archive without host tooling or original media."
     },
