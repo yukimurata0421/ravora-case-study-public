@@ -17,7 +17,7 @@ Included:
 - reference provider interfaces and a mock-only portable entrypoint;
 - a packaged browser console, synthetic fixtures, and focused tests;
 - aggregate historical observations with explicit measurement limits;
-- one rendered [public conversation demo](../docs/media/balcony-tomato-conversation.mp4) with two synthetic voices.
+- one rendered [public conversation demo](../README.md#watch-ravora-in-conversation) with two synthetic voices.
 
 The reaction replay and tests cover provisional and final results, prefix
 agreement, correction, late completion, cancellation, and preservation of prior

@@ -16,7 +16,7 @@
     "third-party renderer bundles",
     "host deployment and production controls"
   ],
-  "updated_at_jst": "2026-11-18T23:11:39.947684+09:00",
+  "updated_at_jst": "2026-11-19T06:18:15.351495+09:00",
   "files": [
     {
       "path": ".env.example",
@@ -47,7 +47,7 @@
     },
     {
       "path": "README.md",
-      "sha256": "fa7767ac7de1d519078111e382e435cd5a357cab30de437bebc55f50505b4700",
+      "sha256": "21774425bb1411954555da6d25a7039a125e63f72a94d40db0f7f41e29f1ea48",
       "kind": "generated",
       "source": "case-study",
       "note": "Portable documentation, fixture, or package validation."
@@ -161,7 +161,7 @@
     },
     {
       "path": "publication/README.md",
-      "sha256": "fad8e222eb3426ba679871365947b5f88506c1274593b0b41fbaad37e280b750",
+      "sha256": "b35f73cc5933fb9dac64fbfcf36fdabe92532fc9ca87b2111a59e510692b6aa8",
       "kind": "generated",
       "source": "case-study",
       "note": "Portable documentation, fixture, or package validation."
