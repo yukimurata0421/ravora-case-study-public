@@ -16,7 +16,7 @@
     "third-party renderer bundles",
     "host deployment and production controls"
   ],
-  "updated_at_jst": "2026-11-19T12:11:59.526574+09:00",
+  "updated_at_jst": "2026-11-19T20:51:51+09:00",
   "files": [
     {
       "path": ".env.example",
@@ -34,7 +34,7 @@
     },
     {
       "path": ".gitignore",
-      "sha256": "f87c00f81528267826f57bfe9afc04aa90b76c5694567d08db1c5ad2960e9167",
+      "sha256": "97b0b09020ffc26981382572879f6ba899abab4d14eeaba8f9f2e73352af788b",
       "kind": "generated",
       "note": "Case-study documentation, replay, packaging, or local validation support."
     },
@@ -47,18 +47,17 @@
     },
     {
       "path": "README.md",
-      "sha256": "7d1e78cefaeaa8cf6af60cfd2d47bb675ca580d65b4af2c930659b88d853f063",
+      "sha256": "94058f154f1e233b0f5f265226d5636bae88b862df8476645d91b6a813568e80",
       "kind": "generated",
       "source": "case-study",
       "note": "Portable documentation, fixture, or package validation."
     },
     {
       "path": "docs/audio-timing.md",
-      "sha256": "1ded33c64105e78410763600eaf1f9c5c6d5b9fe654bcff306ad4ba3fa6e850c",
-      "source": "docs/pngtuber-presence.md",
-      "source_sha256": "fe3d1bc28d5ffbcd61ed927f8527d439e903d57306671043aea28637db9527f6",
-      "kind": "adapted",
-      "note": "Historical capture notes plus current rendering behavior verified with the public demo."
+      "sha256": "54fe87a3a284a0c0c4081bc73bdf346bc0ae9f28c9945085dce095ec93e95fc4",
+      "source": "case-study",
+      "kind": "generated",
+      "note": "Per-turn observations from the public recordings and their rendering contracts."
     },
     {
       "path": "docs/case-study.md",
@@ -68,7 +67,7 @@
     },
     {
       "path": "docs/early-reactions.md",
-      "sha256": "52a8eabeb93d0ca3ffc9eb686db14bcaeaa4aa4c40bee42a5df8385ce9d637cb",
+      "sha256": "551bfb6e2bde350d08fa34dabb5dbe154cdc38455035723a52b44375f8e0feba",
       "kind": "generated",
       "source": "case-study",
       "note": "Portable documentation, fixture, or package validation."
@@ -127,6 +126,13 @@
       "note": "One continuous English conversation recorded for public viewing, with a synthetic partner and live replies."
     },
     {
+      "path": "docs/media/ravora-thinking-conversation.mp4",
+      "source": "demos/concept02-thinking-live-20261119/ravora-thinking-conversation.mp4",
+      "kind": "copied",
+      "source_sha256": "2d91889add5aaa7ea632921aafe8d1b4d0ea1d9540128fc93bcca58d8cf6fdd3",
+      "sha256": "2d91889add5aaa7ea632921aafe8d1b4d0ea1d9540128fc93bcca58d8cf6fdd3"
+    },
+    {
       "path": "docs/privacy.md",
       "sha256": "8b232f03c34634d1fca1028a80323deaeb752e61c2dc8c3c880faa8780086195",
       "kind": "generated",
@@ -175,7 +181,7 @@
     },
     {
       "path": "publication/README.md",
-      "sha256": "b35f73cc5933fb9dac64fbfcf36fdabe92532fc9ca87b2111a59e510692b6aa8",
+      "sha256": "9958a5f4923705ff9f40f3f6759d82162fb8edd1b23af2ad78fac6ba53873da0",
       "kind": "generated",
       "source": "case-study",
       "note": "Portable documentation, fixture, or package validation."
@@ -213,6 +219,12 @@
       "note": "Portable documentation, fixture, or package validation."
     },
     {
+      "path": "publication/history/2026-11-18-expression-policy-validation.json",
+      "kind": "generated",
+      "note": "Preserved validation record for the earlier expression policy.",
+      "sha256": "7f497f35eb929c0cf935168f3a00c8575fe4145c2fb02c6b63f841f6e808ea2a"
+    },
+    {
       "path": "publication/history/2026-11-18-reaction-and-media-timing-validation.json",
       "sha256": "fc583c6aeff47fe365d964d7a88154a8f56a8c66a7a3f712cc2b58c7401e264c",
       "kind": "generated",
@@ -226,6 +238,13 @@
       "kind": "adapted",
       "note": "Keep previous aggregate observations and add sanitized timing/count summaries; omit raw media, inputs, provider bodies and host identity.",
       "sha256": "a39de05bdfa9f6508df7c8c4f75b20a7243e56be96e4e3dc622e058c36b7d67b"
+    },
+    {
+      "path": "publication/thinking-conversation-timings.json",
+      "source": "demos/concept02-thinking-live-20261119/timings.json",
+      "kind": "copied",
+      "source_sha256": "8ec4f531bd5265a40aaa4a7f09a2fce45a523f8fa4635129ec8c4819c8641335",
+      "sha256": "8ec4f531bd5265a40aaa4a7f09a2fce45a523f8fa4635129ec8c4819c8641335"
     },
     {
       "path": "pyproject.toml",
@@ -250,7 +269,7 @@
     },
     {
       "path": "scripts/validate_public.py",
-      "sha256": "d01c312edcc4b8f2ce6c8ff4ba162126918436c5ac4c215c4c43731a94f3b66b",
+      "sha256": "3ae27b3342c8b3647773974a777a01e2e80fb0eccd80d6bf2c8d355f56a742d2",
       "kind": "generated",
       "note": "Case-study documentation, replay, packaging, or local validation support."
     },
@@ -519,11 +538,11 @@
     },
     {
       "path": "src/ravora/providers.py",
-      "sha256": "341f5fc074ef966684fc2674bc87967dd7acb3ece33b4fa24d345725f953a33b",
+      "sha256": "1a31b03a322313f2a1c87d2831fe47139d0aa49275956380a51d734566054a2b",
       "source": "src/ravora/providers.py",
-      "source_sha256": "341f5fc074ef966684fc2674bc87967dd7acb3ece33b4fa24d345725f953a33b",
-      "kind": "copied",
-      "note": ""
+      "source_sha256": "f3371ce79fb696a38bdec259ab183c03deb4e53a6c8b55059137465ab635b175",
+      "kind": "adapted",
+      "note": "Dialogue profile adds a deliberation question to each existing reaction request."
     },
     {
       "path": "src/ravora/relationship_demo.py",
@@ -613,11 +632,10 @@
     },
     {
       "path": "src/ravora/web/expressions.mjs",
-      "sha256": "ea68f43b0ee845296325fc66cbfc02154fef46a1447348f8b2f53dbe128c465a",
       "source": "renderer/expressions.js",
-      "source_sha256": "ea68f43b0ee845296325fc66cbfc02154fef46a1447348f8b2f53dbe128c465a",
       "kind": "copied",
-      "note": ""
+      "source_sha256": "61773870a4d9f53b9673a6707136d78954a22dca4a989980c21d7f236f0f4d52",
+      "sha256": "61773870a4d9f53b9673a6707136d78954a22dca4a989980c21d7f236f0f4d52"
     },
     {
       "path": "src/ravora/web/latency-meter.js",
@@ -647,9 +665,8 @@
       "path": "src/ravora/web/pngtuber-surface.mjs",
       "source": "renderer/pngtuber-core.js",
       "kind": "copied",
-      "sha256": "c02e52a8eb0d2dbcc2458d1fd113c2d3eb66a632c38f8799dd55e2cbc3a45660",
-      "source_sha256": "c02e52a8eb0d2dbcc2458d1fd113c2d3eb66a632c38f8799dd55e2cbc3a45660",
-      "note": "Portable renderer or frame preparation code. Artwork is supplied separately."
+      "source_sha256": "fbf806ed9adae82c460a08e9c7857882a19f15eb27029f6784e6f5d71b1a96b1",
+      "sha256": "fbf806ed9adae82c460a08e9c7857882a19f15eb27029f6784e6f5d71b1a96b1"
     },
     {
       "path": "src/ravora/web/presence.mjs",
@@ -677,7 +694,7 @@
     },
     {
       "path": "tests/check_media.mjs",
-      "sha256": "b246a93b69c40511e1c9a423e03bb8568a514093a849a3fb3f2eb855d9dc0993",
+      "sha256": "dc036e4a6c8d58b6ec610e496bf03c62af702b2f56c95d77caf2a2acc8041556",
       "kind": "generated",
       "source": "case-study",
       "note": "Portable documentation, fixture, or package validation."
@@ -715,7 +732,7 @@
     },
     {
       "path": "tests/test_dual_reaction.py",
-      "sha256": "aa8e1b48cfcbf0034cc436a326dc50ebc3d387c1bda326fd538ad662dfc77a6a",
+      "sha256": "cb95b68fa428d252c89bd832a573aeb86e75589c5a0e613fcd0a7179a6fb4f29",
       "source": "tests/test_dual_reaction.py",
       "source_sha256": "c2d9a9cf6c8113700ccbaa5f3361afe3471332cf1d95720e9325611c625c5074",
       "kind": "adapted",

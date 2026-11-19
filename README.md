@@ -12,6 +12,18 @@ database, and deployment environment are excluded.
 
 ## Watch RAVORA in conversation
 
+### Deciding what to make for dinner
+
+At **0:23.93**, RAVORA starts looking thoughtful while the speaker is still
+weighing lemon against yogurt. The full transcript confirms the same expression.
+At **0:28.93** she starts her reply and keeps that look as her lips form the words.
+
+https://github.com/user-attachments/assets/f89db4a2-e6c7-47a1-a36b-2fd47bc970e0
+
+[Download the 34-second conversation (1080p30 MP4, 5.0 MiB)](https://github.com/yukimurata0421/ravora-case-study-public/raw/refs/heads/main/docs/media/ravora-thinking-conversation.mp4) · [Per-turn timing and expressions](docs/audio-timing.md#the-dinner-conversation)
+
+### The first balcony tomato
+
 A synthetic speaker tells RAVORA about the first ripe tomato on their balcony. The opening
 line is fixed. For the next three turns, the partner waits for RAVORA to finish
 speaking and uses the exchange so far to decide what to say next. Both voices,

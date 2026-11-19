@@ -1,0 +1,174 @@
+{
+  "media_file": "ravora-thinking-conversation.mp4",
+  "sha256": "2d91889add5aaa7ea632921aafe8d1b4d0ea1d9540128fc93bcca58d8cf6fdd3",
+  "duration_s": 34.333333,
+  "video": "1920x1080 H.264 30 fps CFR",
+  "audio": "AAC, both voices at original spacing",
+  "question_source": "English questions synthesized by en-US-Wavenet-D and streamed at 1x",
+  "measurement": "Decoded AAC, 10 ms windows at -48 dBFS. Visible expression onset is the first rendered weight >=0.05. A continued expression has no second onset.",
+  "avatar_sha256": "105a2051cc5c8457e8201830778e049f408e387a70bd84c646bf51485c198fc3",
+  "source_frames": 1029,
+  "api_calls": {
+    "question_tts": 3,
+    "stt": 3,
+    "partial_jev": 3,
+    "final_jev": 3,
+    "llm": 3,
+    "reply_tts": 3
+  },
+  "turns": [
+    {
+      "turn": 1,
+      "question": "I'm torn between baking bread and making soup. The bread takes longer, but the soup needs more ingredients. Which would you pick?",
+      "transcript": "I'm torn between baking bread and making soup the bread takes longer, but the soup needs more ingredients. Which would you pick?",
+      "reply": "Soup sounds faster and way less fussy right now.",
+      "question_start_s": 0.1,
+      "question_end_s": 6.9,
+      "reply_start_s": 8.9,
+      "reply_end_s": 11.69,
+      "gap_mp4_ms": 2000.0,
+      "gap_audio_worklet_ms": 2010.7,
+      "reply_indicator_after_sound_ms": 33.3,
+      "question_wav_correlation": 0.99058,
+      "reply_wav_correlation": 0.99996,
+      "reactions": [
+        {
+          "phase": "partial",
+          "reaction": "neutral",
+          "transition": "continue",
+          "scores": {
+            "joy": 0.05,
+            "surprise": 0.05,
+            "concern": 0.37,
+            "thinking": 0.31
+          },
+          "notice_from_question_end_ms": -5002.7,
+          "visible_from_question_end_ms": null,
+          "visible_video_seconds": null
+        },
+        {
+          "phase": "final",
+          "reaction": "thinking",
+          "transition": "switch",
+          "scores": {
+            "joy": 0.03,
+            "surprise": 0.03,
+            "concern": 0.23,
+            "thinking": 0.96
+          },
+          "notice_from_question_end_ms": 800.0,
+          "visible_from_question_end_ms": 912.0,
+          "visible_video_seconds": 7.803
+        }
+      ],
+      "voiced_visemes": [
+        "A",
+        "E",
+        "I",
+        "U"
+      ]
+    },
+    {
+      "turn": 2,
+      "question": "I found a loaf in the freezer! I'm so happy we can have both for dinner now.",
+      "transcript": "I found a loaf in the freezer. I'm so happy we can have both for dinner now.",
+      "reply": "That is honestly the best kind of kitchen magic.",
+      "question_start_s": 12.57,
+      "question_end_s": 16.54,
+      "reply_start_s": 18.5,
+      "reply_end_s": 21.28,
+      "gap_mp4_ms": 1960.0,
+      "gap_audio_worklet_ms": 1959.3,
+      "reply_indicator_after_sound_ms": 33.3,
+      "question_wav_correlation": 0.99998,
+      "reply_wav_correlation": 0.99997,
+      "reactions": [
+        {
+          "phase": "partial",
+          "reaction": "neutral",
+          "transition": "continue",
+          "scores": {
+            "joy": 0.06,
+            "surprise": 0.09,
+            "concern": 0.04,
+            "thinking": 0.04
+          },
+          "notice_from_question_end_ms": -2604.0,
+          "visible_from_question_end_ms": null,
+          "visible_video_seconds": null
+        },
+        {
+          "phase": "final",
+          "reaction": "joy",
+          "transition": "switch",
+          "scores": {
+            "joy": 0.94,
+            "surprise": 0.18,
+            "concern": 0.02,
+            "thinking": 0.06
+          },
+          "notice_from_question_end_ms": 772.0,
+          "visible_from_question_end_ms": 884.0,
+          "visible_video_seconds": 17.424
+        }
+      ],
+      "voiced_visemes": [
+        "A",
+        "E",
+        "I"
+      ]
+    },
+    {
+      "turn": 3,
+      "question": "I'm weighing two toppings for the soup. Would lemon brighten it up, or would yogurt make it creamier?",
+      "transcript": "I'm weighing two toppings for the soup would lemon brighten it up or would yogurt make it creamier?",
+      "reply": "Lemon gives it that fresh pop, but yogurt makes it so velvety.",
+      "question_start_s": 22.31,
+      "question_end_s": 27.35,
+      "reply_start_s": 28.93,
+      "reply_end_s": 32.87,
+      "gap_mp4_ms": 1580.0,
+      "gap_audio_worklet_ms": 1583.3,
+      "reply_indicator_after_sound_ms": 36.7,
+      "question_wav_correlation": 0.99104,
+      "reply_wav_correlation": 0.98548,
+      "reactions": [
+        {
+          "phase": "partial",
+          "reaction": "thinking",
+          "transition": "switch",
+          "scores": {
+            "joy": 0.03,
+            "surprise": 0.03,
+            "concern": 0.08,
+            "thinking": 0.72
+          },
+          "notice_from_question_end_ms": -3534.7,
+          "visible_from_question_end_ms": -3422.7,
+          "visible_video_seconds": 23.931
+        },
+        {
+          "phase": "final",
+          "reaction": "thinking",
+          "transition": "continue",
+          "scores": {
+            "joy": 0.05,
+            "surprise": 0.02,
+            "concern": 0.04,
+            "thinking": 0.94
+          },
+          "notice_from_question_end_ms": 993.3,
+          "visible_from_question_end_ms": null,
+          "visible_video_seconds": null
+        }
+      ],
+      "voiced_visemes": [
+        "A",
+        "E",
+        "I",
+        "O",
+        "U"
+      ]
+    }
+  ]
+}

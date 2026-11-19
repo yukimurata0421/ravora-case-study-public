@@ -5,6 +5,35 @@ confirm or revise it using the full transcript. The expression follows the
 [two-stage contract](early-reactions.md). The mouth follows the synthesized audio
 and keeps lip closures during a reply.
 
+## The dinner conversation
+
+Three English questions about dinner were synthesized in advance and streamed at
+normal speed. Recognition, both reaction stages, reply generation and reply
+synthesis used live APIs. The MP4 includes both voices and the wait between them.
+
+| Turn | Speaker in the MP4 | RAVORA in the MP4 | Silent gap | Partial → final |
+| --- | --- | --- | --- | --- |
+| Bread or soup? | 0.10–6.90 s | 8.90–11.69 s | 2.00 s | Neutral → thinking |
+| A loaf in the freezer | 12.57–16.54 s | 18.50–21.28 s | 1.96 s | Neutral → smile |
+| Lemon or yogurt? | 22.31–27.35 s | 28.93–32.87 s | 1.58 s | Thinking → thinking |
+
+The audible boundaries come from decoded AAC in 10 ms windows at −48 dBFS.
+The on-screen speaking indicator followed the first audible reply by 33–37 ms.
+The source captured 1,029 frames. The 30 fps export held one frame for a
+missing tick, giving 1,030 frames over 34.33 seconds. The figures describe
+these three synthetic-speaker turns. [MP4](media/ravora-thinking-conversation.mp4) ·
+[Transcripts, scores and audio measurements](../publication/thinking-conversation-timings.json).
+
+In the third turn the thinking pose first crossed a 0.05 render weight at
+23.93 s, about 3.42 s before the speaker finished. The final decision retained
+the pose. The renderer combines the closed mouth and five registered vowel
+drawings on one mesh. In the upper-face detail band it moves the neutral
+texture with the brow, preserving the definition of the forehead and hairline.
+In a renderer binding, `expressions.thinking.detailBand` holds two increasing
+source-image row coordinates, `[515, 550]` in this recording. Above the first
+row the renderer uses the warped neutral texture. By the second row it uses the
+expression drawing. Both rows must lie within the source image.
+
 ## Mouth and expression
 
 - The optional local aligner estimates phoneme times from the synthesized PCM

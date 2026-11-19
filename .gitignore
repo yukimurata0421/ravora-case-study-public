@@ -16,5 +16,6 @@ dist/
 *.vroid
 *.mp4
 !docs/media/balcony-tomato-conversation.mp4
+!docs/media/ravora-thinking-conversation.mp4
 *.webm
 .DS_Store

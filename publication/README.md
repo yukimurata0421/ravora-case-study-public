@@ -17,7 +17,7 @@ Included:
 - reference provider interfaces and a mock-only portable entrypoint;
 - a packaged browser console, synthetic fixtures, and focused tests;
 - aggregate historical observations with explicit measurement limits;
-- one rendered [public conversation demo](../README.md#watch-ravora-in-conversation) with two synthetic voices.
+- two rendered [public conversation demos](../README.md#watch-ravora-in-conversation) and per-turn timing for the dinner conversation.
 
 The reaction replay and tests cover provisional and final results, prefix
 agreement, correction, late completion, cancellation, and preservation of prior
@@ -49,6 +49,8 @@ records the initial public snapshot. The
 [reaction policy update](../docs/early-reactions.md#expression-selection) adds
 speaker-grounded classification and an explicit rule for retaining a provisional
 expression. The original artwork and recordings are excluded from the package.
+
+The [November 18 expression-policy validation](history/2026-11-18-expression-policy-validation.json) records the checks before the dinner recording was added.
 
 Run `python3 scripts/validate_public.py` to check the declared public payload.
 It validates local files and hashes; it does not contact the development workspace.

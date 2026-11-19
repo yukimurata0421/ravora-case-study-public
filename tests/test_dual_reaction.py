@@ -26,13 +26,15 @@ class ReactionAdapterTests(unittest.TestCase):
             ((.60, .71, .03), False, 'surprise', []),
             ((.59, .65, .03), False, 'surprise', []),
             ((.76, .80, .87), False, 'neutral', []),
-            ((.76, .80, .87), True, 'concerned', []),
+            ((.76, .80, .87, .30), True, 'concerned', []),
+            ((.60, .61, .10, .91), True, 'thinking', []),
+            ((.10, .20, .10, .59), True, 'neutral', []),
         ]
         for scores, dialogue, expression, alternatives in outcomes:
             with self.subTest(scores=scores, dialogue=dialogue):
                 answers = {
                     name: {'type': 'noul', 'noul': score}
-                    for name, score in zip(('joy', 'surprise', 'concern'), scores)
+                    for name, score in zip(('joy', 'surprise', 'concern', 'thinking'), scores)
                 }
                 transport = HTTP(reply={'model': 'jev-1.14.0', 'answers': answers})
                 result = JevReaction(ProviderSettings(), transport).classify('That was great.', dialogue=dialogue)
@@ -41,6 +43,20 @@ class ReactionAdapterTests(unittest.TestCase):
                 self.assertEqual(set(payload['questions']), set(answers))
                 self.assertEqual(result['reaction'], expression)
                 self.assertEqual(result['continuity_reactions'], alternatives)
+
+
+    def test_dinner_recording_scores_reproduce_both_stage_selections(self):
+        report = Path(__file__).resolve().parents[1] / 'publication' / 'thinking-conversation-timings.json'
+        for turn in json.loads(report.read_text())['turns']:
+            self.assertEqual([r['phase'] for r in turn['reactions']], ['partial', 'final'])
+            for reaction in turn['reactions']:
+                with self.subTest(turn=turn['turn'], phase=reaction['phase']):
+                    answers = {key: {'type': 'noul', 'noul': score}
+                               for key, score in reaction['scores'].items()}
+                    transport = HTTP(reply={'answers': answers})
+                    result = JevReaction(ProviderSettings(), transport).classify('Fixture', dialogue=True)
+                    self.assertEqual(result['reaction'], reaction['reaction'])
+                    self.assertEqual(len(transport.calls), 1)
 
 
 class DualReactionTests(unittest.IsolatedAsyncioTestCase):

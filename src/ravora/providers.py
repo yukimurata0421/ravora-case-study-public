@@ -147,6 +147,13 @@ class JevReaction:
             label: {'type': 'noul', 'instructions': f'{_REACTION_CONTEXT} {question}'}
             for label, question in _REACTION_QUESTIONS.items()
         }
+        if dialogue:
+            questions['thinking'] = {'type': 'noul', 'instructions': (
+                'Does the speaker actively weigh alternatives, reason through a puzzle, or invite the '
+                'listener to think through a concrete trade-off with them? Use the latest stance in the '
+                'available transcript. A routine factual question, a settled choice, or the mere use '
+                'of words like "think" or "wonder" is insufficient.'
+            )}
         payload={'model':self.s.jev_model,'state':comment,'questions':questions}
         answer=self.http.json('https://api.typesafe.ai/v1/systemone',{'Authorization':'Bearer '+self.s.jev_key},payload)
         self.usage={'response_model':answer.get('model')}
@@ -157,7 +164,7 @@ class JevReaction:
             if item.get('type')!='noul' or isinstance(value,bool) or not isinstance(value,(float,int)) or not 0<=value<=1:raise ProviderError('INVALID_JEV_REACTION')
             scores[name]=value
         label=max(scores,key=scores.get)
-        allowed = ('joy', 'surprise', 'concern') if dialogue else ('joy', 'surprise')
+        allowed = ('joy', 'surprise', 'concern', 'thinking') if dialogue else ('joy', 'surprise')
         reaction=label if scores[label]>=_REACTION_MIN_SCORE and label in allowed else 'neutral'
         if reaction == 'concern':
             reaction = 'concerned'

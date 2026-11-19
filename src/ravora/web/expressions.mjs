@@ -47,7 +47,7 @@ export function expressionPreset(name='neutral',strength=1,art=null){
 export const EXPRESSION_TIMING={onset:.7,hold:[0,.25],release:[1.6,2.6]};
 export function createExpressionMotion(duration=.28,art=null,seed=null,timing=null){
   const T=timing===false?null:{...EXPRESSION_TIMING,...(timing||{})};
-  let from=expressionPreset(),to=expressionPreset(),started=-Infinity,name='neutral',strength=1,changes=0,cueKey=null,span=duration,hold=Infinity,release=1,fromCalm=true;
+  let from=expressionPreset(),to=expressionPreset(),started=-Infinity,name='neutral',strength=1,changes=0,cueKey=null,span=duration,hold=Infinity,release=1,fromCalm=true,sustained=false;
   const pick=(range,k)=>Array.isArray(range)?range[0]+(range[1]-range[0])*(seed===null?.5:hash(k)):range;
   const hash=n=>{let x=Math.imul((n|0)^Math.imul((seed|0)||1,0x9E3779B1),0x27d4eb2d);x^=x>>>15;x=Math.imul(x,0x85ebca6b);x^=x>>>13;return(x>>>0)/4294967296;};
   const noise=t=>{const i=Math.floor(t),f=t-i,u=f*f*(3-2*f);return(hash(i+7919)*(1-u)+hash(i+7920)*u)*2-1;};
@@ -60,31 +60,31 @@ export function createExpressionMotion(duration=.28,art=null,seed=null,timing=nu
   const value=time=>{
     const t=Math.max(0,Math.min(1,(time-started)/span));const drift=seed===null?1:1+.06*noise(time*.3);
     // Release: after the hold the whole expression eases back to the calm face.
-    const r=T&&name!=='neutral'?1-ease((time-started-span-hold)/release):1;
+    const r=T&&!sustained&&name!=='neutral'?1-ease((time-started-span-hold)/release):1;
     return Object.fromEntries(Object.keys(to).map(k=>{
       const u=fromCalm?ease(t):!k.startsWith('art_')||to[k]===from[k]?ease(t):to[k]>from[k]?ease((t-.4)/.6):ease(t/.6);
       let v=from[k]+(to[k]-from[k])*u;
       v=neutral[k]+(v-neutral[k])*r;
       return[k,k==='restWidth'?v:k.startsWith('art_')?Math.min(1,v*drift):v*drift];}));};
   return{
-    // cue: optional key; when it changes, the same expression is raised again (e.g. per utterance).
-    sample(time,nextName='neutral',nextStrength=1,cue=null){
+    // A new cue raises the expression again. A sustained selection holds it until changed.
+    sample(time,nextName='neutral',nextStrength=1,cue=null,sustain=false){
       if(!(nextName in EXPRESSION_PRESETS))nextName='neutral';
       nextStrength=Number.isFinite(nextStrength)?Math.max(0,Math.min(1,nextStrength)):0;
-      if(nextName!==name||nextStrength!==strength||(cue!==null&&cue!==cueKey&&nextName!=='neutral')){
+      if(nextName!==name||nextStrength!==strength||sustain!==sustained||(cue!==null&&cue!==cueKey&&nextName!=='neutral')){
         from=value(time);changes++;
         fromCalm=deviation(from)<.08;
         hold=T?pick(T.hold,changes+5000):Infinity;release=T?pick(T.release,changes+9000):1;
         span=T&&fromCalm&&nextName!=='neutral'?T.onset:T&&nextName==='neutral'?Math.max(duration,release*.6):duration;
         const vary=seed===null||nextName==='neutral'?1:.82+.3*hash(changes);
-        to=expressionPreset(nextName,Math.min(1,nextStrength*vary),art);started=time;name=nextName;strength=nextStrength;
+        to=expressionPreset(nextName,Math.min(1,nextStrength*vary),art);started=time;name=nextName;strength=nextStrength;sustained=sustain;
       }
       cueKey=cue;
       return value(time);
     },
     // Still changing (rising, changing or relaxing); false once settled.
-    isMoving:time=>time<started+span+(T&&name!=='neutral'?hold+release:0),
-    reset(){from=expressionPreset();to=expressionPreset();started=-Infinity;name='neutral';strength=1;changes=0;cueKey=null;span=duration;hold=Infinity;release=1;fromCalm=true;}
+    isMoving:time=>time<started+span+(T&&!sustained&&name!=='neutral'?hold+release:0),
+    reset(){from=expressionPreset();to=expressionPreset();started=-Infinity;name='neutral';strength=1;changes=0;cueKey=null;span=duration;hold=Infinity;release=1;fromCalm=true;sustained=false;}
   };
 }
 export function composeExpression(lip,expression,speechActive=false,manualMouth=false,restWeight=1){

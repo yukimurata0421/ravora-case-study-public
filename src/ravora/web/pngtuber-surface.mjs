@@ -1,6 +1,8 @@
 // One native-resolution surface shared by the preview and the portable demo.
-// Mesh vertices move linearly between registered landmarks. Both source textures
-// are warped to that same geometry before blending: no scaled transparent patch.
+// Mesh vertices move linearly between registered landmarks. The source textures
+// are warped to that shared geometry before blending.
+const VOWELS=['A','I','U','E','O'];
+
 export function createPngtuberSurface(images,asset){
   const base=images.idle,canvas=document.createElement('canvas');
   canvas.width=base.width;canvas.height=base.height;
@@ -14,6 +16,13 @@ export function createPngtuberSurface(images,asset){
       // Artwork changes within a fraction of one native-pixel opening. Beyond
       // the lip use the base cheek, feathered well outside the vermilion.
       float skin = 1. - smoothstep(.66, 1.10, max(offset.x, offset.y));
+      // Feather the displaced skin below the lower lip along the source face.
+      // The feather travels with the mouth and keeps the fixed chin contour continuous.
+      if (mouthPaint.y > 0.) {
+        float belowLip = (uv0.y * size.y - region.y) / region.w;
+        float influence = smoothstep(0., .60, mouthPaint.x) * mouthPaint.y;
+        coverage *= mix(1., 1. - smoothstep(.35, .83, belowLip), influence);
+      }
       // Keep one tooth row as the cavity opens. Reveal more of the same
       // registered interior below the upper seam rather than blending dentures.
       if (exprMix > 0. && inside > .95) {
@@ -25,16 +34,33 @@ export function createPngtuberSurface(images,asset){
       }
       float material = smoothstep(.05, .85, amount) * donor.a * skin;
       vec3 rgb = mix(a.rgb, donor.rgb, material);
+      if (mouthPaint.x > 0. && skin > 0.) {
+        vec4 closed = sampleColor(tex2, mouthUV0.xy);
+        vec4 painted = closed;
+        if (mouthPaint.y > 0.) {
+          vec4 voiced = vec4(0.);
+          if (mouthWeights[0] > 0.) voiced += sampleColor(mouthVowels[0], mouthUV0.zw) * mouthWeights[0];
+          if (mouthWeights[1] > 0.) voiced += sampleColor(mouthVowels[1], mouthUV1.xy) * mouthWeights[1];
+          if (mouthWeights[2] > 0.) voiced += sampleColor(mouthVowels[2], mouthUV1.zw) * mouthWeights[2];
+          if (mouthWeights[3] > 0.) voiced += sampleColor(mouthVowels[3], mouthUV2.xy) * mouthWeights[3];
+          if (mouthWeights[4] > 0.) voiced += sampleColor(mouthVowels[4], mouthUV2.zw) * mouthWeights[4];
+          painted = mix(closed, voiced, mouthPaint.y);
+        }
+        rgb = mix(rgb, painted.rgb, mouthPaint.x * painted.a * skin);
+      }
       color = vec4(rgb * a.a * coverage, a.a * coverage);
       return;
     }`;
-  const vertex='#version 300 es\nprecision highp float; precision highp int; in vec2 source; in float cavityTop; out float topUV; uniform vec4 voiceCrop; in vec2 target; in vec2 target2; in vec2 shape; uniform int shapeMode; in float lipw; out float vLip; uniform float exprMix; in float cavity; in float flex; uniform vec2 size; uniform float amount; uniform float mouthWidth; uniform vec4 mood; uniform vec3 headMotion; uniform vec3 bodyMotion; uniform float browSide; uniform int kind; uniform vec4 region; uniform vec2 extent; uniform vec4 crop; uniform float outFlip; uniform float flatAmount; out vec2 uv0; out vec2 uv1; out vec2 uv2; out vec2 position; out float inside; out float vAmount; uniform sampler2D motion0; uniform sampler2D motion1; uniform sampler2D motion2; uniform sampler2D motion3; uniform vec4 poseW; uniform vec4 gazeW; vec2 dec(vec2 v){return (v*255.-128.)/4.;} void main(){float am=amount;if(kind==1){float xn=min(1.,abs(source.x-region.x)/(region.z*.5));am=flatAmount>.5?max(amount,0.):pow(max(amount,0.),1.+(1.2+max(0.,1.-mouthWidth)*7.)*xn*xn);}vAmount=am;vLip=lipw;topUV=(cavityTop-voiceCrop.y)/max(1.,voiceCrop.w);if(kind==1&&flatAmount>.5)vAmount=am*(1.-smoothstep(.45,.8,abs(source.x-region.x)/(region.z*1.6)))*(1.-smoothstep(.6,1.,abs(source.y-region.y)/(region.w*(source.y<region.y?1.:1.6))));position=shapeMode==1?mix(source,shape,am):mix(source,mix(target,target2,exprMix),am);uv2=kind==7?(target2-voiceCrop.xy)/max(voiceCrop.zw,vec2(1.)):(target2-crop.xy)/crop.zw;if(kind==1){vec2 o=abs(source-region.xy);float rows=1.-smoothstep(region.w*.5,region.w*.95,o.y);float fade=1.-smoothstep(region.z*.35,region.z*.92,o.x);position.x+=(position.x-region.x)*(mouthWidth-1.)*fade*rows*flex;float corner=pow(min(1.,o.x/(region.z*.7)),1.6)*(1.-smoothstep(region.z*.95,extent.x*.95,o.x))*rows;position.y-=mood.x*8.*corner*flex;}if(kind==2){position.y+=(position.y-region.y)*.20*mood.w*(1.-amount)*flex;position.y-=max(0.,mood.x)*4.*(1.-amount)*smoothstep(-.1,.45,(source.y-region.y)/region.w)*flex;}if(kind==3)position.y-=flex*(mood.y*12.+mood.z*12.*browSide*(source.x-region.x)/region.z);uv0=source/size;if(kind==7)position=shape;uv1=(kind==1||kind==5||kind==7||kind==8)?(target-crop.xy)/crop.zw:target/size;inside=cavity;if(kind==6){vec2 m=source/size;vec4 a=textureLod(motion0,m,0.),b=textureLod(motion1,m,0.),c=textureLod(motion2,m,0.),e=textureLod(motion3,m,0.);position=source+dec(a.rg)*poseW.x+dec(a.ba)*poseW.y+dec(b.rg)*poseW.z+dec(b.ba)*poseW.w+dec(c.rg)*gazeW.x+dec(c.ba)*gazeW.y+dec(e.rg)*gazeW.z+dec(e.ba)*gazeW.w;}vec2 p=position;vec2 neck=size*vec2(.5,.59);float headWeight=1.-smoothstep(size.y*.52,size.y*.68,p.y);float hc=cos(headMotion.x),hs=sin(headMotion.x);vec2 d=p-neck;vec2 head=vec2(hc*d.x-hs*d.y,hs*d.x+hc*d.y)+neck+headMotion.yz;p=mix(p,head,headWeight);p.y+=bodyMotion.y*(1.-smoothstep(size.y*.65,size.y,p.y));vec2 root=size*vec2(.5,.96);d=p-root;float bc=cos(bodyMotion.x),bs=sin(bodyMotion.x);p=vec2(bc*d.x-bs*d.y,bs*d.x+bc*d.y)+root;p.x+=bodyMotion.z*(1.-smoothstep(size.y*.75,size.y,p.y));gl_Position=vec4(p.x/size.x*2.-1.,(1.-p.y/size.y*2.)*outFlip,0.,1.);}';
-  const fragment='#version 300 es\nprecision highp float; precision highp int; uniform sampler2D tex0; uniform sampler2D tex1; uniform float amount; uniform int kind; uniform vec4 region; uniform vec2 extent; uniform sampler2D tex2; uniform float layer; uniform float teethHide; uniform float fullArt; uniform vec2 size; uniform vec2 gaze; uniform vec4 eyeA; uniform vec4 eyeB; uniform vec2 fade; uniform vec4 crop; uniform float blend; uniform float faceBlink; uniform vec4 eyeExt; uniform vec2 eyeHide; uniform float lipHide; uniform float flatAmount; in vec2 uv0; in vec2 uv1; in vec2 uv2; in float topUV; uniform sampler2D tex3; uniform float exprMix; in float vLip; in vec2 position; in float inside; in float vAmount; out vec4 color; vec3 linearize(vec3 c){return mix(c/12.92,pow((c+.055)/1.055,vec3(2.4)),step(vec3(.04045),c));} vec3 encode(vec3 c){return mix(c*12.92,1.055*pow(max(c,vec3(0.)),vec3(1./2.4))-.055,step(vec3(.0031308),c));} vec4 sampleColorBias(sampler2D tex,vec2 uv,float bias){vec4 c=texture(tex,uv,bias);float a=c.a;vec3 rgb=a>.0001?c.rgb/a:vec3(0.);a=a>.98?1.:a*smoothstep(.008,.06,a);return vec4(rgb,a);} vec4 sampleColor(sampler2D tex,vec2 uv){return sampleColorBias(tex,uv,0.);} void main(){if(kind==6){color=texture(tex0,uv0);return;}if(kind==8){color=mix(texture(tex0,uv1),texture(tex1,uv1),amount)*layer;return;}vec2 eyeUV=uv0;if(kind==2){vec2 q=(uv0*size-region.xy)/vec2(region.z*.65,region.w*.82);float mask=(1.-smoothstep(.52,1.,length(q)))*max(inside,0.);eyeUV-=gaze*mask/size;}float band=max(-inside,0.),cav=max(inside,0.);vec4 a=sampleColor(tex0,eyeUV);if(kind==2&&band>0.){vec4 o=sampleColor(tex2,eyeUV);a=faceBlink>.5?mix(a,o,band*smoothstep(.04,.3,amount)):mix(o,a,band*smoothstep(.04,.3,amount));}if(kind==0){color=vec4(a.rgb*a.a,a.a);return;}if(kind==4){float h=a.a*(1.-smoothstep(.55,1.,amount))*(1.-smoothstep(.78,1.,length((position-region.xy)/region.zw)));color=vec4(a.rgb*h,h);return;}if(kind==5){vec2 p=uv0*size;vec2 qa=(p-eyeA.xy)/eyeA.zw;vec2 qb=(p-eyeB.xy)/eyeB.zw;float hideA=(1.-smoothstep(.75,.98,length((p-eyeA.xy)/eyeExt.xy)))*eyeHide.x;float hideB=(1.-smoothstep(.75,.98,length((p-eyeB.xy)/eyeExt.zw)))*eyeHide.y;float iris=max(1.-smoothstep(15.,24.,length(p-eyeA.xy-vec2(2.,-4.))),1.-smoothstep(15.,24.,length(p-eyeB.xy-vec2(-1.,-4.))));vec2 dm=(p-region.xy)/(region.zw*vec2(1.65,p.y<region.y?1.67:2.9));float mz=1.-smoothstep(1.,1.3,length(dm));float zone=mix(1.,fade.x,mz);vec4 fl=texture(tex2,uv1);vec2 F=(fl.rg*255.-128.)/4.;float t=layer*zone;float c=mix(smoothstep(0.,.03,t),smoothstep(.25,.5,t),1.-fl.a);vec2 g=vec2(clamp(gaze.x,-4.5,4.5),clamp(gaze.y,-1.2,1.2)*.4)*iris;vec4 n=sampleColor(tex0,(p-t*F-g)/size);vec2 pe=p+(1.-t)*F;vec4 e=sampleColor(tex1,(pe-crop.xy)/crop.zw);vec4 ne=sampleColor(tex0,pe/size);vec3 rgb=encode(mix(linearize(n.rgb),linearize(mix(ne.rgb,e.rgb,e.a)),c));float al=mix(n.a,ne.a,c)*fl.b*zone*(1.-hideA)*(1.-hideB)*(1.-lipHide*(1.-smoothstep(1.,1.35,length((p-region.xy)/(region.zw*vec2(.85,.75))))))*step(.001,layer)*blend;color=vec4(rgb*al,al);return;}'+registeredMouthFragment+'vec4 b=sampleColor(tex1,uv1);if(kind==1&&exprMix>0.){b=mix(b,sampleColor(tex3,uv2),smoothstep(0.,.2,exprMix)*smoothstep(.8,1.,vLip));}float w=kind==1?vAmount:amount;if(kind==1){w=mix(w,smoothstep(0.,.10,vAmount),cav);w=mix(w,mix(smoothstep(0.,.15,vAmount),smoothstep(.12,.3,vAmount),1.-smoothstep(.25,.45,dot(b.rgb,vec3(.299,.587,.114)))),flatAmount);float lum=dot(b.rgb,vec3(.299,.587,.114));float teeth=smoothstep(.55,.72,lum)*(1.-smoothstep(.10,.18,b.r-b.b))*cav;b.rgb=mix(b.rgb,vec3(.17,.08,.08),teeth*teethHide*(1.-smoothstep(.3,.7,vAmount)));}if(kind==2)w=mix(smoothstep(.55,1.,amount),smoothstep(.88,1.,amount),cav);float d=length((position-region.xy)/region.zw);float mask=1.-smoothstep(.78,1.,d);if(kind==1){if(fullArt>.5){vec2 q=abs(position-region.xy)/extent;q*=q;q*=q;mask=1.-smoothstep(.86,.98,pow(q.x+q.y,.25));vec2 e=min(uv1,1.-uv1);w*=smoothstep(0.,.05,e.x)*smoothstep(0.,.05,e.y);}else{w*=mask;mask=1.-smoothstep(.80,.98,length((position-region.xy)/vec2(extent.x,region.w)));}}vec3 rgb=encode(mix(linearize(a.rgb),linearize(b.rgb),w));float alpha=mix(a.a,b.a,w)*mask*(kind==1?layer:1.);color=vec4(rgb*alpha,alpha);}';
+  const vertex='#version 300 es\nprecision highp float; precision highp int; in vec2 source; in vec4 mouthCoords0; in vec4 mouthCoords1; in vec4 mouthCoords2; out vec4 mouthUV0; out vec4 mouthUV1; out vec4 mouthUV2; in float cavityTop; out float topUV; uniform vec4 voiceCrop; in vec2 target; in vec2 target2; in vec2 shape; uniform int shapeMode; in float lipw; out float vLip; uniform float exprMix; in float cavity; in float flex; uniform vec2 size; uniform float amount; uniform float mouthWidth; uniform vec4 mood; uniform vec3 headMotion; uniform vec3 bodyMotion; uniform float browSide; uniform int kind; uniform vec4 region; uniform vec2 extent; uniform vec4 crop; uniform float outFlip; uniform float flatAmount; out vec2 uv0; out vec2 uv1; out vec2 uv2; out vec2 position; out float inside; out float vAmount; uniform sampler2D motion0; uniform sampler2D motion1; uniform sampler2D motion2; uniform sampler2D motion3; uniform vec4 poseW; uniform vec4 gazeW; vec2 dec(vec2 v){return (v*255.-128.)/4.;} void main(){float am=amount;if(kind==1){float xn=min(1.,abs(source.x-region.x)/(region.z*.5));am=flatAmount>.5?max(amount,0.):pow(max(amount,0.),1.+(1.2+max(0.,1.-mouthWidth)*7.)*xn*xn);}vAmount=am;vLip=lipw;mouthUV0=mouthCoords0;mouthUV1=mouthCoords1;mouthUV2=mouthCoords2;topUV=(cavityTop-voiceCrop.y)/max(1.,voiceCrop.w);if(kind==1&&flatAmount>.5)vAmount=am*(1.-smoothstep(.45,.8,abs(source.x-region.x)/(region.z*1.6)))*(1.-smoothstep(.6,1.,abs(source.y-region.y)/(region.w*(source.y<region.y?1.:1.6))));position=shapeMode==1?mix(source,shape,am):mix(source,mix(target,target2,exprMix),am);uv2=kind==7?(target2-voiceCrop.xy)/max(voiceCrop.zw,vec2(1.)):(target2-crop.xy)/crop.zw;if(kind==1){vec2 o=abs(source-region.xy);float rows=1.-smoothstep(region.w*.5,region.w*.95,o.y);float fade=1.-smoothstep(region.z*.35,region.z*.92,o.x);position.x+=(position.x-region.x)*(mouthWidth-1.)*fade*rows*flex;float corner=pow(min(1.,o.x/(region.z*.7)),1.6)*(1.-smoothstep(region.z*.95,extent.x*.95,o.x))*rows;position.y-=mood.x*8.*corner*flex;}if(kind==2){position.y+=(position.y-region.y)*.20*mood.w*(1.-amount)*flex;position.y-=max(0.,mood.x)*4.*(1.-amount)*smoothstep(-.1,.45,(source.y-region.y)/region.w)*flex;}if(kind==3)position.y-=flex*(mood.y*12.+mood.z*12.*browSide*(source.x-region.x)/region.z);uv0=source/size;if(kind==7)position=shape;uv1=(kind==1||kind==5||kind==7||kind==8)?(target-crop.xy)/crop.zw:target/size;inside=cavity;if(kind==6){vec2 m=source/size;vec4 a=textureLod(motion0,m,0.),b=textureLod(motion1,m,0.),c=textureLod(motion2,m,0.),e=textureLod(motion3,m,0.);position=source+dec(a.rg)*poseW.x+dec(a.ba)*poseW.y+dec(b.rg)*poseW.z+dec(b.ba)*poseW.w+dec(c.rg)*gazeW.x+dec(c.ba)*gazeW.y+dec(e.rg)*gazeW.z+dec(e.ba)*gazeW.w;}vec2 p=position;vec2 neck=size*vec2(.5,.59);float headWeight=1.-smoothstep(size.y*.52,size.y*.68,p.y);float hc=cos(headMotion.x),hs=sin(headMotion.x);vec2 d=p-neck;vec2 head=vec2(hc*d.x-hs*d.y,hs*d.x+hc*d.y)+neck+headMotion.yz;p=mix(p,head,headWeight);p.y+=bodyMotion.y*(1.-smoothstep(size.y*.65,size.y,p.y));vec2 root=size*vec2(.5,.96);d=p-root;float bc=cos(bodyMotion.x),bs=sin(bodyMotion.x);p=vec2(bc*d.x-bs*d.y,bs*d.x+bc*d.y)+root;p.x+=bodyMotion.z*(1.-smoothstep(size.y*.75,size.y,p.y));gl_Position=vec4(p.x/size.x*2.-1.,(1.-p.y/size.y*2.)*outFlip,0.,1.);}';
+  const fragment='#version 300 es\nprecision highp float; precision highp int; uniform sampler2D tex0; uniform sampler2D tex1; uniform float amount; uniform int kind; uniform vec4 region; uniform vec2 extent; uniform sampler2D tex2; uniform float layer; uniform float teethHide; uniform float fullArt; uniform vec2 size; uniform vec2 gaze; uniform vec4 eyeA; uniform vec4 eyeB; uniform vec2 fade; uniform vec4 crop; uniform float blend; uniform float faceBlink; uniform vec4 eyeExt; uniform vec2 eyeHide; uniform float lipHide; uniform vec2 detailBand; uniform float flatAmount; in vec2 uv0; in vec2 uv1; in vec2 uv2; in vec4 mouthUV0; in vec4 mouthUV1; in vec4 mouthUV2; uniform vec2 mouthPaint; uniform sampler2D mouthVowels[5]; uniform float mouthWeights[5]; in float topUV; uniform sampler2D tex3; uniform float exprMix; in float vLip; in vec2 position; in float inside; in float vAmount; out vec4 color; vec3 linearize(vec3 c){return mix(c/12.92,pow((c+.055)/1.055,vec3(2.4)),step(vec3(.04045),c));} vec3 encode(vec3 c){return mix(c*12.92,1.055*pow(max(c,vec3(0.)),vec3(1./2.4))-.055,step(vec3(.0031308),c));} vec4 sampleColorBias(sampler2D tex,vec2 uv,float bias){vec4 c=texture(tex,uv,bias);float a=c.a;vec3 rgb=a>.0001?c.rgb/a:vec3(0.);a=a>.98?1.:a*smoothstep(.008,.06,a);return vec4(rgb,a);} vec4 sampleColor(sampler2D tex,vec2 uv){return sampleColorBias(tex,uv,0.);} void main(){if(kind==6){color=texture(tex0,uv0);return;}if(kind==8){color=mix(texture(tex0,uv1),texture(tex1,uv1),amount)*layer;return;}vec2 eyeUV=uv0;if(kind==2){vec2 q=(uv0*size-region.xy)/vec2(region.z*.65,region.w*.82);float mask=(1.-smoothstep(.52,1.,length(q)))*max(inside,0.);eyeUV-=gaze*mask/size;}float band=max(-inside,0.),cav=max(inside,0.);vec4 a=sampleColor(tex0,eyeUV);if(kind==2&&band>0.){vec4 o=sampleColor(tex2,eyeUV);a=faceBlink>.5?mix(a,o,band*smoothstep(.04,.3,amount)):mix(o,a,band*smoothstep(.04,.3,amount));}if(kind==0){color=vec4(a.rgb*a.a,a.a);return;}if(kind==4){float h=a.a*(1.-smoothstep(.55,1.,amount))*(1.-smoothstep(.78,1.,length((position-region.xy)/region.zw)));color=vec4(a.rgb*h,h);return;}if(kind==5){vec2 p=uv0*size;vec2 qa=(p-eyeA.xy)/eyeA.zw;vec2 qb=(p-eyeB.xy)/eyeB.zw;float hideA=(1.-smoothstep(.75,.98,length((p-eyeA.xy)/eyeExt.xy)))*eyeHide.x;float hideB=(1.-smoothstep(.75,.98,length((p-eyeB.xy)/eyeExt.zw)))*eyeHide.y;float iris=max(1.-smoothstep(15.,24.,length(p-eyeA.xy-vec2(2.,-4.))),1.-smoothstep(15.,24.,length(p-eyeB.xy-vec2(-1.,-4.))));vec2 dm=(p-region.xy)/(region.zw*vec2(1.65,p.y<region.y?1.67:2.9));float mz=1.-smoothstep(1.,1.3,length(dm));float zone=mix(1.,fade.x,mz);vec4 fl=texture(tex2,uv1);vec2 F=(fl.rg*255.-128.)/4.;float t=layer*zone;float c=mix(smoothstep(0.,.03,t),smoothstep(.25,.5,t),1.-fl.a);vec2 g=vec2(clamp(gaze.x,-4.5,4.5),clamp(gaze.y,-1.2,1.2)*.4)*iris;vec4 n=sampleColor(tex0,(p-t*F-g)/size);vec2 pe=p+(1.-t)*F;vec4 e=sampleColor(tex1,(pe-crop.xy)/crop.zw);vec4 ne=sampleColor(tex0,pe/size);vec3 rgb=encode(mix(linearize(n.rgb),linearize(mix(ne.rgb,e.rgb,e.a)),c));if(detailBand.y>detailBand.x)rgb=mix(rgb,n.rgb,1.-smoothstep(detailBand.x,detailBand.y,p.y));float al=mix(n.a,ne.a,c)*fl.b*zone*(1.-hideA)*(1.-hideB)*(1.-lipHide*(1.-smoothstep(1.,1.35,length((p-region.xy)/(region.zw*vec2(.85,.75))))))*step(.001,layer)*blend;color=vec4(rgb*al,al);return;}'+registeredMouthFragment+'vec4 b=sampleColor(tex1,uv1);if(kind==1&&exprMix>0.){b=mix(b,sampleColor(tex3,uv2),smoothstep(0.,.2,exprMix)*smoothstep(.8,1.,vLip));}float w=kind==1?vAmount:amount;if(kind==1){w=mix(w,smoothstep(0.,.10,vAmount),cav);w=mix(w,mix(smoothstep(0.,.15,vAmount),smoothstep(.12,.3,vAmount),1.-smoothstep(.25,.45,dot(b.rgb,vec3(.299,.587,.114)))),flatAmount);float lum=dot(b.rgb,vec3(.299,.587,.114));float teeth=smoothstep(.55,.72,lum)*(1.-smoothstep(.10,.18,b.r-b.b))*cav;b.rgb=mix(b.rgb,vec3(.17,.08,.08),teeth*teethHide*(1.-smoothstep(.3,.7,vAmount)));}if(kind==2)w=mix(smoothstep(.55,1.,amount),smoothstep(.88,1.,amount),cav);float d=length((position-region.xy)/region.zw);float mask=1.-smoothstep(.78,1.,d);if(kind==1){if(fullArt>.5){vec2 q=abs(position-region.xy)/extent;q*=q;q*=q;mask=1.-smoothstep(.86,.98,pow(q.x+q.y,.25));vec2 e=min(uv1,1.-uv1);w*=smoothstep(0.,.05,e.x)*smoothstep(0.,.05,e.y);}else{w*=mask;mask=1.-smoothstep(.80,.98,length((position-region.xy)/vec2(extent.x,region.w)));}}vec3 rgb=encode(mix(linearize(a.rgb),linearize(b.rgb),w));float alpha=mix(a.a,b.a,w)*mask*(kind==1?layer:1.);color=vec4(rgb*alpha,alpha);}';
   function shader(type,code){const s=gl.createShader(type);gl.shaderSource(s,code);gl.compileShader(s);if(!gl.getShaderParameter(s,gl.COMPILE_STATUS))throw Error(gl.getShaderInfoLog(s));return s;}
   const program=gl.createProgram(),vs=shader(gl.VERTEX_SHADER,vertex),fs=shader(gl.FRAGMENT_SHADER,fragment);
   gl.attachShader(program,vs);gl.attachShader(program,fs);gl.linkProgram(program);if(!gl.getProgramParameter(program,gl.LINK_STATUS))throw Error(gl.getProgramInfoLog(program));gl.deleteShader(vs);gl.deleteShader(fs);gl.useProgram(program);
-  const uniforms=Object.fromEntries(['voiceCrop','size','amount','mouthWidth','mood','headMotion','bodyMotion','gaze','browSide','kind','region','extent','tex0','tex1','tex2','crop','layer','teethHide','fullArt','eyeA','eyeB','fade','blend','outFlip','faceBlink','eyeExt','eyeHide','lipHide','flatAmount','motion0','motion1','motion2','motion3','poseW','gazeW','tex3','exprMix','shapeMode'].map(k=>[k,gl.getUniformLocation(program,k)]));
+  const uniforms=Object.fromEntries(['voiceCrop','size','amount','mouthWidth','mood','headMotion','bodyMotion','gaze','browSide','kind','region','extent','tex0','tex1','tex2','crop','layer','teethHide','fullArt','eyeA','eyeB','fade','blend','outFlip','faceBlink','eyeExt','eyeHide','lipHide','detailBand','flatAmount','motion0','motion1','motion2','motion3','poseW','gazeW','tex3','exprMix','shapeMode'].map(k=>[k,gl.getUniformLocation(program,k)]));
   const topAttribute=gl.getAttribLocation(program,'cavityTop');
+  const mouthUVAttributes=['mouthCoords0','mouthCoords1','mouthCoords2'].map(name=>gl.getAttribLocation(program,name));
+  const mouthPaintUniform=gl.getUniformLocation(program,'mouthPaint');
+  const mouthWeightsUniform=gl.getUniformLocation(program,'mouthWeights[0]');
   const textures={};
   gl.pixelStorei(gl.UNPACK_PREMULTIPLY_ALPHA_WEBGL,true);
   gl.pixelStorei(gl.UNPACK_COLORSPACE_CONVERSION_WEBGL,gl.NONE);
@@ -66,6 +92,13 @@ export function createPngtuberSurface(images,asset){
     gl.texImage2D(gl.TEXTURE_2D,0,gl.RGBA,gl.RGBA,gl.UNSIGNED_BYTE,sources[key]||base);gl.generateMipmap(gl.TEXTURE_2D);
     gl.pixelStorei(gl.UNPACK_PREMULTIPLY_ALPHA_WEBGL,true);
   }
+  const mouthUnits=Int32Array.from(VOWELS,(_,i)=>8+i);
+  gl.uniform1iv(gl.getUniformLocation(program,'mouthVowels[0]'),mouthUnits);
+  VOWELS.forEach((v,i)=>{
+    gl.activeTexture(gl.TEXTURE0+mouthUnits[i]);
+    gl.bindTexture(gl.TEXTURE_2D,textures['exprvowel_thinking_'+v]||textures.idle);
+  });
+  gl.activeTexture(gl.TEXTURE0);
   function mesh(source,target,columns,rows,inner=[],cavity=null,target2=null,lip=null){
     const N=11;
     const t2=target2||target;
@@ -166,15 +199,59 @@ export function createPngtuberSurface(images,asset){
   const donor=vowelFeatures.A || Object.values(vowelFeatures)[0];
   const compatible=f=>f && f.rows===donor.rows && f.columns===donor.columns;
   const registered=donor && donor.interior_rows?.join()==='2,3' && Object.values(vowelFeatures).every(compatible);
+  // The authored thinking set has a measured closed mouth and matching crops for all vowels.
+  // Models with only the older face patch keep their existing mouth path.
+  const thinkingRest=registered && compatible(exprMouths.thinking) &&
+    VOWELS.every(v=>compatible(vowelFeatures[v])&&compatible(exprVowelFeatures.thinking?.[v])) ? exprMouths.thinking : null;
   const lipCenter=donor ? (3 * 2 * donor.columns + Math.floor(donor.columns / 2)) * 11 : 0;
+  const mouthUVStride=2*(1+VOWELS.length);
+  const thinkingUV=thinkingRest?buildThinkingUV():null;
+  const thinkingWeights=new Float32Array(VOWELS.length);
+  function buildThinkingUV() {
+    const samples=[
+      [thinkingRest,vowelArt[thinkingRest.image],2],
+      ...VOWELS.map(v=>[exprVowelFeatures.thinking[v],exprVowelArt['exprvowel_thinking_'+v],6])
+    ];
+    const count=donor.mesh.array.length/donor.mesh.N,uv=new Float32Array(count*mouthUVStride);
+    for(const [index,[feature,crop,start]] of samples.entries()) {
+      const {array,N}=feature.mesh,[x,y]=crop.offset;
+      for(let i=0;i<count;i++) {
+        const at=i*mouthUVStride+index*2;
+        uv[at]=(array[i*N+start]-x)/crop.width;
+        uv[at+1]=(array[i*N+start+1]-y)/crop.height;
+      }
+    }
+    const buffer=gl.createBuffer();
+    gl.bindBuffer(gl.ARRAY_BUFFER,buffer);gl.bufferData(gl.ARRAY_BUFFER,uv,gl.STATIC_DRAW);
+    return buffer;
+  }
+  function bindThinkingMouth(mesh,{weight,amount}) {
+    if(!mesh.thinkingUVBound) {
+      gl.bindBuffer(gl.ARRAY_BUFFER,thinkingUV);
+      for(const [i,attribute] of mouthUVAttributes.entries()) {
+        gl.enableVertexAttribArray(attribute);
+        gl.vertexAttribPointer(attribute,4,gl.FLOAT,false,mouthUVStride*4,i*16);
+      }
+      mesh.thinkingUVBound=true;
+    }
+    gl.activeTexture(gl.TEXTURE2);gl.bindTexture(gl.TEXTURE_2D,textures[thinkingRest.image]);
+    gl.activeTexture(gl.TEXTURE1);
+    // Let the seam open first, then reveal the vowel material before the gap is conspicuous.
+    gl.uniform2f(mouthPaintUniform,weight,smoothstep01((amount-.006)/.084));
+    gl.uniform1fv(mouthWeightsUniform,thinkingWeights);
+  }
   // The native grid is subdivided three times. Rows 2 and 3 bound the cavity.
-  function drawRegisteredMouth(poses,art) {
+  function drawRegisteredMouth(poses,art,paint) {
     const expression=art.find(([name])=>compatible(exprVowelFeatures[name]?.[donor.image.slice(6)]));
     const name=expression?.[0], voice=name && exprVowelFeatures[name][donor.image.slice(6)];
     const {mesh}=voice||donor, data=mesh.array;
     writeMouthLandmarks(mesh,poses);
     const bottom=lipCenter+3*donor.columns*mesh.N;
-    const opening=Math.max(0,(data[bottom+10]-data[lipCenter+10])-(data[bottom+1]-data[lipCenter+1]));
+    const gap=(a,i)=>a[bottom+i]-a[lipCenter+i];
+    const closed=paint&&thinkingRest.mesh.array;
+    // The measured closed seam can be a pixel wider than neutral. Only actual opening reveals teeth.
+    const seam=closed?(gap(closed,3)-gap(closed,1))*paint.weight*(1-paint.amount):0;
+    const opening=Math.max(0,gap(data,10)-gap(data,1)-seam);
     gl.bindBuffer(gl.ARRAY_BUFFER,mesh.vertices);gl.bufferSubData(gl.ARRAY_BUFFER,0,data);
     gl.activeTexture(gl.TEXTURE0);gl.bindTexture(gl.TEXTURE_2D,textures.idle);
     gl.activeTexture(gl.TEXTURE1);gl.bindTexture(gl.TEXTURE_2D,textures[donor.image]);
@@ -191,13 +268,15 @@ export function createPngtuberSurface(images,asset){
       gl.activeTexture(gl.TEXTURE3);gl.bindTexture(gl.TEXTURE_2D,textures[key]);
       gl.uniform4fv(uniforms.voiceCrop,[...texture.offset,texture.width,texture.height]);
       gl.uniform1f(uniforms.exprMix,expression[1]);
-      const donorGap=Math.max(1,data[bottom+7]-data[lipCenter+7]);
+      const donorGap=Math.max(1,gap(data,7));
       gl.uniform1f(uniforms.flatAmount,Math.min(1,Math.max(.12,opening/donorGap)));
     }
+    if(paint)bindThinkingMouth(mesh,paint);
     gl.uniform1i(uniforms.kind,7);gl.uniform1f(uniforms.amount,opening);
     gl.uniform4fv(uniforms.crop,cropOf(donor));gl.uniform4fv(uniforms.region,donor.region);
     gl.drawElements(gl.TRIANGLES,mesh.count,gl.UNSIGNED_SHORT,0);
     gl.uniform1f(uniforms.exprMix,0);gl.uniform1f(uniforms.flatAmount,0);
+    if(paint)gl.uniform2f(mouthPaintUniform,0,0);
   }
   // The drawn vowels are fully articulated; conversational speech rarely opens that far.
   const MOUTH_REACH=Number.isFinite(asset.mouthReach)?Math.max(.3,Math.min(1,asset.mouthReach)):.7;
@@ -216,7 +295,8 @@ export function createPngtuberSurface(images,asset){
   const expressionPatches=Object.fromEntries(Object.entries(expressionArt).map(([key,item])=>{
     const [ox,oy]=item.offset,w=item.width,h=item.height,points=[];
     for(let r=0;r<9;r++)for(let c=0;c<9;c++)points.push(ox+w*c/8,oy+h*r/8);
-    return[key.slice(5),{...mesh(points,points,9,9),crop:[ox,oy,w,h]}];
+    // detailBand: above it the expression only moves the sharp neutral texture (see pngtuber.py).
+    return[key.slice(5),{...mesh(points,points,9,9),crop:[ox,oy,w,h],detail:Array.isArray(item.detailBand)?item.detailBand:[0,0]}];
   }));
   // How far the idle glance turns the eyes, as a fraction of the gaze keyframe.
   const IDLE_GLANCE_REACH=.8;
@@ -266,7 +346,7 @@ export function createPngtuberSurface(images,asset){
       gl.uniform2f(uniforms.eyeHide,offscreen&&name==='wink'?1:hideA,hideB);gl.uniform1f(uniforms.lipHide,registered||exprMouths[name]?1:0);
       gl.activeTexture(gl.TEXTURE2);gl.bindTexture(gl.TEXTURE_2D,textures['exprflow_'+name]);
       gl.activeTexture(gl.TEXTURE1);gl.bindTexture(gl.TEXTURE_2D,textures['expr_'+name]);
-      gl.uniform1f(uniforms.layer,w);gl.uniform4fv(uniforms.crop,m.crop);
+      gl.uniform1f(uniforms.layer,w);gl.uniform4fv(uniforms.crop,m.crop);gl.uniform2fv(uniforms.detailBand,m.detail);
       gl.bindVertexArray(m.vao);gl.drawElements(gl.TRIANGLES,m.count,gl.UNSIGNED_SHORT,0);
     }
     gl.uniform1f(uniforms.layer,1);gl.uniform1f(uniforms.blend,1);gl.uniform1f(uniforms.lipHide,0);
@@ -282,6 +362,8 @@ export function createPngtuberSurface(images,asset){
     const gx=safe(combine(movement.gazeX,expression.gazeX),6),gy=safe(combine(movement.gazeY,expression.gazeY),3);
     const art=Object.entries(expression).filter(([k,w])=>k.startsWith('art_')&&w>.003&&expressionPatches[k.slice(4)]).map(([k,w])=>[k.slice(4),Math.min(1,w)]).sort((a,b)=>b[1]-a[1]).slice(0,2);
     const mouthArt=Number.isFinite(expression.mouthArt)?Math.max(0,Math.min(1,expression.mouthArt)):1;
+    const thinkingWeight=thinkingRest ? (art.find(([name])=>name==='thinking')?.[1]||0) : 0;
+    const legacyArt=thinkingWeight>0 ? art.filter(([name])=>name!=='thinking') : art;
     // Wink: the first eye closes on the lid rig (see expressions.js); the drawn eye steps aside.
     const wink=Math.max(0,Math.min(1,(Number.isFinite(expression.winkA)?expression.winkA:0)*1.6));
     const eyeBlink=[Math.max(blink,wink),blink];
@@ -307,13 +389,16 @@ export function createPngtuberSurface(images,asset){
     if(browRaise!==0||browTilt!==0)for(const b of brows){
       gl.uniform1i(uniforms.kind,3);gl.uniform1f(uniforms.amount,0);gl.uniform1f(uniforms.browSide,b.side);gl.uniform4fv(uniforms.region,b.region);gl.bindVertexArray(b.mesh.vao);gl.drawElements(gl.TRIANGLES,b.mesh.count,gl.UNSIGNED_SHORT,0);
     }
-    // Mouth layers: with vowel artwork, the two strongest vowels are morphed from the closed mouth
-    // towards their own image and cross-faded; the artwork already has the lip shape, so the
-    // procedural width squeeze is not applied. Without it, the single talking image is used.
-    let mouthLayers=[], registeredPoses=[];
+    // The registered mesh follows every active vowel. The older layered draw uses its two strongest
+    // crops. With no vowel artwork, the single talking image supplies the mouth.
+    let mouthLayers=[], registeredPoses=[], mouthPaint=null;
 
     if(hasVowels){
-      const weights=Object.entries(vowels&&typeof vowels==='object'&&Object.keys(vowels).some(k=>vowelFeatures[k])?vowels:vowelsFor(mouthWidth)).filter(([v,w])=>v!=='amount'&&vowelFeatures[v]&&w>.03).sort((a,b)=>b[1]-a[1]).slice(0,2);
+      const input=vowels&&typeof vowels==='object'&&Object.keys(vowels).some(k=>vowelFeatures[k])?vowels:vowelsFor(mouthWidth);
+      const active=Object.entries(input)
+        .filter(([v,w])=>VOWELS.includes(v)&&vowelFeatures[v]&&Number.isFinite(w)&&w>(registered?0:.03))
+        .sort((a,b)=>b[1]-a[1]);
+      const weights=registered?active:active.slice(0,2);
       if(!weights.length)weights.push([Object.keys(vowelFeatures)[0],1]);
       const total=weights.reduce((sum,[,w])=>sum+w,0),aperture=weights.reduce((sum,[v,w])=>sum+w*(MOUTH_SHAPES[v]?.aperture||1),0)/total;
       // A planned mouth (known reply text) gives the opening directly as a fraction of the drawn vowel.
@@ -321,25 +406,39 @@ export function createPngtuberSurface(images,asset){
       const amount=planned!==null?planned:Math.min(1,open/Math.max(.25,aperture))*MOUTH_REACH;
       // While an expression with its own vowel mouths is showing, each vowel mesh morphs towards that
       // expression's vowel (shape and colour) by the expression weight.
-      const lead=art.find(([n])=>exprVowelFeatures[n]),mixTo=lead?Math.min(1,lead[1]):0;
-      mouthLayers=weights.map(([v,w],i)=>{const ev=lead&&exprVowelFeatures[lead[0]][v];return{f:ev||vowelFeatures[v],amount,layer:i===0?1:w/total,share:w/total,width:1,teeth:0,exprMix:ev?mixTo:0,exprTex:ev?textures[`exprvowel_${lead[0]}_${v}`]:null};});
+      const lead=legacyArt.find(([n])=>exprVowelFeatures[n]),mixTo=lead?Math.min(1,lead[1]):0;
+      mouthLayers=weights.map(([v,w],i)=>{const ev=lead&&exprVowelFeatures[lead[0]][v];return{vowel:v,f:ev||vowelFeatures[v],amount,layer:i===0?1:w/total,share:w/total,width:1,teeth:0,exprMix:ev?mixTo:0,exprTex:ev?textures[`exprvowel_${lead[0]}_${v}`]:null};});
     }else{const f=features.find(x=>x.kind==='mouth');if(f)mouthLayers=[{f,amount:open,layer:1,width:mouthWidth,teeth:1}];}
     if(registered) {
       const rest=Math.max(0,Math.min(1,expression.restPose ?? mouthArt));
-      for(const [name,weight] of art) {
+      const legacyWeight=1-thinkingWeight;
+      for(const [name,weight] of legacyArt) {
         const f=exprMouths[name];
-        if(compatible(f) && rest>0) registeredPoses.push({mesh:f.mesh,weight:rest*weight,express:0});
+        if(compatible(f) && rest>0) registeredPoses.push({mesh:f.mesh,weight:rest*weight*legacyWeight,express:0});
       }
       // A missing resting mouth can still use the procedural resting aperture.
-      const hasRestRig=art.some(([name])=>compatible(exprMouths[name]));
+      const hasRestRig=legacyArt.some(([name])=>compatible(exprMouths[name]));
       // A smiling speaker keeps the smile when the lips meet: the expression's corner position, width
       // and lift (its vowel shape with the opening closed) follow the expression weight, and only the
       // opening follows the voice. Before, the corners jumped between the neutral closed mouth and the
       // wide expression mouth at every syllable.
       for(const m of mouthLayers) {
         const speech=m.share*(hasRestRig ? 1-rest : 1),closed=m.exprMix>0&&m.f.closedSmile?m.share*m.exprMix*(1-m.amount)*(1-mouthArt):0;
-        if(closed>0) registeredPoses.push({disp:m.f.closedSmile,weight:closed});
-        if(m.amount*speech>0) registeredPoses.push({mesh:m.f.mesh,weight:m.amount*speech,express:m.exprMix});
+        if(closed>0) registeredPoses.push({disp:m.f.closedSmile,weight:closed*legacyWeight});
+        if(m.amount*speech>0) registeredPoses.push({mesh:m.f.mesh,weight:m.amount*speech*legacyWeight,express:m.exprMix});
+      }
+      if(thinkingWeight>0) {
+        const amount=mouthLayers[0].amount*(1-rest);
+        // Hold the actual closed contour across consonants and pauses. Interpolate between that
+        // mesh and the current vowels. Their textures follow the same projected landmarks.
+        registeredPoses.push({mesh:thinkingRest.mesh,weight:thinkingWeight*(1-amount),express:0});
+        thinkingWeights.fill(0);
+        for(const m of mouthLayers) {
+          thinkingWeights[VOWELS.indexOf(m.vowel)]=m.share;
+          registeredPoses.push({mesh:exprVowelFeatures.thinking[m.vowel].mesh,
+            weight:thinkingWeight*amount*m.share,express:1});
+        }
+        mouthPaint={weight:thinkingWeight,amount};
       }
     }
     if(!registered && (open>0||smile!==0))for(const m of mouthLayers){const f=m.f;
@@ -372,7 +471,7 @@ export function createPngtuberSurface(images,asset){
     // While blinking the eye zone is left to the lid rig, which already closes the expression face.
     gl.uniform2f(uniforms.gaze,0,0);gl.uniform1f(uniforms.faceBlink,0);
     if(art.length)drawArt(art,textures.idle,registered?1:mouthArt,blinkFace?1:0,blinkFace&&blink>0?1:0);
-    if(registered && (registeredPoses.length || art.length))drawRegisteredMouth(registeredPoses,art);
+    if(registered && (registeredPoses.length || art.length))drawRegisteredMouth(registeredPoses,legacyArt,mouthPaint);
     if(openMouths.length){
       const total=art.reduce((sum,[,w])=>sum+w,0);
       // The crop is colour-matched cheeks included, so the whole mesh moves to it at one rate (corner shadows
@@ -409,7 +508,7 @@ export function createPngtuberSurface(images,asset){
     needsMipmaps=canvas.width<base.width*.7;
     gl.activeTexture(gl.TEXTURE0);gl.bindTexture(gl.TEXTURE_2D,composeTexture);
     gl.texParameteri(gl.TEXTURE_2D,gl.TEXTURE_MIN_FILTER,needsMipmaps?gl.LINEAR_MIPMAP_LINEAR:gl.LINEAR);
-  },readPixels(){const pixels=new Uint8Array(canvas.width*canvas.height*4);gl.readPixels(0,0,canvas.width,canvas.height,gl.RGBA,gl.UNSIGNED_BYTE,pixels);return pixels;},snapshot:()=>({mode:'registered-linear-mesh',source_size:[base.width,base.height],surface_size:[canvas.width,canvas.height],gpu,draws,features:features.length,texture_filter:'linear-mipmap-linear',color_blending:'linear-light-premultiplied',mouth_width_range:[.55,1.15],mouth_mesh:'margin45-subdivided3-radial-falloff',mouth_material:registered?'single-registered-donor':'legacy',idle_glance:'gaze-field',mouth_artwork:hasVowels?'per-vowel:'+Object.keys(vowelFeatures).join(''):'single-talking',mouth_reach:MOUTH_REACH,expression_layer:'mouth-corners-eyelids-brows',eyebrow_patches:brows.length,hair_layer_pixels:hairSplit.pixels,body_mesh:[35,43],gaze_limit_pixels:[6,3],head_motion:'neck-weighted-2d',torso_motion:'root-weighted-2d'}),dispose(){for(const group of Object.values(exprVowelFeatures))for(const f of Object.values(group))if(f.mesh.cavityAnchors)gl.deleteBuffer(f.mesh.cavityAnchors);for(const m of [background,...features.map(f=>f.mesh),...brows.map(b=>b.mesh),...hairBoxes]){gl.deleteBuffer(m.vertices);gl.deleteBuffer(m.elements);gl.deleteVertexArray(m.vao);}for(const t of Object.values(textures))gl.deleteTexture(t);gl.deleteProgram(program);gl.getExtension('WEBGL_lose_context')?.loseContext();}};
+  },readPixels(){const pixels=new Uint8Array(canvas.width*canvas.height*4);gl.readPixels(0,0,canvas.width,canvas.height,gl.RGBA,gl.UNSIGNED_BYTE,pixels);return pixels;},snapshot:()=>({mode:'registered-linear-mesh',source_size:[base.width,base.height],surface_size:[canvas.width,canvas.height],gpu,draws,features:features.length,texture_filter:'linear-mipmap-linear',color_blending:'linear-light-premultiplied',mouth_width_range:[.55,1.15],mouth_mesh:'margin45-subdivided3-radial-falloff',mouth_material:thinkingRest?'registered-thinking-vowels':registered?'single-registered-donor':'legacy',idle_glance:'gaze-field',mouth_artwork:hasVowels?'per-vowel:'+Object.keys(vowelFeatures).join(''):'single-talking',mouth_reach:MOUTH_REACH,expression_layer:'mouth-corners-eyelids-brows',eyebrow_patches:brows.length,hair_layer_pixels:hairSplit.pixels,body_mesh:[35,43],gaze_limit_pixels:[6,3],head_motion:'neck-weighted-2d',torso_motion:'root-weighted-2d'}),dispose(){if(thinkingUV)gl.deleteBuffer(thinkingUV);for(const group of Object.values(exprVowelFeatures))for(const f of Object.values(group))if(f.mesh.cavityAnchors)gl.deleteBuffer(f.mesh.cavityAnchors);for(const m of [background,...features.map(f=>f.mesh),...brows.map(b=>b.mesh),...hairBoxes]){gl.deleteBuffer(m.vertices);gl.deleteBuffer(m.elements);gl.deleteVertexArray(m.vao);}for(const t of Object.values(textures))gl.deleteTexture(t);gl.deleteProgram(program);gl.getExtension('WEBGL_lose_context')?.loseContext();}};
 }
 
 // Accumulate displacements from each pose's own rest grid. Crops from the

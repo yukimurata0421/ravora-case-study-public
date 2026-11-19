@@ -20,6 +20,16 @@ test('A finalized smile keeps its animation and concern replaces it smoothly', (
   assert.equal(settled.art_concerned, .65);
 });
 
+test('A sustained thinking pose stays through a reply and releases on the next cue', () => {
+  const motion = createExpressionMotion(.4, new Set(['thinking']));
+  motion.sample(0, 'thinking', .65, null, true);
+  const settled = motion.sample(1, 'thinking', .65, null, true);
+  assert.equal(settled.art_thinking, .65);
+  assert.equal(motion.sample(6, 'thinking', .65, null, true).art_thinking, settled.art_thinking);
+  assert.equal(motion.sample(6, 'neutral').art_thinking, settled.art_thinking);
+  assert.equal(motion.sample(9, 'neutral').art_thinking, 0);
+});
+
 test('A phone controls shape, PCM controls opening, and closures own the lips', () => {
   const track = {
     frames: 12000, hop_frames: 240, reference_db: -23, db: Array(50).fill(-23),

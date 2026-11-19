@@ -63,6 +63,13 @@ surprise. If this differs from the model's first choice, the stored and emitted
 decisions include `jev_recommendation` and
 `reaction_selection=kept_supported_expression`.
 
+The dialogue profile also scores deliberation in the same request. Weighing
+alternatives or inviting someone to work through a trade-off can select
+`thinking`. A routine question or the word "think" alone provides insufficient
+evidence. The highest score still has to reach 0.60. In the dinner recording,
+the last question selected `thinking` at both stages, so the renderer kept the
+expression through the reply. [Video and timings](audio-timing.md#the-dinner-conversation).
+
 Historical development replay used 12 selected English utterances from human
 conversations. On the same final transcripts, the earlier questions matched the
 preassigned acceptable expressions on 11 of 12, and the updated questions on 12
