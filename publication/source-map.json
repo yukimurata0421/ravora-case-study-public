@@ -16,7 +16,7 @@
     "third-party renderer bundles",
     "host deployment and production controls"
   ],
-  "updated_at_jst": "2026-11-19T06:43:10.169747+09:00",
+  "updated_at_jst": "2026-11-19T12:11:59.526574+09:00",
   "files": [
     {
       "path": ".env.example",
@@ -47,16 +47,16 @@
     },
     {
       "path": "README.md",
-      "sha256": "63d81be0706951d7395255920a16786d3da2293fe9114ad36c6715f8fdf0f413",
+      "sha256": "7d1e78cefaeaa8cf6af60cfd2d47bb675ca580d65b4af2c930659b88d853f063",
       "kind": "generated",
       "source": "case-study",
       "note": "Portable documentation, fixture, or package validation."
     },
     {
       "path": "docs/audio-timing.md",
-      "sha256": "83f29790f0250b80dd1a6d9d03f3bbdea10aca2ba4718945089fe1418c9407cb",
-      "source": "docs/v13-sync-live-20261118.md",
-      "source_sha256": "9f2f4b662ce99b817f04ba8c6f1e7fa66190c03051e6568744e20b3dbe334fe2",
+      "sha256": "1ded33c64105e78410763600eaf1f9c5c6d5b9fe654bcff306ad4ba3fa6e850c",
+      "source": "docs/pngtuber-presence.md",
+      "source_sha256": "fe3d1bc28d5ffbcd61ed927f8527d439e903d57306671043aea28637db9527f6",
       "kind": "adapted",
       "note": "Historical capture notes plus current rendering behavior verified with the public demo."
     },
@@ -74,8 +74,22 @@
       "note": "Portable documentation, fixture, or package validation."
     },
     {
+      "path": "docs/images/balcony-tomato-eyes.png",
+      "sha256": "d699ca6c6325bded36044d012324dc54b4207a75732240ba9af770bffb22cf66",
+      "kind": "generated",
+      "source": "case-study",
+      "note": "Frame crops from the distributed balcony conversation."
+    },
+    {
+      "path": "docs/images/balcony-tomato-mouth.png",
+      "sha256": "c29bedef1965e03c0c7400ad178f4043d42258f0de0f48d3356bad023033a839",
+      "kind": "generated",
+      "source": "case-study",
+      "note": "Frame crops from the distributed balcony conversation."
+    },
+    {
       "path": "docs/images/balcony-tomato-preview.png",
-      "sha256": "1d5e7529cca1858f31ac3a419caf14c20ed670dbdc51fa2ffbc398de5ee51b3e",
+      "sha256": "925fa4f38cc54ab22449f0e5ce0d234d456657c7462ccfc15f8e14aa401bafde",
       "kind": "generated",
       "source": "case-study",
       "note": "Preview frame from the public conversation demo."
@@ -107,7 +121,7 @@
     },
     {
       "path": "docs/media/balcony-tomato-conversation.mp4",
-      "sha256": "92e9cb0a85ee243d19a57e8f55dc6c29bb11b0aa3df304668d76fadcf3032135",
+      "sha256": "f0d3b8cea091c6110b9f08ac7166eb6efc59fecf47fd26b74cb717b91fc5bf04",
       "kind": "generated",
       "source": "case-study",
       "note": "One continuous English conversation recorded for public viewing, with a synthetic partner and live replies."
@@ -361,9 +375,9 @@
     },
     {
       "path": "src/ravora/media_timing.py",
-      "sha256": "f7cc6baa37340f08131bcee4cc0cd61a8009736c2f3340a94e893ea452128391",
+      "sha256": "10bb38917685bef89b5a977f2eaff6a9b13b9bcf93bfb601d7c202863cff48a9",
       "source": "scripts/v13_capture_media.py",
-      "source_sha256": "7552c2398031c4255a3b86837d29dd465079ad1b63c31dbc4ed3e681f0f4ebdd",
+      "source_sha256": "4877a35675480da53b8e1f62432e420350b0d5a6f20f3082955052437b8450f5",
       "kind": "adapted",
       "note": "Adapted to the portable archive without host tooling or original media."
     },
@@ -551,19 +565,19 @@
     },
     {
       "path": "src/ravora/web/articulation.mjs",
-      "sha256": "7fca018ee8b764198ead1636a4718461f67b31717ae7cafa6b807c7fe603f8fa",
+      "sha256": "7d6340fc0805dca38e2047976c4c5d01ad00607b98eb7db4a39939685afa204e",
       "source": "renderer/developer/v13-articulation.js",
-      "source_sha256": "04e6d7db1d8b6a37b633214f862a103441060eadf59611f36dbb10f436c216e0",
+      "source_sha256": "b375c05eb2135a2f8161a642802cad501765a18e04b2c2c09db55ade01f64f83",
       "kind": "adapted",
       "note": "Adapted to the portable archive without host tooling or original media."
     },
     {
       "path": "src/ravora/web/audio-clock-capture.mjs",
-      "sha256": "f4a67978ce591cd03c3ada5dc2391c79c914e4ae7caee7132c435a37b697ff9c",
+      "sha256": "d939f9df79f351d5c53767270db1721ca9620e05ef8fae019020f5bc2fa8b5b9",
       "source": "renderer/developer/v13-capture.js",
-      "source_sha256": "4d09416744f790ca9820874255af2df8406524b48e6fd9736410ff6b5242b68b",
+      "source_sha256": "5f02d89d0daae6608202cea76ee4bfd85b16e2a6f940d5ffc517ab4854c28ff3",
       "kind": "adapted",
-      "note": "Adapted to the portable archive without host tooling or original media."
+      "note": "Portable encoder with deferred replay of observed draws, extracted from the capture and presentation modules."
     },
     {
       "path": "src/ravora/web/developer/fast-app.js",
@@ -633,8 +647,8 @@
       "path": "src/ravora/web/pngtuber-surface.mjs",
       "source": "renderer/pngtuber-core.js",
       "kind": "copied",
-      "sha256": "516bc88193497c428e01c8ae2da8d0088b81114bedcf7cd89cefbe84dfc1c8dd",
-      "source_sha256": "516bc88193497c428e01c8ae2da8d0088b81114bedcf7cd89cefbe84dfc1c8dd",
+      "sha256": "c02e52a8eb0d2dbcc2458d1fd113c2d3eb66a632c38f8799dd55e2cbc3a45660",
+      "source_sha256": "c02e52a8eb0d2dbcc2458d1fd113c2d3eb66a632c38f8799dd55e2cbc3a45660",
       "note": "Portable renderer or frame preparation code. Artwork is supplied separately."
     },
     {
@@ -663,7 +677,7 @@
     },
     {
       "path": "tests/check_media.mjs",
-      "sha256": "f15ee7073341e922118afa3cf584d3d21e89ef10f95083921b7cb5e4d177f345",
+      "sha256": "b246a93b69c40511e1c9a423e03bb8568a514093a849a3fb3f2eb855d9dc0993",
       "kind": "generated",
       "source": "case-study",
       "note": "Portable documentation, fixture, or package validation."
@@ -733,7 +747,7 @@
     },
     {
       "path": "tests/test_media_timing.py",
-      "sha256": "a016628f9bb5e293708903471a43c51866506ee49aa49b85ab5e1faeb7fdd787",
+      "sha256": "c5c4f2021d6bcf2d19a0710160fe80fbd93704ee8a5ac4b01df4e3a0cda5a8c0",
       "kind": "generated",
       "source": "case-study",
       "note": "Portable documentation, fixture, or package validation."

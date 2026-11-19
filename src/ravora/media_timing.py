@@ -31,6 +31,26 @@ def indexed_video_timestamps(ticks, fps):
     return f"setts=pts={timestamp}:dts={timestamp}:duration=1/({fps}*TB)"
 
 
+def reply_onset_gaps(frames, turns, origin, fps):
+    """Measure intervals overlapping each audible onset, including a frame held across it."""
+    gaps = []
+    for index, turn in enumerate(turns):
+        timing = turn.get('input_timing') or {}
+        onset = timing.get('reply_signal_context_time')
+        if onset is None:
+            continue
+        start = (onset - origin - .1) * fps
+        end = (onset - origin + 1.) * fps
+        intervals = [(b['tick'] - a['tick'], b['raf_ms'] - a['raf_ms'])
+                     for a, b in zip(frames, frames[1:])
+                     if a['tick'] < end and b['tick'] > start]
+        if not intervals or not frames[0]['tick'] <= (onset-origin)*fps <= frames[-1]['tick']:
+            raise ValueError('REPLY_ONSET_OUTSIDE_CAPTURE')
+        gaps.append({'turn': index + 1, 'max_tick_gap': max(t for t, _ in intervals),
+                     'max_raf_gap_ms': round(max(ms for _, ms in intervals), 1)})
+    return gaps
+
+
 def media_timing_replay():
     origin = 4800
     rate = 24000

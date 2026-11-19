@@ -36,7 +36,6 @@ export function createPngtuberSurface(images,asset){
   const uniforms=Object.fromEntries(['voiceCrop','size','amount','mouthWidth','mood','headMotion','bodyMotion','gaze','browSide','kind','region','extent','tex0','tex1','tex2','crop','layer','teethHide','fullArt','eyeA','eyeB','fade','blend','outFlip','faceBlink','eyeExt','eyeHide','lipHide','flatAmount','motion0','motion1','motion2','motion3','poseW','gazeW','tex3','exprMix','shapeMode'].map(k=>[k,gl.getUniformLocation(program,k)]));
   const topAttribute=gl.getAttribLocation(program,'cavityTop');
   const textures={};
-  const gazeFrames=Object.keys(asset.idleGlance||{}).map(i=>"glance_"+i);
   gl.pixelStorei(gl.UNPACK_PREMULTIPLY_ALPHA_WEBGL,true);
   gl.pixelStorei(gl.UNPACK_COLORSPACE_CONVERSION_WEBGL,gl.NONE);
   // Hair in front of the eyes must not travel with the eyelid. Lift those strands into a fixed
@@ -59,7 +58,7 @@ export function createPngtuberSurface(images,asset){
   const flowKeys=Object.keys(expressionArt).map(k=>'exprflow_'+k.slice(5));
   const motionKeys=[0,1,2,3].filter(i=>images['motion'+i]).length===4?['motion0','motion1','motion2','motion3']:[];
   for(const key of motionKeys)sources[key]=images[key];
-  for(const key of ['idle','talking','blink','clean','hair',...gazeFrames,...Object.keys(vowelArt),...Object.keys(expressionArt),...flowKeys,...motionKeys,...Object.keys(exprVowelArt)]){
+  for(const key of ['idle','talking','blink','clean','hair',...Object.keys(vowelArt),...Object.keys(expressionArt),...flowKeys,...motionKeys,...Object.keys(exprVowelArt)]){
     const tex=gl.createTexture();textures[key]=tex;gl.bindTexture(gl.TEXTURE_2D,tex);
     gl.texParameteri(gl.TEXTURE_2D,gl.TEXTURE_WRAP_S,gl.CLAMP_TO_EDGE);gl.texParameteri(gl.TEXTURE_2D,gl.TEXTURE_WRAP_T,gl.CLAMP_TO_EDGE);
     gl.texParameteri(gl.TEXTURE_2D,gl.TEXTURE_MIN_FILTER,gl.LINEAR_MIPMAP_LINEAR);gl.texParameteri(gl.TEXTURE_2D,gl.TEXTURE_MAG_FILTER,gl.LINEAR);
@@ -84,6 +83,21 @@ export function createPngtuberSurface(images,asset){
   // fixed border, so narrowing the mouth stretched a thin strip of cheek and hair. Add a fixed
   // margin around the mouth and subdivide bilinearly so width/smile deformation can fade out
   // smoothly before the patch edge. Landmark vertices keep their original positions.
+  // The expression part of an expression-vowel mouth with its opening removed: every column keeps
+  // its horizontal move and takes the vertical move of its lip seam (raw rows 2-3), fading to the
+  // fixed top and bottom rows. Used as the closed mouth of a smiling (etc.) speaker.
+  function closedSmile(f){
+    const a=f.mesh.array,N=f.mesh.N,C=f.columns,R=f.rows,factor=3,out=new Float32Array(C*R*2);
+    for(let k=0;k<C;k++){
+      const seam=r=>{const o=(r*factor*C+k)*N;return a[o+7]-a[o+1];};
+      const dy=(seam(2)+seam(3))/2;
+      for(let r=0;r<R;r++){
+        const rr=r/factor,o=(r*C+k)*N,w=rr<1?rr:rr<=4?1:Math.max(0,(R-1)/factor-rr)/((R-1)/factor-4);
+        out[(r*C+k)*2]=(a[o+6]-a[o])*w;out[(r*C+k)*2+1]=dy*w;
+      }
+    }
+    return out;
+  }
   function refine(f,margin,factor,lidSkin=0,lipFullness=null){
     let C=f.columns,R=f.rows,src=f.source.slice(),dst=f.target.slice(),dst2=(f.target2||f.target).slice();
     if(lipFullness&&R===6){
@@ -139,6 +153,14 @@ export function createPngtuberSurface(images,asset){
   const rawVowel=Object.fromEntries((asset.rig?.features||[]).filter(f=>f.kind==='mouth'&&f.image.startsWith('vowel_')&&vowelArt[f.image]).map(f=>[f.image.slice(6),f]));
   const exprVowelFeatures={};
   for(const [key,item] of Object.entries(exprVowelArt)){const [,name,v]=key.split('_');if(!rawVowel[v])continue;(exprVowelFeatures[name]||={})[v]=refine({...rawVowel[v],target2:item.target2},45,3,0,LIP_FULLNESS);}
+  // One closed mouth per expression (the mean of its vowels' closed shapes): a smiling speaker keeps
+  // one smile between syllables; how a vowel narrows or widens comes only with its opening.
+  for(const group of Object.values(exprVowelFeatures)){
+    const shapes=Object.values(group).map(closedSmile);
+    if(!shapes.length||shapes.some(s=>s.length!==shapes[0].length))continue;
+    const mean=new Float32Array(shapes[0].length);for(const s of shapes)for(let i=0;i<s.length;i++)mean[i]+=s[i]/shapes.length;
+    for(const f of Object.values(group))f.closedSmile=mean;
+  }
   const exprMouths=Object.fromEntries(features.filter(f=>f.kind==='mouth'&&f.image.startsWith('exprmouth_')).map(f=>[f.image.slice(10),f]));
   const hasVowels=Object.keys(vowelFeatures).length>0;
   const donor=vowelFeatures.A || Object.values(vowelFeatures)[0];
@@ -196,12 +218,8 @@ export function createPngtuberSurface(images,asset){
     for(let r=0;r<9;r++)for(let c=0;c<9;c++)points.push(ox+w*c/8,oy+h*r/8);
     return[key.slice(5),{...mesh(points,points,9,9),crop:[ox,oy,w,h]}];
   }));
-  let glanceQuad=null;
-  if(gazeFrames.length===9 && gazeFrames.every(key=>images[key])){
-    const {offset:[x,y],width:w,height:h}=asset.idleGlance[0];
-    const points=[x,y,x+w,y,x,y+h,x+w,y+h];
-    glanceQuad={mesh:mesh(points,points,2,2),crop:[x,y,w,h]};
-  }
+  // How far the idle glance turns the eyes, as a fraction of the gaze keyframe.
+  const IDLE_GLANCE_REACH=.8;
   const mouthZone=features.find(f=>f.kind==='mouth'&&f.image.startsWith('vowel_'))||features.find(f=>f.kind==='mouth');
   const eyeZones=eyes.length===2?eyes.map(f=>f.region):[[0,0,1,1],[0,0,1,1]];
   // While blinking the patch steps aside only inside the lid rig's own mesh, which shows the same face.
@@ -314,9 +332,14 @@ export function createPngtuberSurface(images,asset){
       }
       // A missing resting mouth can still use the procedural resting aperture.
       const hasRestRig=art.some(([name])=>compatible(exprMouths[name]));
+      // A smiling speaker keeps the smile when the lips meet: the expression's corner position, width
+      // and lift (its vowel shape with the opening closed) follow the expression weight, and only the
+      // opening follows the voice. Before, the corners jumped between the neutral closed mouth and the
+      // wide expression mouth at every syllable.
       for(const m of mouthLayers) {
-        const weight=m.amount*m.share*(hasRestRig ? 1-rest : 1);
-        if(weight>0) registeredPoses.push({mesh:m.f.mesh,weight,express:m.exprMix});
+        const speech=m.share*(hasRestRig ? 1-rest : 1),closed=m.exprMix>0&&m.f.closedSmile?m.share*m.exprMix*(1-m.amount)*(1-mouthArt):0;
+        if(closed>0) registeredPoses.push({disp:m.f.closedSmile,weight:closed});
+        if(m.amount*speech>0) registeredPoses.push({mesh:m.f.mesh,weight:m.amount*speech,express:m.exprMix});
       }
     }
     if(!registered && (open>0||smile!==0))for(const m of mouthLayers){const f=m.f;
@@ -364,23 +387,16 @@ export function createPngtuberSurface(images,asset){
       gl.uniform1f(uniforms.layer,1);gl.uniform1f(uniforms.flatAmount,0);
     }
     const idleWeight=safe(movement.idleGlance,1);
-    if(glanceQuad && idleWeight>0 && blink<.4 && wink<.4) {
-      const index=Math.min(8,idleWeight*8), lower=Math.floor(index);
-      const opacity=(1-smoothstep01(Math.max(blink,wink)/.4))*(1-(art[0]?.[1]||0));
-      gl.activeTexture(gl.TEXTURE0);gl.bindTexture(gl.TEXTURE_2D,textures[gazeFrames[lower]]);
-      gl.activeTexture(gl.TEXTURE1);gl.bindTexture(gl.TEXTURE_2D,textures[gazeFrames[Math.min(8,lower+1)]]);
-      gl.uniform1i(uniforms.kind,8);gl.uniform1f(uniforms.amount,index-lower);
-      gl.uniform1f(uniforms.layer,opacity);gl.uniform4fv(uniforms.crop,glanceQuad.crop);
-      gl.bindVertexArray(glanceQuad.mesh.vao);gl.drawElements(gl.TRIANGLES,glanceQuad.mesh.count,gl.UNSIGNED_SHORT,0);
-      gl.uniform1f(uniforms.layer,1);
-    }
+    // Idle glance: drawn with the gaze field (the measured gaze keyframe moves only the iris and lids
+    // together). The 9 generated eye frames are no longer drawn: their late frames press the iris
+    // into the eye corner and cross-fading two frames showed two irises.
     // Final pass: pose and gaze fields, then the acting head/body motion, onto the canvas.
     gl.bindFramebuffer(gl.FRAMEBUFFER,null);gl.bindTexture(gl.TEXTURE_2D,null);
     gl.activeTexture(gl.TEXTURE0);gl.bindTexture(gl.TEXTURE_2D,composeTexture);if(needsMipmaps)gl.generateMipmap(gl.TEXTURE_2D);
     [0,1,2,3].forEach(i=>{gl.activeTexture(gl.TEXTURE4+i);gl.bindTexture(gl.TEXTURE_2D,motionKeys.length?textures['motion'+i]:identityMotion);});
     const clamp1=x=>Number.isFinite(x)?Math.max(-1.2,Math.min(1.2,x)):0,tilt=clamp1(movement.poseTilt),turn=clamp1(movement.poseTurn);
     // Gaze fields come from open neutral eyes: they fade out as the lids close.
-    const eyeOpen=1-Math.max(blink,wink*.6),gxw=clamp1(gx/7-(glanceQuad?0:idleWeight))*eyeOpen,gyw=clamp1(gy/2.6)*eyeOpen;
+    const eyeOpen=1-Math.max(blink,wink*.6),gxw=clamp1(gx/7-idleWeight*IDLE_GLANCE_REACH)*eyeOpen,gyw=clamp1(gy/2.6)*eyeOpen;
     gl.uniform4f(uniforms.poseW,Math.max(0,-tilt),Math.max(0,tilt),Math.max(0,-turn),Math.max(0,turn));
     gl.uniform4f(uniforms.gazeW,Math.max(0,-gxw),Math.max(0,gxw),Math.max(0,-gyw),Math.max(0,gyw));
     gl.uniform3f(uniforms.headMotion,...headMotion);gl.uniform3f(uniforms.bodyMotion,...bodyMotion);gl.uniform1f(uniforms.outFlip,1);
@@ -393,7 +409,7 @@ export function createPngtuberSurface(images,asset){
     needsMipmaps=canvas.width<base.width*.7;
     gl.activeTexture(gl.TEXTURE0);gl.bindTexture(gl.TEXTURE_2D,composeTexture);
     gl.texParameteri(gl.TEXTURE_2D,gl.TEXTURE_MIN_FILTER,needsMipmaps?gl.LINEAR_MIPMAP_LINEAR:gl.LINEAR);
-  },readPixels(){const pixels=new Uint8Array(canvas.width*canvas.height*4);gl.readPixels(0,0,canvas.width,canvas.height,gl.RGBA,gl.UNSIGNED_BYTE,pixels);return pixels;},snapshot:()=>({mode:'registered-linear-mesh',source_size:[base.width,base.height],surface_size:[canvas.width,canvas.height],gpu,draws,features:features.length,texture_filter:'linear-mipmap-linear',color_blending:'linear-light-premultiplied',mouth_width_range:[.55,1.15],mouth_mesh:'margin45-subdivided3-radial-falloff',mouth_material:registered?'single-registered-donor':'legacy',idle_glance_frames:gazeFrames.length,mouth_artwork:hasVowels?'per-vowel:'+Object.keys(vowelFeatures).join(''):'single-talking',mouth_reach:MOUTH_REACH,expression_layer:'mouth-corners-eyelids-brows',eyebrow_patches:brows.length,hair_layer_pixels:hairSplit.pixels,body_mesh:[35,43],gaze_limit_pixels:[6,3],head_motion:'neck-weighted-2d',torso_motion:'root-weighted-2d'}),dispose(){for(const group of Object.values(exprVowelFeatures))for(const f of Object.values(group))if(f.mesh.cavityAnchors)gl.deleteBuffer(f.mesh.cavityAnchors);for(const m of [background,...(glanceQuad?[glanceQuad.mesh]:[]),...features.map(f=>f.mesh),...brows.map(b=>b.mesh),...hairBoxes]){gl.deleteBuffer(m.vertices);gl.deleteBuffer(m.elements);gl.deleteVertexArray(m.vao);}for(const t of Object.values(textures))gl.deleteTexture(t);gl.deleteProgram(program);gl.getExtension('WEBGL_lose_context')?.loseContext();}};
+  },readPixels(){const pixels=new Uint8Array(canvas.width*canvas.height*4);gl.readPixels(0,0,canvas.width,canvas.height,gl.RGBA,gl.UNSIGNED_BYTE,pixels);return pixels;},snapshot:()=>({mode:'registered-linear-mesh',source_size:[base.width,base.height],surface_size:[canvas.width,canvas.height],gpu,draws,features:features.length,texture_filter:'linear-mipmap-linear',color_blending:'linear-light-premultiplied',mouth_width_range:[.55,1.15],mouth_mesh:'margin45-subdivided3-radial-falloff',mouth_material:registered?'single-registered-donor':'legacy',idle_glance:'gaze-field',mouth_artwork:hasVowels?'per-vowel:'+Object.keys(vowelFeatures).join(''):'single-talking',mouth_reach:MOUTH_REACH,expression_layer:'mouth-corners-eyelids-brows',eyebrow_patches:brows.length,hair_layer_pixels:hairSplit.pixels,body_mesh:[35,43],gaze_limit_pixels:[6,3],head_motion:'neck-weighted-2d',torso_motion:'root-weighted-2d'}),dispose(){for(const group of Object.values(exprVowelFeatures))for(const f of Object.values(group))if(f.mesh.cavityAnchors)gl.deleteBuffer(f.mesh.cavityAnchors);for(const m of [background,...features.map(f=>f.mesh),...brows.map(b=>b.mesh),...hairBoxes]){gl.deleteBuffer(m.vertices);gl.deleteBuffer(m.elements);gl.deleteVertexArray(m.vao);}for(const t of Object.values(textures))gl.deleteTexture(t);gl.deleteProgram(program);gl.getExtension('WEBGL_lose_context')?.loseContext();}};
 }
 
 // Accumulate displacements from each pose's own rest grid. Crops from the
@@ -404,7 +420,14 @@ export function writeMouthLandmarks(mesh, poses) {
     vertices[i+9] = vertices[i];
     vertices[i+10] = vertices[i+1];
   }
-  for (const {mesh: target, weight, express} of poses) {
+  for (const {mesh: target, weight, express, disp} of poses) {
+    if (disp) {
+      for (let i = 0, k = 0; i < vertices.length; i += stride, k += 2) {
+        vertices[i+9] += weight * disp[k];
+        vertices[i+10] += weight * disp[k+1];
+      }
+      continue;
+    }
     const pose = target.array;
     for (let i = 0; i < vertices.length; i += stride) {
       vertices[i+9] += weight * (pose[i+2] - pose[i] + express * (pose[i+6] - pose[i+2]));

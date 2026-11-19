@@ -1,7 +1,7 @@
 import assert from 'node:assert/strict';
 import test from 'node:test';
 import {alignedMouth, createWordHandoff} from '../src/ravora/web/articulation.mjs';
-import {createAudioClockCapture} from '../src/ravora/web/audio-clock-capture.mjs';
+import {createAudioClockCapture, encodeObservedDraws} from '../src/ravora/web/audio-clock-capture.mjs';
 import {createExpressionMotion, createMouthHandoff} from '../src/ravora/web/expressions.mjs';
 import {createIdleGlance} from '../src/ravora/web/presence.mjs';
 import {writeMouthLandmarks} from '../src/ravora/web/pngtuber-surface.mjs';
@@ -33,7 +33,10 @@ test('A phone controls shape, PCM controls opening, and closures own the lips', 
   const quiet = alignedMouth({...track, db: Array(50).fill(-40)}, .10, 24000);
   assert.equal(good.shape, 'I');
   assert.ok(quiet.open < good.open);
-  assert.equal(alignedMouth(track, .25, 24000).open, 0);
+  // A 100 ms closure still borrows a little motion from the neighboring vowels.
+  assert.ok(alignedMouth(track, .25, 24000).open < .002);
+  const held = {...track, plan: [{shape: 'closed', amount: 0, start: 0, end: .5}]};
+  assert.equal(alignedMouth(held, .25, 24000).open, 0);
   assert.equal(alignedMouth(track, .40, 24000).shape, 'U');
   assert.equal(alignedMouth(track, .51, 24000).open, 0);
 });
@@ -80,6 +83,40 @@ test('The encoder accepts gaps on the sample clock without shifting later frames
   assert.equal(summary.bytes, 9);
   assert.equal(blob.size, 0);
   assert.deepEqual(closed, [0, 0, 33333, 100000]);
+});
+
+test('Deferred capture paints only observed draws and drains a slow encoder', async t => {
+  const canvas = {width: 1920, height: 1080};
+  const profile = {fps: 30, bitrate: 6000000, maxBytes: 100};
+  const draws = [0, 1, 3, 4, 5, 6, 8, 9].map(tick => ({tick, caption: String(tick)}));
+  const painted = [];
+  class Frame {
+    constructor(_canvas, {timestamp}) { this.timestamp = timestamp; }
+    close() {}
+  }
+  class QueuedEncoder {
+    static async isConfigSupported() { return {supported: true}; }
+    constructor({output}) { this.output = output; this.queue = []; }
+    get encodeQueueSize() { return this.queue.length; }
+    configure() {}
+    encode(frame) { this.queue.push(frame.timestamp); }
+    async flush() {
+      for (const timestamp of this.queue.splice(0)) {
+        this.output({timestamp, byteLength: 1, copyTo(data) { data[0] = 1; }});
+      }
+    }
+    close() {}
+  }
+  const previousFrame = globalThis.VideoFrame, previousEncoder = globalThis.VideoEncoder;
+  t.after(() => { globalThis.VideoFrame = previousFrame; globalThis.VideoEncoder = previousEncoder; });
+  globalThis.VideoFrame = Frame;
+  globalThis.VideoEncoder = QueuedEncoder;
+  const {blob, summary} = await encodeObservedDraws(canvas, profile, draws, draw => painted.push(draw.caption));
+  assert.deepEqual(painted, draws.map(draw => draw.caption));
+  assert.deepEqual(summary.ticks, draws.map(draw => draw.tick));
+  assert.equal(summary.queue_drops, 0);
+  assert.equal(blob.size, draws.length);
+  await assert.rejects(encodeObservedDraws(canvas, profile, [draws[0], draws[0]], () => {}), /INVALID_VIDEO_FRAME_INDEX/);
 });
 
 test('Buffering preserves the listening pose; playback owns one continuous handoff', () => {

@@ -35,6 +35,9 @@ export async function createAudioClockCapture(canvas, profile, onError, write) {
   encoder.configure(config);
 
   return {
+    async ready() {
+      if (encoder.encodeQueueSize >= 4) await encoder.flush();
+    },
     draw(tick) {
       queueHighWater = Math.max(queueHighWater, encoder.encodeQueueSize);
       if (encoder.encodeQueueSize >= 6) {
@@ -65,12 +68,45 @@ export async function createAudioClockCapture(canvas, profile, onError, write) {
       armed = true;
     },
     async finish() {
-      await encoder.flush();
-      encoder.close();
+      try {
+        await encoder.flush();
+      } finally {
+        if (encoder.state !== 'closed') encoder.close();
+      }
       return {
         blob: new Blob(packets, {type: 'video/h264'}),
         summary: {ticks, bytes, queue_high_water: queueHighWater, queue_drops: queueDrops, codec: config.codec},
       };
     },
   };
+}
+
+// Supply the same paint function used during playback and the saved state of
+// each live draw. The PCM tick can skip when the browser misses a frame.
+export async function encodeObservedDraws(canvas, profile, observed, paint) {
+  if (!observed.length) throw Error('NO_OBSERVED_DRAWS');
+  let failure;
+  const capture = await createAudioClockCapture(canvas, profile, error => { failure = error; });
+  let previous = -1;
+  let encoded;
+  try {
+    for (const draw of observed) {
+      if (!Number.isSafeInteger(draw.tick) || draw.tick <= previous) {
+        throw Error('INVALID_VIDEO_FRAME_INDEX');
+      }
+      await capture.ready();
+      if (failure) throw failure;
+      paint(draw);
+      capture.draw(draw.tick);
+      previous = draw.tick;
+    }
+  } finally {
+    encoded = await capture.finish();
+  }
+  if (failure) throw failure;
+  const ticks = encoded.summary.ticks;
+  if (ticks.length !== observed.length || ticks.some((tick, i) => tick !== observed[i].tick)) {
+    throw Error('ENCODED_TICKS_DIFFER_FROM_LIVE');
+  }
+  return encoded;
 }
