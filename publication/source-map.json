@@ -16,7 +16,7 @@
     "third-party renderer bundles",
     "host deployment and production controls"
   ],
-  "updated_at_jst": "2026-11-19T20:51:51+09:00",
+  "updated_at_jst": "2026-11-20T08:11:35+09:00",
   "files": [
     {
       "path": ".env.example",
@@ -34,7 +34,7 @@
     },
     {
       "path": ".gitignore",
-      "sha256": "97b0b09020ffc26981382572879f6ba899abab4d14eeaba8f9f2e73352af788b",
+      "sha256": "bc74bd19dcee0fc25dc341583cdb176de8b55596c3544d37a5da72c2cdde8066",
       "kind": "generated",
       "note": "Case-study documentation, replay, packaging, or local validation support."
     },
@@ -47,14 +47,14 @@
     },
     {
       "path": "README.md",
-      "sha256": "94058f154f1e233b0f5f265226d5636bae88b862df8476645d91b6a813568e80",
+      "sha256": "f3c8f83a4f073e3df9f40676b1a1fc4989bd1e35a50c17cdce83e3de4fe0a03f",
       "kind": "generated",
       "source": "case-study",
       "note": "Portable documentation, fixture, or package validation."
     },
     {
       "path": "docs/audio-timing.md",
-      "sha256": "54fe87a3a284a0c0c4081bc73bdf346bc0ae9f28c9945085dce095ec93e95fc4",
+      "sha256": "f5a4bc3009a2ea73e2c64e9fe076a5625678bf111c65f8f861eddccbfc757901",
       "source": "case-study",
       "kind": "generated",
       "note": "Per-turn observations from the public recordings and their rendering contracts."
@@ -94,6 +94,13 @@
       "note": "Preview frame from the public conversation demo."
     },
     {
+      "path": "docs/images/concept02-default-motion.png",
+      "source": "case-study",
+      "kind": "generated",
+      "note": "Preview frame from the default-motion recording at 17.9 seconds.",
+      "sha256": "bf31355128651fb5fed23cd4ec89434c72db9679d2ab857072753430ab1beb27"
+    },
+    {
       "path": "docs/images/console.png",
       "sha256": "8d2c54631a999c2ecf6e7e97b2d28b110be437635d00967e68fb7dc8f7b1e41e",
       "kind": "generated",
@@ -124,6 +131,22 @@
       "kind": "generated",
       "source": "case-study",
       "note": "One continuous English conversation recorded for public viewing, with a synthetic partner and live replies."
+    },
+    {
+      "path": "docs/media/concept02-default-motion.mp4",
+      "source": "demos/concept02-thinking-live-20261119-hybrid/ravora-thinking-conversation-compat.mp4",
+      "kind": "copied",
+      "note": "Rendered public recording of three synthetic-speaker turns with the default motion.",
+      "source_sha256": "71e84fa90733a0f1c0641dad9307515d4209f39f7ddb6d6230274c2008832bfc",
+      "sha256": "71e84fa90733a0f1c0641dad9307515d4209f39f7ddb6d6230274c2008832bfc"
+    },
+    {
+      "path": "docs/media/concept02-mouth-comparison.mp4",
+      "source": "demos/concept02-thinking-live-20261119-hybrid/20s-before-after.mp4",
+      "kind": "copied",
+      "note": "Rendered same-audio comparison of the previous and current jaw motion.",
+      "source_sha256": "a7c970acffe607c78c2414fd8baf9fa70a89a131dcddcb8c21f7f2fd0e3985e8",
+      "sha256": "a7c970acffe607c78c2414fd8baf9fa70a89a131dcddcb8c21f7f2fd0e3985e8"
     },
     {
       "path": "docs/media/ravora-thinking-conversation.mp4",
@@ -181,7 +204,7 @@
     },
     {
       "path": "publication/README.md",
-      "sha256": "9958a5f4923705ff9f40f3f6759d82162fb8edd1b23af2ad78fac6ba53873da0",
+      "sha256": "b97d31fa8b7a91609c868db57448a3400814f8fe7f56bd234934f5c9c18141d5",
       "kind": "generated",
       "source": "case-study",
       "note": "Portable documentation, fixture, or package validation."
@@ -232,6 +255,13 @@
       "note": "Exact local validation record for the initial public snapshot."
     },
     {
+      "path": "publication/history/2026-11-19-thinking-conversation-validation.json",
+      "source": "case-study",
+      "kind": "generated",
+      "note": "Preserved validation of the previous dinner recording.",
+      "sha256": "956075ee585c1cd56bf9cbf9b2e4bedfeb3d3077406867ea84eb986608028abb"
+    },
+    {
       "path": "publication/measurement-summary.json",
       "source": "demos/concept02-v13-early-expression/report.json",
       "source_sha256": "f59c0cd41ec8af9f09fd05cb5e4ebb2d1250988c5aa7dadce3c4b5fa05a764bf",
@@ -269,7 +299,7 @@
     },
     {
       "path": "scripts/validate_public.py",
-      "sha256": "3ae27b3342c8b3647773974a777a01e2e80fb0eccd80d6bf2c8d355f56a742d2",
+      "sha256": "114ec9e9bc6b4837d5815e88f90449d6d9080bbad48be4ac4179ce6374f6d1b6",
       "kind": "generated",
       "note": "Case-study documentation, replay, packaging, or local validation support."
     },
@@ -584,11 +614,11 @@
     },
     {
       "path": "src/ravora/web/articulation.mjs",
-      "sha256": "7d6340fc0805dca38e2047976c4c5d01ad00607b98eb7db4a39939685afa204e",
+      "sha256": "7a432964ef7655f0bcac31b9b77ada13f324144c19e5c14e0135acf6c7e5d78b",
       "source": "renderer/developer/v13-articulation.js",
-      "source_sha256": "b375c05eb2135a2f8161a642802cad501765a18e04b2c2c09db55ade01f64f83",
+      "source_sha256": "fbbe71d9577e986e7c49bd3dd010ddaf9050b0d10f1173eab1091aa6667a3402",
       "kind": "adapted",
-      "note": "Adapted to the portable archive without host tooling or original media."
+      "note": "Live jaw, vowel, and word handoff sampler with a package-relative module import."
     },
     {
       "path": "src/ravora/web/audio-clock-capture.mjs",
@@ -665,8 +695,9 @@
       "path": "src/ravora/web/pngtuber-surface.mjs",
       "source": "renderer/pngtuber-core.js",
       "kind": "copied",
-      "source_sha256": "fbf806ed9adae82c460a08e9c7857882a19f15eb27029f6784e6f5d71b1a96b1",
-      "sha256": "fbf806ed9adae82c460a08e9c7857882a19f15eb27029f6784e6f5d71b1a96b1"
+      "source_sha256": "23ff8e0a3e227a77e9f93d75cfa3c4c7e3035f04cee507019242404f2b4e96bd",
+      "sha256": "23ff8e0a3e227a77e9f93d75cfa3c4c7e3035f04cee507019242404f2b4e96bd",
+      "note": "Registered surface used in the recording. Artwork is supplied separately."
     },
     {
       "path": "src/ravora/web/presence.mjs",
@@ -675,6 +706,14 @@
       "sha256": "106e3fe54c110071c94b11d708c2951424c657ae2466e12cf098dcbb9a64e006",
       "source_sha256": "106e3fe54c110071c94b11d708c2951424c657ae2466e12cf098dcbb9a64e006",
       "note": "Portable renderer or frame preparation code. Artwork is supplied separately."
+    },
+    {
+      "path": "src/ravora/web/preview-mouth.mjs",
+      "source": "renderer/preview-mouth.js",
+      "kind": "adapted",
+      "note": "Prepared audio uses the live sampler with a package-relative module import.",
+      "source_sha256": "a956a42a15631ac4f5d379ad2c29942ed56ec30d9fafa0aa0eb3cced3f79ff37",
+      "sha256": "56c1be77144fa63477416196ff870ce0db168e7a1521e4e312ee37bb186c3edf"
     },
     {
       "path": "src/ravora/web/recording-tap.js",
@@ -694,7 +733,7 @@
     },
     {
       "path": "tests/check_media.mjs",
-      "sha256": "dc036e4a6c8d58b6ec610e496bf03c62af702b2f56c95d77caf2a2acc8041556",
+      "sha256": "421815bfb46bd2646a104e57857163f7f78ae39346b2eddfe745d8f45ec6ff96",
       "kind": "generated",
       "source": "case-study",
       "note": "Portable documentation, fixture, or package validation."

@@ -5,6 +5,39 @@ confirm or revise it using the full transcript. The expression follows the
 [two-stage contract](early-reactions.md). The mouth follows the synthesized audio
 and keeps lip closures during a reply.
 
+## Concept 02 default motion
+
+The live renderer, the development preview and the portable demo now sample
+the same jaw opening and vowel weights. The preview adapts a prepared phoneme
+plan and audio levels with `createPreviewMouth(plan, levels, hop, sampleRate, frames)`.
+Here `levels` are decibels, `hop` is seconds between levels, and `frames` is
+the audio sample count. The returned function samples a pose at playback time
+in seconds. [Preview adapter](../src/ravora/web/preview-mouth.mjs) ·
+[Live articulation](../src/ravora/web/articulation.mjs).
+
+A stressed vowel used to make the mouth jump open on a single frame. The jaw
+now averages samples up to 100 ms on either side of the playhead. As the lips
+approach contact it gives more weight to a narrower 50 ms window so a short
+/m/, /b/ or /p/ can still close. On the same smiling line the largest change
+in normalized opening between consecutive frames fell from 0.31 to 0.22.
+The side-by-side clip uses the same audio and artwork on both sides, with the
+earlier motion on the left. [Comparison MP4](media/concept02-mouth-comparison.mp4).
+
+The three questions in the full recording were synthesized and played at normal
+speed. Times are relative to the recording start on the browser audio clock.
+Each gap runs from the last question signal to the first reply signal.
+
+| Question | Question ends | Reply starts | Gap | Partial to final expression |
+| --- | ---: | ---: | ---: | --- |
+| Bread or soup? | 6.89 s | 8.78 s | 1.89 s | Neutral to thinking |
+| A loaf in the freezer | 15.89 s | 17.39 s | 1.50 s | Neutral to smile |
+| Lemon or yogurt? | 25.63 s | 27.27 s | 1.63 s | Thinking held |
+
+The 1080p MP4 contains 924 frames over 30.83 s (29.97 fps). The source missed
+one 30 fps tick. The encoder dropped zero queued frames. The decoded soundtrack
+matches the captured question and reply audio across all three turns.
+[Full recording](media/concept02-default-motion.mp4).
+
 ## The dinner conversation
 
 Three English questions about dinner were synthesized in advance and streamed at
@@ -45,13 +78,14 @@ expression drawing. Both rows must lie within the source image.
   On a registered rig, neighboring vowels and the current expression displace
   the same set of lip landmarks. One image supplies the outer lip contour.
   Inside the lip seam, the renderer reveals the expression's teeth and tongue
-  from the upper lip down as the jaw opens. A closed mouth samples the neutral
-  portrait. A narrow feather blends the surrounding skin.
+  from the upper lip down as the jaw opens. The registered thinking set supplies
+  its own closed lip detail. The surrounding cheek keeps the expression's skin,
+  and the mesh deforms the chin with the jaw.
 - The playout worklet reports the sample index at which it consumes the first
   PCM. Playback starts as soon as the normal jitter buffer has enough samples.
   The initial mouth shape follows the amplitude and spectrum of the playing audio.
   The aligner returns the word starts and ends in the same PCM. A result
-  arriving mid-word can take over at the next word start, using a 90 ms blend.
+  arriving mid-word can take over at the next word start, using a 180 ms blend.
   If the reply ends first, the waveform drives the mouth to the end.
   The listening mouth starts blending into the first vowel up to 50 ms
   before its audible onset, once playback has begun. The measured PCM also

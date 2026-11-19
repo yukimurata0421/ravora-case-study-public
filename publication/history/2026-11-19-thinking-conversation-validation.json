@@ -1,0 +1,52 @@
+{
+  "status": "PASS_LOCAL_THINKING_CONVERSATION_PORT",
+  "validated_at_jst": "2026-11-19T20:52:41+09:00",
+  "scope": "Offline checks of the public source and wheel, plus verification of the previously recorded synthetic conversation.",
+  "checks": {
+    "checkout_python_tests": {
+      "tests": 176,
+      "failures": 0,
+      "errors": 0,
+      "skipped": 1,
+      "outbound_attempts": 0
+    },
+    "installed_python_tests": {
+      "tests": 176,
+      "failures": 0,
+      "errors": 0,
+      "skipped": 1,
+      "outbound_attempts": 0
+    },
+    "browser_module_tests": 10,
+    "checkout_replays_match_examples": 4,
+    "installed_replays_match_examples": 4,
+    "secret_scan_findings": 0,
+    "configured_credential_matches": 0,
+    "public_payload": {
+      "status": "PASS_PUBLIC_PAYLOAD",
+      "files": 108,
+      "hashes_checked": 106,
+      "unexpected_files": 0,
+      "private_defaults_found": 0,
+      "broken_local_links": 0
+    },
+    "renderer_matches_recording_source": true,
+    "mp4_streams_decoded": [
+      "h264",
+      "aac"
+    ],
+    "distribution_sha256": "2d91889add5aaa7ea632921aafe8d1b4d0ea1d9540128fc93bcca58d8cf6fdd3"
+  },
+  "remote_ci": {
+    "configured": true,
+    "configured_python_versions": [
+      "3.11",
+      "3.13"
+    ]
+  },
+  "project_license_selected": false,
+  "open_source_release_ready": false,
+  "included_private_databases_or_recordings": false,
+  "new_inference_api_calls": 0,
+  "earlier_validation_preserved": "publication/history/2026-11-18-expression-policy-validation.json"
+}

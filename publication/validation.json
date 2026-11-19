@@ -1,8 +1,9 @@
 {
-  "status": "PASS_LOCAL_THINKING_CONVERSATION_PORT",
-  "validated_at_jst": "2026-11-19T20:52:41+09:00",
-  "scope": "Offline checks of the public source and wheel, plus verification of the previously recorded synthetic conversation.",
+  "status": "PASS_LOCAL_DEFAULT_MOTION_PORT",
+  "validated_at_jst": "2026-11-20T08:12:30+09:00",
+  "scope": "Portable source, installed wheel and rendered media. The full recording and same-audio comparison were captured before this publication.",
   "checks": {
+    "checkout_replays_match_examples": 4,
     "checkout_python_tests": {
       "tests": 176,
       "failures": 0,
@@ -10,6 +11,7 @@
       "skipped": 1,
       "outbound_attempts": 0
     },
+    "installed_replays_match_examples": 4,
     "installed_python_tests": {
       "tests": 176,
       "failures": 0,
@@ -17,25 +19,40 @@
       "skipped": 1,
       "outbound_attempts": 0
     },
-    "browser_module_tests": 10,
-    "checkout_replays_match_examples": 4,
-    "installed_replays_match_examples": 4,
+    "browser_module_tests": 12,
     "secret_scan_findings": 0,
     "configured_credential_matches": 0,
     "public_payload": {
       "status": "PASS_PUBLIC_PAYLOAD",
-      "files": 108,
-      "hashes_checked": 106,
+      "files": 113,
+      "hashes_checked": 111,
       "unexpected_files": 0,
       "private_defaults_found": 0,
       "broken_local_links": 0
     },
     "renderer_matches_recording_source": true,
-    "mp4_streams_decoded": [
-      "h264",
-      "aac"
-    ],
-    "distribution_sha256": "2d91889add5aaa7ea632921aafe8d1b4d0ea1d9540128fc93bcca58d8cf6fdd3"
+    "media": {
+      "concept02-default-motion.mp4": {
+        "sha256": "71e84fa90733a0f1c0641dad9307515d4209f39f7ddb6d6230274c2008832bfc",
+        "decoded_streams": [
+          "h264",
+          "aac"
+        ],
+        "width": 1920,
+        "height": 1080,
+        "duration_s": 30.833333
+      },
+      "concept02-mouth-comparison.mp4": {
+        "sha256": "a7c970acffe607c78c2414fd8baf9fa70a89a131dcddcb8c21f7f2fd0e3985e8",
+        "decoded_streams": [
+          "h264",
+          "aac"
+        ],
+        "width": 1132,
+        "height": 764,
+        "duration_s": 3.426333
+      }
+    }
   },
   "remote_ci": {
     "configured": true,
@@ -48,5 +65,5 @@
   "open_source_release_ready": false,
   "included_private_databases_or_recordings": false,
   "new_inference_api_calls": 0,
-  "earlier_validation_preserved": "publication/history/2026-11-18-expression-policy-validation.json"
+  "earlier_validation_preserved": "publication/history/2026-11-19-thinking-conversation-validation.json"
 }

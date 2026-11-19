@@ -1,6 +1,7 @@
 import assert from 'node:assert/strict';
 import test from 'node:test';
 import {alignedMouth, createWordHandoff} from '../src/ravora/web/articulation.mjs';
+import {createPreviewMouth} from '../src/ravora/web/preview-mouth.mjs';
 import {createAudioClockCapture, encodeObservedDraws} from '../src/ravora/web/audio-clock-capture.mjs';
 import {createExpressionMotion, createMouthHandoff} from '../src/ravora/web/expressions.mjs';
 import {createIdleGlance} from '../src/ravora/web/presence.mjs';
@@ -43,12 +44,47 @@ test('A phone controls shape, PCM controls opening, and closures own the lips', 
   const quiet = alignedMouth({...track, db: Array(50).fill(-40)}, .10, 24000);
   assert.equal(good.shape, 'I');
   assert.ok(quiet.open < good.open);
-  // A 100 ms closure still borrows a little motion from the neighboring vowels.
-  assert.ok(alignedMouth(track, .25, 24000).open < .002);
+  // The lip renderer starts revealing the inner mouth above .006 opening.
+  assert.ok(alignedMouth(track, .25, 24000).open < .006);
   const held = {...track, plan: [{shape: 'closed', amount: 0, start: 0, end: .5}]};
   assert.equal(alignedMouth(held, .25, 24000).open, 0);
   assert.equal(alignedMouth(track, .40, 24000).shape, 'U');
   assert.equal(alignedMouth(track, .51, 24000).open, 0);
+});
+
+test('Prepared and live speech share an opening curve through a bilabial closure', () => {
+  const rate = 48000;
+  const plan = [
+    {shape: 'A', amount: .72, start: 0, end: .20},
+    {shape: 'closed', amount: 0, start: .20, end: .30},
+    {shape: 'E', amount: .58, start: .30, end: .5},
+  ];
+  const levels = Array.from({length: 50}, (_, i) => i % 2 ? -20 : -24);
+  const track = {plan, db: levels, reference_db: -22, frames: rate / 2, hop_frames: rate * .01};
+  const sample = createPreviewMouth(plan, levels, .01, rate, track.frames);
+  for (let frame = 0; frame <= 15; frame++) {
+    const t = frame / 30;
+    const {open, shape, vowels} = alignedMouth(track, t, rate);
+    assert.deepEqual(sample(t), {amount: open, shape, vowels});
+  }
+  assert.ok(sample(.14).amount > .55);
+  assert.ok(sample(.25).amount < .006);
+  assert.equal(sample(.40).shape, 'E');
+  assert.equal(sample(.5).amount, 0);
+  assert.equal(createPreviewMouth([], levels, .01, rate, track.frames), null);
+});
+
+test('A stressed vowel still opens clearly without jumping between adjacent 30 fps frames', () => {
+  const plan = [
+    {shape: 'A', amount: .12, start: 0, end: .20},
+    {shape: 'A', amount: .84, start: .20, end: .29},
+    {shape: 'E', amount: .32, start: .29, end: .50},
+  ];
+  const sample = createPreviewMouth(plan, Array(50).fill(-23), .01, 24000, 12000);
+  const openings = Array.from({length: 12}, (_, i) => sample((i + 1) / 30).amount);
+  const changes = openings.slice(1).map((opening, i) => Math.abs(opening - openings[i]));
+  assert.ok(Math.max(...openings) > .65);
+  assert.ok(Math.max(...changes) < .22);
 });
 
 test('Blended vowels use one weighted target geometry', () => {
@@ -185,10 +221,10 @@ test('A late phoneme track joins the next word on the playback clock', () => {
   assert.equal(first.wordBlend, 0);
   assert.equal(first.open, wave.open);
   assert.equal(handoff.boundary.word, 'met');
-  const middle = handoff.sample(wave, 1.455, start, 24000);
+  const middle = handoff.sample(wave, 1.50, start, 24000);
   assert.ok(Math.abs(middle.wordBlend-.5)<1e-6);
   assert.ok(middle.vowels.A>0 && middle.vowels.I>0);
-  assert.equal(handoff.sample(wave, 1.52, start, 24000).wordBlend, 1);
+  assert.equal(handoff.sample(wave, 1.60, start, 24000).wordBlend, 1);
   for (const [words, arrival, draw] of [[track.words,1.46,1.55],
       [track.words,1.25,1.71],[undefined,1.1,1.41]]) {
     const late = createWordHandoff({...track,words}, arrival);

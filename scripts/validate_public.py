@@ -10,6 +10,12 @@ from urllib.parse import unquote,urlsplit
 
 ROOT=Path(__file__).resolve().parents[1]
 CONTROL={'publication/source-map.json','publication/validation.json'}
+PUBLIC_MOVIES = {
+    'docs/media/balcony-tomato-conversation.mp4',
+    'docs/media/ravora-thinking-conversation.mp4',
+    'docs/media/concept02-default-motion.mp4',
+    'docs/media/concept02-mouth-comparison.mp4',
+}
 
 
 def payload_files():
@@ -40,7 +46,7 @@ def main():
         if hashlib.sha256(path.read_bytes()).hexdigest()!=entry['sha256']:raise ValueError('PUBLIC_HASH_MISMATCH:'+entry['path'])
     for path in payload_files():
         relative=str(path.relative_to(ROOT))
-        if relative in ('docs/media/balcony-tomato-conversation.mp4', 'docs/media/ravora-thinking-conversation.mp4'):
+        if relative in PUBLIC_MOVIES:
             with path.open('rb') as media:
                 if media.read(12)[4:8] != b'ftyp':
                     raise ValueError('INVALID_CONVERSATION_DEMO_MP4')

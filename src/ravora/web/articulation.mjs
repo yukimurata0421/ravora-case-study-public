@@ -5,27 +5,48 @@ const clamp = (x, low, high) => Math.min(high, Math.max(low, x));
 // The mouth plan gives geometry; the envelope comes from the reply PCM itself.
 // Both are sampled relative to the worklet's first consumed sample.
 // Lips cannot open or close within one 33 ms frame. The reply PCM and plan are known ahead, so
-// the opening and the vowel weights are averaged over +-50 ms (triangular) around the time. A
-// 10 ms loudness dip or onset no longer snaps the mouth shut or wide open; a full m/b/p closure
-// (>= ~80 ms) still closes.
-const SMOOTH = [-.0375, -.025, -.0125, 0, .0125, .025, .0375];
+// the opening is averaged around the time. Two raised-cosine windows: a narrow one (+-50 ms taps)
+// that still reaches a full m/b/p closure, and a wide one (+-100 ms) for the jaw between closures.
+// With only the narrow window a stressed vowel opened 0.2 -> 0.5 in one frame and the high-contrast
+// smile mouth (teeth, dark cavity) visibly jumped; the wide one alone left b/p 0.05-0.09 open. The
+// wide opening is used unless the narrow one is nearly shut, where the narrow one takes over.
+// The vowel colour changes more slowly than the jaw; it is averaged over +-100 ms so the shape does
+// not flicker A/E/I from frame to frame.
+const STEP = .0125;
+const SMOOTH = Array.from({length: 9}, (_, i) => (i - 4) * STEP);
+const SMOOTH_W = SMOOTH.map(o => Math.cos(Math.PI * o / .12) ** 2);
+const COLOUR = Array.from({length: 17}, (_, i) => (i - 8) * STEP);
+const COLOUR_W = COLOUR.map(o => Math.cos(Math.PI * o / .24) ** 2);
+const CLOSING = .15;
+// Weighted opening and opening-weighted vowel colour from a raw sampler.
+function smoothMouth(raw, seconds) {
+  let narrow = 0, nw = 0, wide = 0, ww = 0;
+  const samples = COLOUR.map(o => raw(seconds + o));
+  for (let k = 0; k < COLOUR.length; k++) {
+    wide += COLOUR_W[k] * samples[k].open; ww += COLOUR_W[k];
+    const j = k - (COLOUR.length - SMOOTH.length) / 2;
+    if (j >= 0 && j < SMOOTH.length) { narrow += SMOOTH_W[j] * samples[k].open; nw += SMOOTH_W[j]; }
+  }
+  narrow /= nw; wide /= ww;
+  const c = clamp(narrow / CLOSING, 0, 1), shut = 1 - c * c * (3 - 2 * c);
+  const open = wide - Math.max(0, wide - narrow) * shut;
+  const vowels = {};
+  for (let k = 0; k < COLOUR.length; k++) {
+    const r = samples[k];
+    if (!(r.open > 0)) continue;
+    for (const [v, x] of Object.entries(r.vowels || {})) if (v !== 'amount') vowels[v] = (vowels[v] || 0) + COLOUR_W[k] * r.open * x;
+  }
+  let total = 0, shape = 'closed', best = -1;
+  for (const v in vowels) total += vowels[v];
+  if (!(open > 0) || !(total > 0)) return null;
+  for (const v in vowels) { vowels[v] /= total; if (vowels[v] > best) { best = vowels[v]; shape = v; } }
+  return {open, vowels: {...vowels, amount: open}, shape};
+}
 export function alignedMouth(track, seconds, sampleRate) {
   if (seconds * sampleRate < 0 || seconds * sampleRate >= track.frames) return {open: 0, vowels: null, shape: 'closed', db: -100};
-  let open = 0, weights = 0, db = -100, shape = 'closed', best = -1;
-  const vowels = {};
-  for (const offset of SMOOTH) {
-    const w = 4 - Math.abs(offset) / .0125, raw = rawMouth(track, seconds + offset, sampleRate);
-    weights += w;
-    open += w * raw.open;
-    if (offset === 0) db = raw.db;
-    for (const [v, x] of Object.entries(raw.vowels || {})) if (v !== 'amount') vowels[v] = (vowels[v] || 0) + w * raw.open * x;
-  }
-  open /= weights;
-  let total = 0;
-  for (const v in vowels) total += vowels[v];
-  if (!(open > 0) || !(total > 0)) return {open: 0, vowels: null, shape: 'closed', db};
-  for (const v in vowels) { vowels[v] /= total; if (vowels[v] > best) { best = vowels[v]; shape = v; } }
-  return {open, vowels: {...vowels, amount: open}, shape, db};
+  const db = rawMouth(track, seconds, sampleRate).db;
+  const m = smoothMouth(t => rawMouth(track, t, sampleRate), seconds);
+  return m ? {...m, db} : {open: 0, vowels: null, shape: 'closed', db};
 }
 
 function rawMouth(track, seconds, sampleRate) {
@@ -103,22 +124,12 @@ export function createPcmMouth(sampleRate = 24000) {
     },
     finish() { ended = true; },
     get seconds() { return frames / sampleRate; },
-    // Same +-50 ms triangular average as alignedMouth, over what has arrived.
+    // Same windows as alignedMouth, over what has arrived.
     sample(seconds) {
-      ensure(seconds + .1);
-      let open = 0, weights = 0;
-      const vowels = {};
-      for (const offset of SMOOTH) {
-        const w = 4 - Math.abs(offset) / .0125, r = raw(seconds + offset);
-        weights += w; open += w * r.open;
-        if (r.shape) vowels[r.shape] = (vowels[r.shape] || 0) + w * r.open;
-      }
-      open /= weights;
-      let total = 0, shape = 'closed', best = 0;
-      for (const v in vowels) total += vowels[v];
-      if (!(open > 0) || !(total > 0)) return {open: 0, vowels: null, shape: 'closed', db: raw(seconds).db, width: 1};
-      for (const v in vowels) { vowels[v] /= total; if (vowels[v] > best) { best = vowels[v]; shape = v; } }
-      return {open, vowels: {...vowels, amount: open}, shape, db: raw(seconds).db, width: 1};
+      ensure(seconds + .11);
+      const db = raw(seconds).db;
+      const m = smoothMouth(t => { const r = raw(t); return r.shape ? {open: r.open, vowels: {[r.shape]: 1}} : r; }, seconds);
+      return m ? {...m, db, width: 1} : {open: 0, vowels: null, shape: 'closed', db, width: 1};
     },
     // First sound, first opening peak and (once the reply has fully arrived) last sound.
     span(playhead = 0) {
@@ -170,6 +181,8 @@ export function speechEnvelope(span, elapsed) {
 // Both timestamps are AudioContext seconds. A track received in the middle of
 // a word can only take over at a subsequent word start. Missing word timing
 // or a stalled animation frame leaves the waveform in control until then.
+// The PCM mouth and the phone plan disagree on the vowel; a 0.09 s cross-fade read as a snap.
+const HANDOFF = .18;
 export function createWordHandoff(track, receivedAt) {
   let boundary = null, startedAt = null, direct = false;
   const span = speechSpan(track, track.sample_rate || 24000);
@@ -177,10 +190,10 @@ export function createWordHandoff(track, receivedAt) {
     span,
     get boundary() { return boundary; },
     get startedAt() { return startedAt; },
-    needsWave(now) { return !direct && (startedAt === null || now < startedAt + .09); },
+    needsWave(now) { return !direct && (startedAt === null || now < startedAt + HANDOFF); },
     sample(wave, now, playbackStart, sampleRate) {
       const elapsed = now - playbackStart;
-      // If alignment arrives before playback, the plan
+      // Received before playback (the normal case: playback waits for the alignment): the plan
       // drives the mouth from the first sample, never the per-frame loudness classifier.
       if (receivedAt <= playbackStart) {
         if (startedAt === null) { startedAt = now; direct = true; boundary = track.words?.[0] ?? null; }
@@ -194,8 +207,8 @@ export function createWordHandoff(track, receivedAt) {
         startedAt = now;
       }
       const target = alignedMouth(track, elapsed, sampleRate);
-      if (now >= startedAt + .09) return {...target, width:1, wordBlend:1};
-      const t = clamp((now - startedAt) / .09, 0, 1);
+      if (now >= startedAt + HANDOFF) return {...target, width:1, wordBlend:1};
+      const t = clamp((now - startedAt) / HANDOFF, 0, 1);
       const blend = t*t*(3-2*t);
       // Weight each shape by its actual opening so a closed phoneme fades to
       // a single closed mouth, regardless of the vowel that came before it.

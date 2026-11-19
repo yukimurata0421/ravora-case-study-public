@@ -17,5 +17,7 @@ dist/
 *.mp4
 !docs/media/balcony-tomato-conversation.mp4
 !docs/media/ravora-thinking-conversation.mp4
+!docs/media/concept02-default-motion.mp4
+!docs/media/concept02-mouth-comparison.mp4
 *.webm
 .DS_Store

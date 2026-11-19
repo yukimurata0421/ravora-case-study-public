@@ -12,7 +12,18 @@ database, and deployment environment are excluded.
 
 ## Watch RAVORA in conversation
 
-### Deciding what to make for dinner
+### Concept 02 in conversation
+
+This is the default avatar motion in the development preview and portable demo.
+In the second turn, the speaker finds a forgotten loaf in the freezer. Watch
+RAVORA begin her reply with a smile at **17.39 s**. The recording
+includes both voices and the pauses across all three turns.
+
+[![RAVORA smiling during the second reply](docs/images/concept02-default-motion.png)](docs/media/concept02-default-motion.mp4)
+
+[Download the 31-second conversation (1080p MP4, 7.5 MiB)](https://github.com/yukimurata0421/ravora-case-study-public/raw/refs/heads/main/docs/media/concept02-default-motion.mp4) · [Compare the same line before and after (3.4-second MP4)](docs/media/concept02-mouth-comparison.mp4) · [Timing and motion measurements](docs/audio-timing.md#concept-02-default-motion)
+
+### Deciding what to make for dinner (earlier recording)
 
 At **0:23.93**, RAVORA starts looking thoughtful while the speaker is still
 weighing lemon against yogurt. The full transcript confirms the same expression.

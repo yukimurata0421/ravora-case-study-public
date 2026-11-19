@@ -17,7 +17,8 @@ Included:
 - reference provider interfaces and a mock-only portable entrypoint;
 - a packaged browser console, synthetic fixtures, and focused tests;
 - aggregate historical observations with explicit measurement limits;
-- two rendered [public conversation demos](../README.md#watch-ravora-in-conversation) and per-turn timing for the dinner conversation.
+- three rendered [public conversations](../README.md#watch-ravora-in-conversation) with both voices, plus a same-audio comparison of jaw motion;
+- the prepared-audio adapter and the live renderer's default articulation, with [measurements](../docs/audio-timing.md#concept-02-default-motion).
 
 The reaction replay and tests cover provisional and final results, prefix
 agreement, correction, late completion, cancellation, and preservation of prior
@@ -51,6 +52,8 @@ speaker-grounded classification and an explicit rule for retaining a provisional
 expression. The original artwork and recordings are excluded from the package.
 
 The [November 18 expression-policy validation](history/2026-11-18-expression-policy-validation.json) records the checks before the dinner recording was added.
+
+The [previous dinner recording validation](history/2026-11-19-thinking-conversation-validation.json) covers the earlier mouth motion.
 
 Run `python3 scripts/validate_public.py` to check the declared public payload.
 It validates local files and hashes; it does not contact the development workspace.
