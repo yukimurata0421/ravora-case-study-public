@@ -36,7 +36,7 @@ Schema files are packaged with the module, so replay does not depend on a source
 checkout. The validation record also covers running the installed wheel from an
 unrelated working directory.
 
-The provisional-reaction replay uses the same controller, the packaged version-10
+The provisional-reaction replay uses the same controller, the packaged version-13
 schema, low-stability synthetic transcript updates, and the two stage reservations.
 Its waits advance a fixture; no latency result is claimed. The
 packaged character presets are checked by the request-assembly tests.
@@ -74,3 +74,56 @@ outcomes; workflow configuration alone is not a passed CI result. The dated loca
 validation record names the interpreter and checks executed at the archive stage.
 Do not substitute the runtime's historical test count for the portable subset's
 result.
+
+## Route the microphone and playback
+
+The mock console defaults to browser input and playback. Hold Space or the talk
+button for manual turns. Automatic mode sends a turn after a pause. Hands-free
+mode also waits for speech before starting a turn and listens again after playback
+or an empty transcript. Stop or hide the tab to leave hands-free mode. The mock
+recognizer still returns a fixture. Its turn-taking controls work with real PCM.
+
+For a Linux capture host and a separate playback browser, give the console a
+TOML file using `ravora-case-study serve --config voice.toml`. One configuration is shown below.
+
+```toml
+[developer_voice]
+input_source = "dell"    # host ALSA capture; "windows" selects the browser
+dell_device = "USB,0"    # replace with the card ID and PCM number from arecord -l
+end_mode = "handsfree"   # manual, auto, or handsfree
+end_silence_ms = 800
+session_seconds = 7200
+port = 8767
+```
+
+From the playback machine, forward both loopback ports over SSH and run the
+console on the capture host. Replace the SSH alias and config path with your own.
+
+```powershell
+ssh -t -o ExitOnForwardFailure=yes -L 127.0.0.1:8767:127.0.0.1:8767 -L 127.0.0.1:8768:127.0.0.1:8768 voice-host "ravora-case-study serve --config voice.toml"
+```
+
+Open the printed launch URL in the playback browser. A reload reuses the tab's
+session token. A second connected tab receives a conflict. The two-hour limit
+is measured from launch. Browser-only use needs no ALSA device or SSH.
+
+The fullscreen stage has a 1920 × 1080 drawing surface and a synthetic face.
+To use registered artwork, install the `avatar` extra and add a `[pngtuber]`
+section to the same TOML. Set `manifest` to a path under `assets/pngtuber/`
+relative to the TOML directory. One configuration is shown below.
+
+```toml
+[pngtuber]
+manifest = "assets/pngtuber/manifest.json"
+open_threshold_db = -32
+close_threshold_db = -42
+hold_ms = 80
+blink_interval_ms = 3800
+blink_duration_ms = 150
+```
+
+The minimal manifest has an `images` object with `idle` and `talking` entries.
+Each entry supplies a relative PNG `path` and its hex `sha256`. Optional blink
+poses, a registered rig and expression-vowel patches use the same binding.
+The console validates the asset root, file hashes, dimensions and geometry
+before serving these files. [Avatar binding](../src/ravora/pngtuber.py)

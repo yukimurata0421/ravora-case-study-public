@@ -7,6 +7,7 @@ import time
 import uuid
 
 from ravora.conversation import MemoryStore
+from ravora.developer_identity import viewer_key
 
 
 @dataclass(frozen=True)
@@ -27,7 +28,7 @@ class Comment:
     def viewer(self):
         # Same display names do not share memory; fixture/live namespaces stay separate.
         # Channel IDs are stable across streams. Version the key without reassigning old history.
-        return self.source+':v2:'+hashlib.sha256(self.author_id.encode()).hexdigest()[:40]
+        return viewer_key(self.source, self.author_id)
 
 
 def timestamp(value):

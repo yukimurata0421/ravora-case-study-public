@@ -12,9 +12,22 @@ database, and deployment environment are excluded.
 
 ## Watch RAVORA in conversation
 
-### Concept 02 in conversation
+### Zephyr and the latest mouth motion
 
-This is the default avatar motion in the development preview and portable demo.
+In this 35-second dinner conversation, RAVORA listens to a scripted speaker,
+thinks through the first choice, and smiles at the freezer discovery. The new
+voice is Zephyr at 0.96 speaking rate, raised two semitones after synthesis.
+The jaw tracks the measured facial midline, and the lower lip covers the teeth
+as the smile closes. [Watch the 1080p conversation](https://github.com/yukimurata0421/ravora-case-study-public/raw/refs/heads/main/docs/media/concept02-lip-motion.mp4) · [Compare the same smile across three revisions](docs/media/concept02-lip-comparison.mp4)
+
+[Listen to the six-voice audition](docs/media/voice-audition.m4a). The same English
+line starts with Aoede at 0:00, Leda at 0:09.5, Kore at 0:16.5, Sulafat at
+0:24.7, **Zephyr at 0:32.9**, and the earlier WaveNet H at 0:40.0.
+The optional browser console plays offline test tones. [Voice, memory and budget settings](docs/conversation-controls.md) · [Try hands-free input or full screen](docs/reproduce.md#route-the-microphone-and-playback)
+
+### Concept 02 in conversation (previous motion)
+
+This recording shows the preceding avatar motion.
 In the second turn, the speaker finds a forgotten loaf in the freezer. Watch
 RAVORA begin her reply with a smile at **17.39 s**. The recording
 includes both voices and the pauses across all three turns.
@@ -128,7 +141,7 @@ The server expires after the requested interval and removes session files at exi
 
 The portable slice retains the schema, turn fencing, provider boundaries, mock
 streaming, up to one reservation per reaction stage, character and reply-length policies,
-sharing approvals, and retrieval provenance. Its ten schema migrations retain
+sharing approvals, and retrieval provenance. Its thirteen schema migrations retain
 earlier reaction attempts and add source-bound contact accounting. The reference API adapters
 are available for inspection. The replay commands and console use mock providers
 and ignore dotenv files and inherited API credentials.

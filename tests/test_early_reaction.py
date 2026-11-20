@@ -154,14 +154,20 @@ class StreamingPathTests(unittest.IsolatedAsyncioTestCase):
             RecognitionFeatures=make,StreamingRecognitionFeatures=make,StreamingRecognizeRequest=make)
         requests=[];events=[]
         def result(text,final=False,stability=0):return NS(alternatives=[NS(transcript=text)],is_final=final,stability=stability)
+        batches=([result('I lie',stability=.2)], [result('I like coffee',stability=.9)],
+                 [result('I like coffee.',True),result('And jazz')], [result('And jazz.',True)])
         class STT:
             async def streaming_recognize(self,**kwargs):
                 async for request in kwargs['requests']:requests.append(request)
                 async def replies():
-                    for results in ([result('I lie',stability=.2)], [result('I like coffee',stability=.9)],
-                                    [result('I like coffee.',True),result('And jazz')], [result('And jazz.',True)]):
+                    for name, seconds in (('SPEECH_ACTIVITY_BEGIN', .12), ('SPEECH_ACTIVITY_END', .52)):
+                        yield NS(speech_event_type=NS(name=name),speech_event_offset=NS(total_seconds=lambda:seconds),results=[])
+                    for results in batches:
                         yield NS(speech_event_type=None,results=results)
-                return replies()
+                class Stream:
+                    def __aiter__(self):return replies()
+                    def cancel(self):events.append({'kind':'rpc_cancelled'})
+                return Stream()
         async def frames():yield b'\x00\x10'*1600
         async def emit(value):events.append(value)
         client=EdgeClients({'access_token':'not-a-token'});client.stt=STT();client.speech_types=types
@@ -172,7 +178,16 @@ class StreamingPathTests(unittest.IsolatedAsyncioTestCase):
         self.assertTrue(partials[-1]['segment_final'])
         self.assertEqual(text,'I like coffee. And jazz.');self.assertNotIn('I lie',text)
         self.assertEqual(diagnostics['final_segments'],2)
+        self.assertEqual([(e['type'],e['offset_ms']) for e in events if e['kind']=='stt_activity'],
+                         [('SPEECH_ACTIVITY_BEGIN',120),('SPEECH_ACTIVITY_END',520)])
         self.assertTrue(requests[0].streaming_config.streaming_features.interim_results)
+        for batches,code in (([], 'STT_NO_FINAL_TRANSCRIPT'), ([[result('interim only')]], 'STT_NO_FINAL_TRANSCRIPT'),
+                             ([[result('x'*1001)]], 'STT_TRANSCRIPT_TOO_LONG'), ([[result('x'*1001,True)]], 'STT_TRANSCRIPT_TOO_LONG')):
+            with self.subTest(code=code):
+                events.clear()
+                with self.assertRaisesRegex(EdgeError,code):
+                    await client.transcribe_frames(frames(),emit)
+                self.assertEqual(any(e['kind']=='rpc_cancelled' for e in events),code=='STT_TRANSCRIPT_TOO_LONG')
 
     async def setup_session(self,*,enabled=True,max_requests=1):
         tmp=tempfile.TemporaryDirectory();self.addCleanup(tmp.cleanup);root=Path(tmp.name)
@@ -225,7 +240,7 @@ class StreamingPathTests(unittest.IsolatedAsyncioTestCase):
         session,store,events,inputs=await self.setup_session();original=session.clients.transcribe_frames
         async def fail(*args,**kwargs):
             await original(*args,**kwargs)
-            raise EdgeError('EMPTY_OR_OVERSIZED_STT')
+            raise EdgeError('STT_NO_FINAL_TRANSCRIPT')
         session.clients.transcribe_frames=fail;identifier=uuid.uuid4().hex
         await session.start_audio(identifier,'en-US');await session.audio_chunk(identifier,b'\x00\x10'*3200)
         await until(lambda:any(e['kind']=='reaction' and e.get('phase')=='partial' for e in events))

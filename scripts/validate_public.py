@@ -15,6 +15,8 @@ PUBLIC_MOVIES = {
     'docs/media/ravora-thinking-conversation.mp4',
     'docs/media/concept02-default-motion.mp4',
     'docs/media/concept02-mouth-comparison.mp4',
+    'docs/media/concept02-lip-motion.mp4',
+    'docs/media/concept02-lip-comparison.mp4',
 }
 
 
@@ -46,12 +48,13 @@ def main():
         if hashlib.sha256(path.read_bytes()).hexdigest()!=entry['sha256']:raise ValueError('PUBLIC_HASH_MISMATCH:'+entry['path'])
     for path in payload_files():
         relative=str(path.relative_to(ROOT))
-        if relative in PUBLIC_MOVIES:
+        if relative in PUBLIC_MOVIES or relative == 'docs/media/voice-audition.m4a':
             with path.open('rb') as media:
-                if media.read(12)[4:8] != b'ftyp':
-                    raise ValueError('INVALID_CONVERSATION_DEMO_MP4')
+                header = media.read(12)
+                if header[4:8] != b'ftyp' or (path.suffix == '.m4a' and header[8:12] != b'M4A '):
+                    raise ValueError('INVALID_PUBLIC_MEDIA_CONTAINER')
             continue
-        if path.suffix.lower() in ('.sqlite3','.db','.wav','.vrm','.vroid','.mp4','.webm','.log') or path.name in ('.env','settings.json'):raise ValueError('PRIVATE_ARTIFACT_IN_PAYLOAD')
+        if path.suffix.lower() in ('.sqlite3','.db','.wav','.m4a','.mp3','.vrm','.vroid','.mp4','.webm','.log') or path.name in ('.env','settings.json'):raise ValueError('PRIVATE_ARTIFACT_IN_PAYLOAD')
         if path.suffix.lower()=='.png':continue
         text=path.read_text()
         if any(pattern.search(text) for pattern in forbidden):raise ValueError('PRIVATE_DEFAULT_IN_PAYLOAD:'+relative)

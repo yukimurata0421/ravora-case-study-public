@@ -21,3 +21,5 @@ dist/
 !docs/media/concept02-mouth-comparison.mp4
 *.webm
 .DS_Store
+!docs/media/concept02-lip-motion.mp4
+!docs/media/concept02-lip-comparison.mp4

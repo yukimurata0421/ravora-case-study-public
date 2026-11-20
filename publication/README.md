@@ -6,7 +6,7 @@ extracted source files with hashes. Generated case-study files are also listed.
 
 Included:
 
-- source-backed SQLite memory and its ten schema migrations;
+- source-backed SQLite memory and its thirteen schema migrations;
 - three-tier retrieval, explicit summary sharing, and revocation;
 - deterministic viewer contact state, daily caps, and qualitative request background;
 - streaming orchestration, input ledgers, and session-bound playback fences;
@@ -17,7 +17,7 @@ Included:
 - reference provider interfaces and a mock-only portable entrypoint;
 - a packaged browser console, synthetic fixtures, and focused tests;
 - aggregate historical observations with explicit measurement limits;
-- three rendered [public conversations](../README.md#watch-ravora-in-conversation) with both voices, plus a same-audio comparison of jaw motion;
+- four rendered [public conversations](../README.md#watch-ravora-in-conversation) with both voices, plus a same-audio comparison of jaw motion;
 - the prepared-audio adapter and the live renderer's default articulation, with [measurements](../docs/audio-timing.md#concept-02-default-motion).
 
 The reaction replay and tests cover provisional and final results, prefix
@@ -57,3 +57,11 @@ The [previous dinner recording validation](history/2026-11-19-thinking-conversat
 
 Run `python3 scripts/validate_public.py` to check the declared public payload.
 It validates local files and hashes; it does not contact the development workspace.
+
+The November 20 port includes the speaker audition, rendered lip comparison,
+hands-free input, caller-supplied avatar binding, source-backed episodes,
+developer ownership, and transactional reply reservations. The six-voice audio
+file contains one scripted audition line and is the only audio-only media
+exception. The newly rendered conversation uses the same scripted input as
+the dinner demo. Original portraits, microphone recordings and database
+contents remain private. [Previous motion snapshot](history/2026-11-20-default-motion-validation.json)

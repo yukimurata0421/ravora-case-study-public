@@ -16,14 +16,14 @@
     "third-party renderer bundles",
     "host deployment and production controls"
   ],
-  "updated_at_jst": "2026-11-20T08:11:35+09:00",
+  "updated_at_jst": "2026-11-20T22:13:18+09:00",
   "files": [
     {
       "path": ".env.example",
-      "sha256": "556cc0e8c1c4cabeac17b8ee7c09b658f1d8e205b088ea483d0389a4f2edd1c2",
+      "sha256": "229d598bd29eb3c970c9ed929b2049940d147fbe5988cc1aba7a5fa66ca48f21",
       "kind": "generated",
       "source": "case-study",
-      "note": "Portable documentation, fixture, or package validation."
+      "note": "Portable documentation, fixture, or publication validation."
     },
     {
       "path": ".github/workflows/ci.yml",
@@ -34,9 +34,10 @@
     },
     {
       "path": ".gitignore",
-      "sha256": "bc74bd19dcee0fc25dc341583cdb176de8b55596c3544d37a5da72c2cdde8066",
+      "sha256": "dcf937d20511ccfdbeb4753a700ba51aabe5dd84859a4f144470d2c66cbe7ed3",
       "kind": "generated",
-      "note": "Case-study documentation, replay, packaging, or local validation support."
+      "note": "Portable documentation, fixture, or publication validation.",
+      "source": "case-study"
     },
     {
       "path": "NOTICE.md",
@@ -47,23 +48,30 @@
     },
     {
       "path": "README.md",
-      "sha256": "f3c8f83a4f073e3df9f40676b1a1fc4989bd1e35a50c17cdce83e3de4fe0a03f",
+      "sha256": "95ae31c167916745ff35a8fb045a79aeb0e8525e3952edf5dd08a3559a24617b",
       "kind": "generated",
       "source": "case-study",
-      "note": "Portable documentation, fixture, or package validation."
+      "note": "Portable documentation, fixture, or publication validation."
     },
     {
       "path": "docs/audio-timing.md",
-      "sha256": "f5a4bc3009a2ea73e2c64e9fe076a5625678bf111c65f8f861eddccbfc757901",
+      "sha256": "4ad55433f056924daf6fffe32f5207adddab4babdbcca3d5b1897a7bfc93b59b",
       "source": "case-study",
       "kind": "generated",
-      "note": "Per-turn observations from the public recordings and their rendering contracts."
+      "note": "Portable documentation, fixture, or publication validation."
     },
     {
       "path": "docs/case-study.md",
       "sha256": "0044d3a667b399981595eeee74b77d8ffdee128ae46e1eaccec6f1361ee545f2",
       "kind": "generated",
       "note": "Case-study documentation, replay, packaging, or local validation support."
+    },
+    {
+      "path": "docs/conversation-controls.md",
+      "sha256": "26af7dd0dffa9e21d25cd8491898f6f3d3f697a94630429394b09be9c51f52eb",
+      "source": "case-study",
+      "kind": "generated",
+      "note": "Portable documentation, fixture, or publication validation."
     },
     {
       "path": "docs/early-reactions.md",
@@ -141,6 +149,22 @@
       "sha256": "71e84fa90733a0f1c0641dad9307515d4209f39f7ddb6d6230274c2008832bfc"
     },
     {
+      "path": "docs/media/concept02-lip-comparison.mp4",
+      "sha256": "0565f87b1c669242da14078afa077cf5c1b0875b47a2f2a595bd0c8b615c676a",
+      "source": "demos/concept02-thinking-live-20261120-v3lips/smile-v3-previous-now.mp4",
+      "source_sha256": "0565f87b1c669242da14078afa077cf5c1b0875b47a2f2a595bd0c8b615c676a",
+      "kind": "copied",
+      "note": "Rendered three-way smile comparison using the same speech."
+    },
+    {
+      "path": "docs/media/concept02-lip-motion.mp4",
+      "sha256": "8a5c5764e9fa8b96135ed79380d329566738f128eafb2835c9ec2091b9a554b9",
+      "source": "demos/concept02-thinking-live-20261120-v3lips/ravora-thinking-conversation-compat.mp4",
+      "source_sha256": "8a5c5764e9fa8b96135ed79380d329566738f128eafb2835c9ec2091b9a554b9",
+      "kind": "copied",
+      "note": "Reviewed 1080p public render of the scripted dinner turns using Zephyr."
+    },
+    {
       "path": "docs/media/concept02-mouth-comparison.mp4",
       "source": "demos/concept02-thinking-live-20261119-hybrid/20s-before-after.mp4",
       "kind": "copied",
@@ -156,6 +180,14 @@
       "sha256": "2d91889add5aaa7ea632921aafe8d1b4d0ea1d9540128fc93bcca58d8cf6fdd3"
     },
     {
+      "path": "docs/media/voice-audition.m4a",
+      "sha256": "9962ff44efc4088e50bd9a356dc3b53924fb738f482f71e9439ff139c6af9215",
+      "source": "evidence/chirp3-speaker-audition-20261120T124629Z/voices-in-order.wav",
+      "source_sha256": "32116804de0c133b511c53da499e0a031dd98c3c9a01712bb0ba646b05f1e28b",
+      "kind": "adapted",
+      "note": "AAC rendition of the six approved synthetic same-script audition samples."
+    },
+    {
       "path": "docs/privacy.md",
       "sha256": "8b232f03c34634d1fca1028a80323deaeb752e61c2dc8c3c880faa8780086195",
       "kind": "generated",
@@ -169,10 +201,10 @@
     },
     {
       "path": "docs/reproduce.md",
-      "sha256": "bd78b8f9563b55e84af28500601cd472033a165f61dc348b61aaa89539e3f636",
+      "sha256": "28fe0089b62417e62b1f46ba18d40afdd2b81b30b5b5f45a31b16aaa087fbb4a",
       "kind": "generated",
       "source": "case-study",
-      "note": "Portable documentation, fixture, or package validation."
+      "note": "Portable documentation, fixture, or publication validation."
     },
     {
       "path": "examples/early-reaction-report.json",
@@ -190,24 +222,24 @@
     },
     {
       "path": "examples/relationship-report.json",
-      "sha256": "eb1fbd1a3b52183d4fc58ef51abb18faf8b6a841bc79791dd12df451e1e2ec02",
+      "sha256": "21af25d8da1b174c6063d073d03ad587975965554ffedb6cf2ade664a5b02426",
       "kind": "generated",
       "source": "case-study",
-      "note": "Portable documentation, fixture, or package validation."
+      "note": "Portable documentation, fixture, or publication validation."
     },
     {
       "path": "examples/replay-report.json",
-      "sha256": "ba0c7c44994626123b64c32d42ec5f1498ce914eede13afb3501ce9e15d40a35",
+      "sha256": "5b4c09525ad6144c10ab9b9cc748860d80ebe8fef5094320e6df2ac12ded52e4",
       "kind": "generated",
       "source": "case-study",
-      "note": "Portable documentation, fixture, or package validation."
+      "note": "Portable documentation, fixture, or publication validation."
     },
     {
       "path": "publication/README.md",
-      "sha256": "b97d31fa8b7a91609c868db57448a3400814f8fe7f56bd234934f5c9c18141d5",
+      "sha256": "2e5598d8947cf717fcfcd4613b17bbdf7b2f6a303187d485e1e6ad11ab570b10",
       "kind": "generated",
       "source": "case-study",
-      "note": "Portable documentation, fixture, or package validation."
+      "note": "Portable documentation, fixture, or publication validation."
     },
     {
       "path": "publication/audio-timing-evaluation-20261118.json",
@@ -262,6 +294,13 @@
       "sha256": "956075ee585c1cd56bf9cbf9b2e4bedfeb3d3077406867ea84eb986608028abb"
     },
     {
+      "path": "publication/history/2026-11-20-default-motion-validation.json",
+      "sha256": "dbad0bc48449d39ea1f942c64325e87e66ce1728359d0837261bb00934d5d1cf",
+      "source": "case-study",
+      "kind": "generated",
+      "note": "Portable documentation, fixture, or publication validation."
+    },
+    {
       "path": "publication/measurement-summary.json",
       "source": "demos/concept02-v13-early-expression/report.json",
       "source_sha256": "f59c0cd41ec8af9f09fd05cb5e4ebb2d1250988c5aa7dadce3c4b5fa05a764bf",
@@ -278,10 +317,10 @@
     },
     {
       "path": "pyproject.toml",
-      "sha256": "cce56404635dd9f8aed5fd6d51b0baf49270752db44a65540be86a7d2a86fb9f",
+      "sha256": "05a4205afeb69bbfcf5083900e6fc41ff9b2fa0ea95b9ec2164ebc5d181bb0ce",
       "kind": "generated",
       "source": "case-study",
-      "note": "Portable documentation, fixture, or package validation."
+      "note": "Portable documentation, fixture, or publication validation."
     },
     {
       "path": "scripts/demo.py",
@@ -298,10 +337,19 @@
       "note": "Portable renderer or frame preparation code. Artwork is supplied separately."
     },
     {
+      "path": "scripts/measure_face_midline.py",
+      "sha256": "9531bcf33164c7a07436a26aa522690402f977fdd966f9de3946727edbcacd85",
+      "source": "scripts/measure_face_midline.py",
+      "source_sha256": "009d10ad7c119da5389ccb4394ffb421e3455b27d440c8bb60c854f5c9799c8c",
+      "kind": "adapted",
+      "note": "Read-only measurement on an explicitly supplied portrait and mouth region."
+    },
+    {
       "path": "scripts/validate_public.py",
-      "sha256": "114ec9e9bc6b4837d5815e88f90449d6d9080bbad48be4ac4179ce6374f6d1b6",
+      "sha256": "fda0d3e08446b48543197efae0ada8c7bd1e49bd974f9d4c7add42decb0d54a7",
       "kind": "generated",
-      "note": "Case-study documentation, replay, packaging, or local validation support."
+      "note": "Portable documentation, fixture, or publication validation.",
+      "source": "case-study"
     },
     {
       "path": "src/ravora/__init__.py",
@@ -313,17 +361,17 @@
     },
     {
       "path": "src/ravora/case_study.py",
-      "sha256": "5c61f6e28a37e3efaaf745a964dcd4a512520b804e6405b43426037c4b53ecc5",
+      "sha256": "d2bcf1195c912c974912d869a06f30267db465d198f87285c9e29e94639fff12",
       "kind": "generated",
       "source": "case-study",
-      "note": "Portable documentation, fixture, or package validation."
+      "note": "Portable documentation, fixture, or publication validation."
     },
     {
       "path": "src/ravora/comments.py",
-      "sha256": "76e3a4dc0bace51d773d17799367590862e7292e9afec42aed36bf8e7ab82110",
-      "note": "",
+      "sha256": "b3fb4f50707464741e819e559ec95c9f052de797f5452811406cdbfad89be02b",
+      "note": "Exact source snapshot.",
       "source": "src/ravora/comments.py",
-      "source_sha256": "76e3a4dc0bace51d773d17799367590862e7292e9afec42aed36bf8e7ab82110",
+      "source_sha256": "b3fb4f50707464741e819e559ec95c9f052de797f5452811406cdbfad89be02b",
       "kind": "copied"
     },
     {
@@ -336,18 +384,18 @@
     },
     {
       "path": "src/ravora/conversation.py",
-      "sha256": "0f3cab165995b1776d6d6090dbd35c7a79c3149be003fecc018c80a996e7340a",
+      "sha256": "6975e625ec4c0ca7931100d3291755224709d5071657d2db536a4952094ffbef",
       "source": "src/ravora/conversation.py",
-      "source_sha256": "0f3cab165995b1776d6d6090dbd35c7a79c3149be003fecc018c80a996e7340a",
+      "source_sha256": "6975e625ec4c0ca7931100d3291755224709d5071657d2db536a4952094ffbef",
       "kind": "copied",
-      "note": ""
+      "note": "Exact source snapshot."
     },
     {
       "path": "src/ravora/conversation_context.py",
-      "sha256": "df33a309b884e9f62056b1c06411539ca123d32a31e83e67a993d1ea83e7a066",
-      "note": "",
+      "sha256": "30a92cde3ab000531119ee5a795e9191e2e0db2155adf10cac8bd0c8088ca85b",
+      "note": "Exact source snapshot.",
       "source": "src/ravora/conversation_context.py",
-      "source_sha256": "df33a309b884e9f62056b1c06411539ca123d32a31e83e67a993d1ea83e7a066",
+      "source_sha256": "30a92cde3ab000531119ee5a795e9191e2e0db2155adf10cac8bd0c8088ca85b",
       "kind": "copied"
     },
     {
@@ -359,43 +407,59 @@
       "kind": "adapted"
     },
     {
-      "path": "src/ravora/early_reaction.py",
-      "sha256": "c49415cf9cdabeda2891fc26aafebe1aaebbe732b7ea623c752fd18c0d5fe9a5",
-      "source": "src/ravora/early_reaction.py",
-      "source_sha256": "c49415cf9cdabeda2891fc26aafebe1aaebbe732b7ea623c752fd18c0d5fe9a5",
+      "path": "src/ravora/dell_microphone.py",
+      "sha256": "5c97e233f74675fb1ae9dee8c897b422f6ee4b868850a78a5ae7ee71c447893a",
+      "source": "src/ravora/dell_microphone.py",
+      "source_sha256": "5c97e233f74675fb1ae9dee8c897b422f6ee4b868850a78a5ae7ee71c447893a",
       "kind": "copied",
-      "note": ""
+      "note": "Exact source snapshot."
+    },
+    {
+      "path": "src/ravora/developer_identity.py",
+      "sha256": "e470ad62cbcf806dfedfa8bf9c6ab6184ed748259aa38ae32e1cacd419c0f6db",
+      "source": "src/ravora/developer_identity.py",
+      "source_sha256": "e470ad62cbcf806dfedfa8bf9c6ab6184ed748259aa38ae32e1cacd419c0f6db",
+      "kind": "copied",
+      "note": "Exact source snapshot."
+    },
+    {
+      "path": "src/ravora/early_reaction.py",
+      "sha256": "db4d45b8f2302180082791daa1d12d3efd2f79fdc81e8d3822a398e654ed482f",
+      "source": "src/ravora/early_reaction.py",
+      "source_sha256": "db4d45b8f2302180082791daa1d12d3efd2f79fdc81e8d3822a398e654ed482f",
+      "kind": "copied",
+      "note": "Exact source snapshot."
     },
     {
       "path": "src/ravora/edge_grpc.py",
       "source": "src/ravora/edge_grpc.py",
-      "source_sha256": "947a2b224f840758618708d2da29bccfa688b16e1cd819bb43511a6b4ca9720e",
+      "source_sha256": "416489a5a4af0299ade98d0c4973db872ebf876694fd03a8b0a1c511404225d2",
       "kind": "adapted",
-      "note": "Replace the private project default; retain actual request assembly and lazy SDK imports.",
-      "sha256": "a983b262ec39e0a37194d24c1d0d36addebcf9b107559b1fde57350646b90094"
+      "note": "Source port with packaged paths and synthetic fixtures.",
+      "sha256": "85f21096a1548f5d757dbe2ec696f76139c67fc209ef56409d6468f71d92d2a5"
     },
     {
       "path": "src/ravora/fast_voice.py",
-      "sha256": "e6bf7b2ac6364c10d49f53d9731e48d52d67fa5efb14f1ed1daf90a4d41f1024",
+      "sha256": "0258214f6935dd6ecc57f2226aad8f68bcb65c6f1637e322581cf8d874de491c",
       "source": "src/ravora/fast_voice.py",
-      "source_sha256": "683b8713e0982b39f2c3d5b4f0501a76d449228cbd0f525ddce2833cc01624af",
+      "source_sha256": "88ae72838456ff2a868d42d175e2bcaf00377f9559a76307b21d4f9479ff8a65",
       "kind": "adapted",
-      "note": "Adapted to the portable archive without host tooling or original media."
+      "note": "Source port with packaged paths and synthetic fixtures."
     },
     {
       "path": "src/ravora/fast_voice_server.py",
       "source": "src/ravora/fast_voice_server.py",
-      "source_sha256": "a1b1c9361a804e1a4c70d3ef2c847fc1a65a7748ca60ec243cd97bca81f83432",
+      "source_sha256": "a8fa3fcff2782d30ecfaa9e7427d8615a160335bf34f9b4f2fb67215b0b6abdd",
       "kind": "adapted",
-      "note": "Preserve portable routes and packaged resources; update only the offline transcriber to emit a canned interim result.",
-      "sha256": "c4883906eb7209c3cf2e5a3ee58b9beae9fcb7a1851e3aa10cdf98240f88dd72"
+      "note": "Package-local authenticated console with configurable capture and optional caller-supplied artwork.",
+      "sha256": "564190e52f2206d4f32cd9005d4cdff8f02e0447532b63c41fb3db15de70ac33"
     },
     {
       "path": "src/ravora/gemini_memory.py",
-      "sha256": "1808996cb71a42e8d312a180b45c6bf588429a61e5b7760a87668d7f029430c9",
-      "note": "",
+      "sha256": "5aa9eb52a2e00c07a9749f908faac79c900b7379fe4a22857f8307107bc84b51",
+      "note": "Exact source snapshot.",
       "source": "src/ravora/gemini_memory.py",
-      "source_sha256": "1808996cb71a42e8d312a180b45c6bf588429a61e5b7760a87668d7f029430c9",
+      "source_sha256": "5aa9eb52a2e00c07a9749f908faac79c900b7379fe4a22857f8307107bc84b51",
       "kind": "copied"
     },
     {
@@ -433,10 +497,10 @@
     {
       "path": "src/ravora/memory.py",
       "source": "src/ravora/memory.py",
-      "source_sha256": "bb539f042ed13209225836f120abe600ef841edd49db92b5eebf035bdfc96940",
+      "source_sha256": "ab28a63605e83afd20476638c08172793477ec096f2f91c5ef44d5d438a1cbb3",
       "kind": "copied",
-      "note": "Accept late provisional reaction before playback acknowledgement without changing a completed turn back to reacting.",
-      "sha256": "bb539f042ed13209225836f120abe600ef841edd49db92b5eebf035bdfc96940"
+      "note": "Exact source snapshot.",
+      "sha256": "ab28a63605e83afd20476638c08172793477ec096f2f91c5ef44d5d438a1cbb3"
     },
     {
       "path": "src/ravora/memory_extraction.py",
@@ -448,10 +512,10 @@
     },
     {
       "path": "src/ravora/memory_worker.py",
-      "sha256": "15d25996d9e18721065439ffa3790bbdef7df965975a25bfaee1a31aa25c973d",
-      "note": "",
+      "sha256": "91bde3a4d206402a8be1b0fec4b0834fbcd4aee9d5f519dee19d555bcb82c608",
+      "note": "Exact source snapshot.",
       "source": "src/ravora/memory_worker.py",
-      "source_sha256": "15d25996d9e18721065439ffa3790bbdef7df965975a25bfaee1a31aa25c973d",
+      "source_sha256": "91bde3a4d206402a8be1b0fec4b0834fbcd4aee9d5f519dee19d555bcb82c608",
       "kind": "copied"
     },
     {
@@ -535,12 +599,36 @@
       "note": ""
     },
     {
+      "path": "src/ravora/migrations/011_semantic_memory.sql",
+      "sha256": "255e24afbc21cb1f8609ed9b12c5b3e7bcbd257ee96b1ee1ec620843d9dee7a3",
+      "source": "migrations/011_semantic_memory.sql",
+      "source_sha256": "255e24afbc21cb1f8609ed9b12c5b3e7bcbd257ee96b1ee1ec620843d9dee7a3",
+      "kind": "copied",
+      "note": "Exact source snapshot."
+    },
+    {
+      "path": "src/ravora/migrations/012_memory_owner_rank.sql",
+      "sha256": "1184b195d6b6fd039c581d003d319a6b0f2b0bf61bf57ab15dd41e34da90e92e",
+      "source": "migrations/012_memory_owner_rank.sql",
+      "source_sha256": "1184b195d6b6fd039c581d003d319a6b0f2b0bf61bf57ab15dd41e34da90e92e",
+      "kind": "copied",
+      "note": "Exact source snapshot."
+    },
+    {
+      "path": "src/ravora/migrations/013_developer_memories.sql",
+      "sha256": "e818a560bf3653ac0e89d2286a0fe095705240b0f74fb98ad79feaec335701aa",
+      "source": "migrations/013_developer_memories.sql",
+      "source_sha256": "e818a560bf3653ac0e89d2286a0fe095705240b0f74fb98ad79feaec335701aa",
+      "kind": "copied",
+      "note": "Exact source snapshot."
+    },
+    {
       "path": "src/ravora/persona.py",
       "source": "src/ravora/persona.py",
-      "source_sha256": "207d8c697b1da1a3fd1773445dd58f9baa112b5b577376a809a12bf3e3dec977",
+      "source_sha256": "95d395f60130a5f3908f7cf96691f99ddbc0bf1af898dd7a57bc523b3fbba369",
       "kind": "copied",
-      "note": "",
-      "sha256": "207d8c697b1da1a3fd1773445dd58f9baa112b5b577376a809a12bf3e3dec977"
+      "note": "Exact source snapshot.",
+      "sha256": "95d395f60130a5f3908f7cf96691f99ddbc0bf1af898dd7a57bc523b3fbba369"
     },
     {
       "path": "src/ravora/personas/calm.txt",
@@ -553,10 +641,10 @@
     {
       "path": "src/ravora/personas/cheeky.txt",
       "source": "src/ravora/personas/cheeky.txt",
-      "source_sha256": "6108ff72722b6cf350c2771e4270e8c9c0c70a478645903e238416aca46e385b",
+      "source_sha256": "156c4bc9c9746c50a80a844e51145b1419cdbf7b33b8d7a9f6c97cb9ab7523fd",
       "kind": "copied",
-      "note": "",
-      "sha256": "6108ff72722b6cf350c2771e4270e8c9c0c70a478645903e238416aca46e385b"
+      "note": "Exact source snapshot.",
+      "sha256": "156c4bc9c9746c50a80a844e51145b1419cdbf7b33b8d7a9f6c97cb9ab7523fd"
     },
     {
       "path": "src/ravora/phone_alignment.py",
@@ -567,12 +655,20 @@
       "note": ""
     },
     {
+      "path": "src/ravora/pngtuber.py",
+      "sha256": "b5d971d5f8ee40b3e498f9462f9db657bac5f49e65eb0b81c3ed1f0043d189ee",
+      "source": "src/ravora/pngtuber.py",
+      "source_sha256": "b5d971d5f8ee40b3e498f9462f9db657bac5f49e65eb0b81c3ed1f0043d189ee",
+      "kind": "copied",
+      "note": "Landmark registration, SHA-256 asset binding, mouth geometry and thickness constraints. Source art is excluded."
+    },
+    {
       "path": "src/ravora/providers.py",
-      "sha256": "1a31b03a322313f2a1c87d2831fe47139d0aa49275956380a51d734566054a2b",
+      "sha256": "9f81fcdd9f6fd45d455233b424e35d874d4272b2f825267fca8a18e66dce6716",
       "source": "src/ravora/providers.py",
-      "source_sha256": "f3371ce79fb696a38bdec259ab183c03deb4e53a6c8b55059137465ab635b175",
-      "kind": "adapted",
-      "note": "Dialogue profile adds a deliberation question to each existing reaction request."
+      "source_sha256": "9f81fcdd9f6fd45d455233b424e35d874d4272b2f825267fca8a18e66dce6716",
+      "kind": "copied",
+      "note": "Exact source snapshot."
     },
     {
       "path": "src/ravora/relationship_demo.py",
@@ -597,12 +693,20 @@
       "kind": "adapted"
     },
     {
+      "path": "src/ravora/semantic_memory.py",
+      "sha256": "2fbc04f487317b5af375efead7321321ebcdc888b7b66ac0226f7d3edada74f5",
+      "source": "src/ravora/semantic_memory.py",
+      "source_sha256": "2fbc04f487317b5af375efead7321321ebcdc888b7b66ac0226f7d3edada74f5",
+      "kind": "copied",
+      "note": "Exact source snapshot."
+    },
+    {
       "path": "src/ravora/settings.py",
-      "sha256": "f34252d2fa675978b151e3847454442079b65b44f8d96e294e7bdc5c2440be85",
+      "sha256": "2830fc4a08201bc83ad9c833e9dcb011cbe3541f9a898e01274a06c8391e7799",
       "source": "src/ravora/settings.py",
-      "source_sha256": "61580eddacae0ab3bb25703af7bc38932d4f0081dc250156e7b090199f7af50f",
+      "source_sha256": "51c675a031548400e08afbc2d519614e87861b570ff0d658364524e2272178b2",
       "kind": "adapted",
-      "note": "Adapted to the portable archive without host tooling or original media."
+      "note": "Reference configuration with portable paths and no host-specific STT implementation."
     },
     {
       "path": "src/ravora/speech.py",
@@ -613,12 +717,20 @@
       "note": ""
     },
     {
+      "path": "src/ravora/stream_pitch.py",
+      "sha256": "f63478dda538ccc609cd118475bf533db672a835c7dc23413b5855c59a50bb96",
+      "source": "src/ravora/stream_pitch.py",
+      "source_sha256": "f63478dda538ccc609cd118475bf533db672a835c7dc23413b5855c59a50bb96",
+      "kind": "copied",
+      "note": "Exact source snapshot."
+    },
+    {
       "path": "src/ravora/web/articulation.mjs",
-      "sha256": "7a432964ef7655f0bcac31b9b77ada13f324144c19e5c14e0135acf6c7e5d78b",
+      "sha256": "a1112f5fa794b3befb06121e40ae72cd704b352b407552523a8165456dbefb38",
       "source": "renderer/developer/v13-articulation.js",
-      "source_sha256": "fbbe71d9577e986e7c49bd3dd010ddaf9050b0d10f1173eab1091aa6667a3402",
+      "source_sha256": "c13cab63a937711cec3ddfd120265294d7232237c92848d3a17d018c6e7bcb85",
       "kind": "adapted",
-      "note": "Live jaw, vowel, and word handoff sampler with a package-relative module import."
+      "note": "Source port with packaged paths and synthetic fixtures."
     },
     {
       "path": "src/ravora/web/audio-clock-capture.mjs",
@@ -630,19 +742,19 @@
     },
     {
       "path": "src/ravora/web/developer/fast-app.js",
-      "sha256": "ee488b2bef1442d1a43eb7c01c00fe0537931876518ad9bddc44d3185031b01f",
+      "sha256": "671c54e27cb51cad8cb5191f5cf9368fdd8b6bfd01c6325b6d16a2e67773bc8e",
       "source": "renderer/developer/fast-app.js",
-      "source_sha256": "177fc309bc0f20005efb134d104926cf9eff0b7411959d2d02a17a1dee9a45d9",
+      "source_sha256": "53efeaf916f4db7e4a0b9e258a015882d2e69be1d3171435f03795c5815b9ce1",
       "kind": "adapted",
-      "note": "Adapted to the portable archive without host tooling or original media."
+      "note": "Source port with packaged paths and synthetic fixtures."
     },
     {
       "path": "src/ravora/web/developer/fast-index.html",
       "source": "renderer/developer/fast-index.html",
-      "source_sha256": "2a5d4cb5df5ccaeaa62c340b13a4ef6aa39fb2bea679b8c6b55a15162ab7ae9d",
+      "source_sha256": "15d81224f837c8d38ba4899ab648bbc0f69c0ae24b3169b6ec21e46c05beac9c",
       "kind": "adapted",
-      "note": "Serve the portable English console with reaction and interim status; omit private image routes.",
-      "sha256": "2b4a6c4609190f010decd611e2bb56e57d3ffd67d843af7212d646bcdde799d2"
+      "note": "Source port with packaged paths and synthetic fixtures.",
+      "sha256": "7fecd4023b5260745c5e4837564db78213c76f21fb87ea877392b6d705a456ef"
     },
     {
       "path": "src/ravora/web/developer/mic-stream.js",
@@ -655,10 +767,18 @@
     {
       "path": "src/ravora/web/developer/style.css",
       "source": "renderer/developer/style.css",
-      "source_sha256": "f90027131e034968488c1b38ff93f46c0ae8d6f51c386fec3a97ee3135aed089",
+      "source_sha256": "191a587984e3391b4d7596218d3ab7672501c94d580db964912524d6e80fead1",
+      "kind": "copied",
+      "note": "Exact source snapshot.",
+      "sha256": "191a587984e3391b4d7596218d3ab7672501c94d580db964912524d6e80fead1"
+    },
+    {
+      "path": "src/ravora/web/developer/talk-avatar.js",
+      "sha256": "7bf9fbd8ebead87bd981da7015ad868837a8ae9509cd21dcf9c2fce71c81ef68",
+      "source": "renderer/developer/talk-avatar.js",
+      "source_sha256": "a133689e262183573f3e2aef4e55571775f8dcefa29d47896c67aa63c4bba1dd",
       "kind": "adapted",
-      "note": "Retain portable styling and add reaction/interim labels.",
-      "sha256": "848e7b228770f783e6b7a97b6f4ad55c4be4221f6b24ca0c46a820ba67562ffe"
+      "note": "Registered sprite or WebGL playback, with a synthetic fallback for no-artwork use."
     },
     {
       "path": "src/ravora/web/expressions.mjs",
@@ -695,9 +815,9 @@
       "path": "src/ravora/web/pngtuber-surface.mjs",
       "source": "renderer/pngtuber-core.js",
       "kind": "copied",
-      "source_sha256": "23ff8e0a3e227a77e9f93d75cfa3c4c7e3035f04cee507019242404f2b4e96bd",
-      "sha256": "23ff8e0a3e227a77e9f93d75cfa3c4c7e3035f04cee507019242404f2b4e96bd",
-      "note": "Registered surface used in the recording. Artwork is supplied separately."
+      "source_sha256": "e8cc453355e694dae7175bf90ffa0e56cac1651fe8de36f9bdf0cf3827ca524a",
+      "sha256": "e8cc453355e694dae7175bf90ffa0e56cac1651fe8de36f9bdf0cf3827ca524a",
+      "note": "Exact source snapshot."
     },
     {
       "path": "src/ravora/web/presence.mjs",
@@ -733,10 +853,10 @@
     },
     {
       "path": "tests/check_media.mjs",
-      "sha256": "421815bfb46bd2646a104e57857163f7f78ae39346b2eddfe745d8f45ec6ff96",
+      "sha256": "2036e13c22e9e1d99f5b63816b0a2061f4700d45c85110fcd657af53e34c43b5",
       "kind": "generated",
       "source": "case-study",
-      "note": "Portable documentation, fixture, or package validation."
+      "note": "Portable documentation, fixture, or publication validation."
     },
     {
       "path": "tests/support.py",
@@ -747,26 +867,33 @@
       "kind": "adapted"
     },
     {
+      "path": "tests/test_avatar_geometry.py",
+      "sha256": "0d6f0c6edf973bb12be1063d8a5aa35004064543e8ccb98ec6c6abc6dabf03bf",
+      "source": "case-study",
+      "kind": "generated",
+      "note": "Portable documentation, fixture, or publication validation."
+    },
+    {
       "path": "tests/test_case_study.py",
-      "sha256": "a80bca6a50da5faf52a7373e99e58661b040b7fd6a81d4ae36a09128b4d9656e",
+      "sha256": "f11e8f44020ea41c69c37a58a2cbf7b04832c0a68ddc556c6699996790fe2aa7",
       "kind": "generated",
       "source": "case-study",
-      "note": "Portable documentation, fixture, or package validation."
+      "note": "Portable documentation, fixture, or publication validation."
     },
     {
       "path": "tests/test_conversation_context.py",
-      "sha256": "13abe0b5f0e290d5338acc652a331b60900924d82813dcc66a56cd32655db962",
-      "note": "Use extracted synthetic fixtures; keep the source assertions.",
+      "sha256": "6bdfb2a0444f1a490a92d744d6bce73c9cd0ed505de0b60386df96fa311e63c0",
+      "note": "Source port with packaged paths and synthetic fixtures.",
       "source": "tests/test_conversation_context.py",
-      "source_sha256": "5fa5973fb73f006a9b56709cd6f6d730fe1f43b55515e7e6d6b9520bf649d637",
+      "source_sha256": "bdcdea5917936a83c8aabb1f013f4aa7499965ece0806340f04a777e4754f4c4",
       "kind": "adapted"
     },
     {
       "path": "tests/test_database.py",
-      "sha256": "134450abe3216392480881542d9c46ae5a12642ba1984d917a09069963228c30",
-      "note": "Keep database assertions; use synthetic support, close SQLite connections, and copy schema contents without installation permission metadata.",
+      "sha256": "316c3f80f8983aedd71bc0358988188c9a0008d5ca877577ea0ee61fd390f9b2",
+      "note": "Source port with packaged paths and synthetic fixtures.",
       "source": "tests/test_database.py",
-      "source_sha256": "16efcece4bfa4f0c9f4a9402852f0ee83dd32989c539ce995ba3a7e1c5237a5e",
+      "source_sha256": "2661701f8c84bf689e9a02fa992410b4718da3408c7f9f3459f5d4db8611ff4e",
       "kind": "adapted"
     },
     {
@@ -779,19 +906,27 @@
     },
     {
       "path": "tests/test_early_reaction.py",
-      "sha256": "ce9dba992ada8e42887a86beb6aabc62bc5faac68da06814316a2cb78b5788cc",
+      "sha256": "69a85c3542898edc3a2bdeecff945613b6979f879c9138452cbbc429cbcee5c0",
       "source": "tests/test_early_reaction.py",
-      "source_sha256": "6ef1f1225e2f0e84b2713845cd1393188b8523b8fd600557a88ebfede469eb14",
+      "source_sha256": "4b5058a060e7c44b89f77a61473a21aecfd0bff72c28a2f23c4cdcf89f79744c",
       "kind": "adapted",
-      "note": "Adapted to the portable archive without host tooling or original media."
+      "note": "Source port with packaged paths and synthetic fixtures."
+    },
+    {
+      "path": "tests/test_edge_grpc.py",
+      "sha256": "02e8b09fa5a98a9da5c27baeea023f63a489122bd7363933c8a6d2f120bae213",
+      "source": "tests/test_edge_grpc.py",
+      "source_sha256": "5fa8776ba57704287927b5f983fb3643203d04da2173a405461f25607977cd4d",
+      "kind": "adapted",
+      "note": "Network-free request, hedging, PCM and optional LiveShifter tests."
     },
     {
       "path": "tests/test_fast_voice.py",
       "source": "tests/test_fast_voice.py",
-      "source_sha256": "3f95bd2ceb8e2d9a9f8fb771881d3063dad3da0fd563d4440ff59397b3c0f512",
+      "source_sha256": "3d775c27541cd6ebf9563bc67675e1647e17b67543b4321a5052a50984575b40",
       "kind": "adapted",
-      "note": "Retain the portable disabled-by-default check and the updated streaming profile expectation.",
-      "sha256": "80d61ecdf29a2506ff70264f02f1128b68fbc40aabe1a17474da44b0a6e8cb32"
+      "note": "Source port with packaged paths and synthetic fixtures.",
+      "sha256": "b354aeaea99b9f294b8ac5c36d2442b0c45642205c0766a58dbcfa61f16e4941"
     },
     {
       "path": "tests/test_gemini_memory.py",
@@ -810,19 +945,19 @@
     },
     {
       "path": "tests/test_memory_worker.py",
-      "sha256": "b5658154ef47287dac1be38f355a6088f336fbc81c814c4a1dc909c1626117be",
-      "note": "Use extracted synthetic fixtures; keep the source assertions.",
+      "sha256": "b664c91b39e9016ad42defe8cacbc1a897300d17cf3b41908805ccc3b339562d",
+      "note": "Source port with packaged paths and synthetic fixtures.",
       "source": "tests/test_memory_worker.py",
-      "source_sha256": "e6e932c0702e02dc7a1f4766fe6a63388c7437e333156a4bb2c46a95b4b87ee0",
+      "source_sha256": "b7831ed5ca8b292e6e6c8078f0a21c872408c82fe3c0c3d1620fe829aba8bd19",
       "kind": "adapted"
     },
     {
       "path": "tests/test_persona.py",
       "source": "tests/test_persona.py",
-      "source_sha256": "4b2de693930cf6961035a1ac5ca61dce957a1166c6daee76b32cbd86b9d11f58",
+      "source_sha256": "cd60e01e942a123a95089c98de634879454308f3f7d3f20b10b57a96b9143783",
       "kind": "copied",
-      "note": "",
-      "sha256": "4b2de693930cf6961035a1ac5ca61dce957a1166c6daee76b32cbd86b9d11f58"
+      "note": "Exact source snapshot.",
+      "sha256": "cd60e01e942a123a95089c98de634879454308f3f7d3f20b10b57a96b9143783"
     },
     {
       "path": "tests/test_phone_alignment.py",
@@ -839,6 +974,14 @@
       "note": "Use portable synthetic fixtures and copy schema contents without permission metadata.",
       "sha256": "dcbf33141c5a92f6856d123eb34e01e933f60ddadf505e59f38233ddda41c141",
       "source_sha256": "a73b6e06ce9c272ebb0dc43a7d38a1927671ba97327651da7b29d914e26f1160"
+    },
+    {
+      "path": "tests/test_semantic_memory.py",
+      "sha256": "7fd1a1979dd6f76e6bd19539455929a29b61240550fd43b57451cc13d12ac7eb",
+      "source": "tests/test_semantic_memory.py",
+      "source_sha256": "f7ff44a50198dcee6f91c15605eb5c1b465cd120e52faf076254e1fd5292dbca",
+      "kind": "adapted",
+      "note": "Source port with packaged paths and synthetic fixtures."
     },
     {
       "path": "tests/test_single_reaction.py",

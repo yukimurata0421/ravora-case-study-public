@@ -15,9 +15,12 @@ const clamp = (x, low, high) => Math.min(high, Math.max(low, x));
 const STEP = .0125;
 const SMOOTH = Array.from({length: 9}, (_, i) => (i - 4) * STEP);
 const SMOOTH_W = SMOOTH.map(o => Math.cos(Math.PI * o / .12) ** 2);
-const COLOUR = Array.from({length: 17}, (_, i) => (i - 8) * STEP);
-const COLOUR_W = COLOUR.map(o => Math.cos(Math.PI * o / .24) ** 2);
-const CLOSING = .15;
+// +-75 ms: at +-100 ms the wide window took 8% off the opening peaks (open p90 .472 against .515
+// before smoothing, six replies) and the mouth read smaller; +-75 ms keeps 95% of them while the
+// frame-to-frame jerk (p95 .158) stays a third below the unsmoothed mouth (.227).
+const COLOUR = Array.from({length: 13}, (_, i) => (i - 6) * STEP);
+const COLOUR_W = COLOUR.map(o => Math.cos(Math.PI * o / .18) ** 2);
+const CLOSING = .2;   // m/b/p closures: max opening .091 at .2 against .103 at .15
 // Weighted opening and opening-weighted vowel colour from a raw sampler.
 function smoothMouth(raw, seconds) {
   let narrow = 0, nw = 0, wide = 0, ww = 0;

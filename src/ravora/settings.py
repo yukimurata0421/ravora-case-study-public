@@ -6,6 +6,8 @@ import re
 
 from ravora.persona import DEFAULT_PERSONA, REPLY_STYLES, PersonaError, load_persona
 
+DEFAULT_STREAMING_VOICE = 'en-US-Chirp3-HD-Zephyr'
+
 
 def boolean(value):
     if value.lower() not in ('true','false'):raise ValueError()
@@ -51,7 +53,7 @@ class ProviderSettings:
     voice_stt_model: str = 'long'
     voice_input_language: str = 'en-US'
     voice_tts_region: str = 'asia-northeast1'
-    voice_tts_voice: str = 'en-US-Chirp3-HD-Aoede'
+    voice_tts_voice: str = DEFAULT_STREAMING_VOICE
     voice_input_chunk_ms: int = 100
     voice_jitter_buffer_ms: int = 60
     early_reaction_enabled: bool = True
@@ -89,12 +91,17 @@ class ProviderSettings:
     sentence_chars: int = 240
     max_chunks: int = 8
     monthly_tts_chars: int = 1800000
+    monthly_reply_llm_usd: int = 0
     memory_turns: int = 4
     context_enabled: bool = True
     relationship_enabled: bool = True
     context_max_items: int = 8
     context_max_chars: int = 3600
     memory_enabled: bool = True
+    semantic_memory_mode: str = 'off'
+    semantic_candidate_limit: int = 8
+    semantic_max_chars: int = 4800
+    semantic_wait_ms: int = 350
     memory_ttl_days: int = 30
     memory_queue_size: int = 16
     memory_wait_seconds: float = 10.
@@ -133,6 +140,15 @@ class ProviderSettings:
     quota_project: str = field(default='', repr=False)
 
     def validate(self):
+        if type(self.monthly_reply_llm_usd) is not int or self.monthly_reply_llm_usd < 0:
+            raise SettingsError('INVALID_REPLY_LLM_BUDGET')
+        if self.monthly_reply_llm_usd and self.gemini_model != 'gemini-3.5-flash-lite':
+            raise SettingsError('REPLY_LLM_BUDGET_MODEL_NOT_PRICED')
+        if (self.semantic_memory_mode not in ('off','candidates','jev')
+            or type(self.semantic_candidate_limit) is not int or not 1<=self.semantic_candidate_limit<=12
+            or type(self.semantic_max_chars) is not int or not 800<=self.semantic_max_chars<=8000
+            or type(self.semantic_wait_ms) is not int or not 0<=self.semantic_wait_ms<=500):
+            raise SettingsError('INVALID_SEMANTIC_MEMORY_SETTINGS')
         if self.reply_style not in REPLY_STYLES:raise SettingsError('UNKNOWN_REPLY_STYLE')
         if (type(self.early_reaction_enabled) is not bool or type(self.early_reaction_stability) not in (int,float)
             or not .5<=self.early_reaction_stability<=1
@@ -190,7 +206,6 @@ class ProviderSettings:
             raise SettingsError('INVALID_CREDENTIAL_FORMAT')
         return self
 
-
     def missing(self):
         return [name for name, present in [('GEMINI_API_KEY',self.gemini_key),('JEV_API_KEY',self.jev_key),('GOOGLE_TTS_API_KEY or GOOGLE_CLOUD_ACCESS_TOKEN',self.tts_key or self.gcp_access_token)] if not present]
 
@@ -203,7 +218,7 @@ class ProviderSettings:
         names=('mode','api_enabled','comment_source','comment_queue_size','comment_ttl','youtube_read_enabled','youtube_poll_seconds','youtube_max_requests','llm_provider','reaction_provider','tts_provider','gemini_model','jev_model','voice','language','speaking_rate','pitch','timeout','turn_timeout','max_reply_chars','sentence_chars','max_chunks','monthly_tts_chars','memory_turns','memory_enabled','memory_ttl_days','memory_queue_size','memory_wait_seconds','memory_extractor','memory_api_enabled','memory_model','memory_api_timeout','memory_min_confidence','stt_api_enabled','stt_model','stt_language','stt_timeout','stt_max_seconds','stt_monthly_audio_seconds','stt_session_requests','stt_min_rms')
         return {name:getattr(self,name) for name in (*names,'persona','reply_style','early_reaction_enabled','early_reaction_stability',
             'early_reaction_debounce_ms','early_reaction_cooldown_ms','early_reaction_max_requests',
-            'context_enabled','context_max_items','context_max_chars','relationship_enabled','voice_profile','voice_stt_region','voice_stt_model','voice_input_language',
+            'monthly_reply_llm_usd','context_enabled','context_max_items','context_max_chars','relationship_enabled','voice_profile','voice_stt_region','voice_stt_model','voice_input_language',
             'voice_tts_region','voice_tts_voice','voice_input_chunk_ms','voice_jitter_buffer_ms','stt_provider','stt_model_path','stt_noise_percentile',
             'stt_margin_db','stt_floor_db','stt_min_speech_ms','stt_silence_ms','stt_pad_ms','stt_min_output_ms',
             'stt_vad_probability','stt_no_speech','stt_log_probability','stt_compression','stt_language_probability')}
@@ -214,7 +229,8 @@ def load_settings(path: Path, *, mode=None, environ=None):
     values.update(os.environ if environ is None else environ)
     spec = {'api_enabled':('RAVORA_API_ENABLED',boolean),'comment_source':('RAVORA_COMMENT_SOURCE',str),'comment_queue_size':('RAVORA_COMMENT_QUEUE_SIZE',int),'comment_ttl':('RAVORA_COMMENT_TTL_SECONDS',int),'youtube_read_enabled':('YOUTUBE_READ_ENABLED',boolean),'youtube_video_id':('YOUTUBE_VIDEO_ID',str),'youtube_chat_id':('YOUTUBE_LIVE_CHAT_ID',str),'youtube_poll_seconds':('YOUTUBE_MIN_POLL_SECONDS',float),'youtube_max_requests':('YOUTUBE_MAX_REQUESTS',int),'youtube_key':('YOUTUBE_API_KEY',str),'mode':('RAVORA_MODE',str),'llm_provider':('RAVORA_LLM_PROVIDER',str),'reaction_provider':('RAVORA_REACTION_PROVIDER',str),'tts_provider':('RAVORA_TTS_PROVIDER',str),'gemini_model':('GEMINI_MODEL',str),'jev_model':('JEV_MODEL',str),'voice':('GOOGLE_TTS_VOICE',str),'language':('GOOGLE_TTS_LANGUAGE',str),'speaking_rate':('GOOGLE_TTS_SPEAKING_RATE',float),'pitch':('GOOGLE_TTS_PITCH',float),'timeout':('RAVORA_API_TIMEOUT_SECONDS',float),'turn_timeout':('RAVORA_TURN_TIMEOUT_SECONDS',float),'max_reply_chars':('RAVORA_MAX_REPLY_CHARS',int),'sentence_chars':('RAVORA_SENTENCE_CHARS',int),'max_chunks':('RAVORA_MAX_SPEECH_CHUNKS',int),'monthly_tts_chars':('RAVORA_MONTHLY_TTS_CHAR_LIMIT',int),'memory_turns':('RAVORA_MEMORY_TURNS',int),'gemini_key':('GEMINI_API_KEY',str),'jev_key':('JEV_API_KEY',str),'tts_key':('GOOGLE_TTS_API_KEY',str),'gcp_access_token':('GOOGLE_CLOUD_ACCESS_TOKEN',str),'quota_project':('GOOGLE_CLOUD_QUOTA_PROJECT',str)}
     kwargs={}
-    spec.update({'context_enabled':('RAVORA_CONTEXT_ENABLED',boolean),'context_max_items':('RAVORA_CONTEXT_MAX_ITEMS',int),
+    spec.update({'monthly_reply_llm_usd':('RAVORA_MONTHLY_REPLY_LLM_USD',int),
+        'context_enabled':('RAVORA_CONTEXT_ENABLED',boolean),'context_max_items':('RAVORA_CONTEXT_MAX_ITEMS',int),
         'relationship_enabled':('RAVORA_RELATIONSHIP_ENABLED',boolean),
         'early_reaction_enabled':('RAVORA_EARLY_REACTION_ENABLED',boolean),
         'early_reaction_stability':('RAVORA_EARLY_REACTION_STABILITY',float),
@@ -229,6 +245,10 @@ def load_settings(path: Path, *, mode=None, environ=None):
         'voice_tts_region':('RAVORA_VOICE_TTS_REGION',str),'voice_tts_voice':('RAVORA_VOICE_TTS_VOICE',str),
         'voice_input_chunk_ms':('RAVORA_VOICE_INPUT_CHUNK_MS',int),'voice_jitter_buffer_ms':('RAVORA_VOICE_JITTER_BUFFER_MS',int),
         'cloud_project':('GOOGLE_CLOUD_PROJECT',str)})
+    spec.update({'semantic_memory_mode':('RAVORA_SEMANTIC_MEMORY_MODE',str),
+                 'semantic_candidate_limit':('RAVORA_SEMANTIC_CANDIDATE_LIMIT',int),
+                 'semantic_max_chars':('RAVORA_SEMANTIC_MAX_CHARS',int),
+                 'semantic_wait_ms':('RAVORA_SEMANTIC_WAIT_MS',int)})
     spec.update({'memory_enabled':('RAVORA_MEMORY_ENABLED',boolean),'memory_ttl_days':('RAVORA_MEMORY_TTL_DAYS',int),
                  'memory_queue_size':('RAVORA_MEMORY_QUEUE_SIZE',int),'memory_wait_seconds':('RAVORA_MEMORY_WAIT_SECONDS',float),
                  'memory_extractor':('RAVORA_MEMORY_EXTRACTOR',str),'memory_api_enabled':('RAVORA_MEMORY_API_ENABLED',boolean),'memory_model':('GEMINI_MEMORY_MODEL',str),

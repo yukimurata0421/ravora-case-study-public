@@ -1,17 +1,22 @@
 <!doctype html>
 <html lang="en">
 <meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1">
-<title>RAVORA | Case-study console</title><link rel="stylesheet" href="/style.css">
-<main>
-<header><div class="eyebrow">RAVORA / CASE STUDY</div><h1>Try a conversation.</h1>
-<p>Explore streaming playback and local, source-backed memory.</p><span id="mode">Connecting</span></header>
-<aside id="notice" role="note"></aside>
-<p id="reaction" role="status">Reaction: neutral</p><p id="interim" aria-live="polite"></p>
-<section id="messages" aria-label="Conversation" aria-live="polite"><p class="intro">Start with text, or hold the microphone button.</p></section>
-<div class="controls"><button id="talk" disabled>Hold to talk</button><button id="stop" class="secondary">Stop</button>
-<label for="language">Input language</label><select id="language"><option value="en-US">English</option><option value="ja-JP">Japanese (mock)</option></select>
-<span id="status" role="status">Connecting...</span></div>
-<form id="form"><label for="text">Send a message</label><div class="input-row"><textarea id="text" rows="2" maxlength="1000" placeholder="I like coffee and jazz."></textarea><button id="send" disabled>Send</button></div></form>
-<footer>No cloud API is used. Text is stored only in this temporary session. Microphone audio is not saved.<span id="limit"></span></footer>
+<title>RAVORA · Case-study console</title><link rel="stylesheet" href="/style.css">
+<main class="talk-console">
+  <header><div class="eyebrow">RAVORA / CASE STUDY</div><h1>Try a conversation</h1>
+    <p>Replies play in this browser.</p><span id="mode">Connecting</span></header>
+  <aside id="notice" role="note"></aside>
+  <section id="reaction-preview" class="reaction-preview talk-stage" aria-label="Ravora: neutral">
+    <canvas id="talk-avatar" width="1920" height="1080" aria-label="Live avatar"></canvas>
+    <div class="stage-tools"><span id="reaction-caption">Ready</span><span id="stage-status">Connecting…</span><button id="stage-stop" type="button" class="secondary" disabled>Stop</button><button id="fullscreen" type="button" class="secondary">Fullscreen</button></div>
+  </section>
+  <section id="messages" aria-label="Conversation" aria-live="polite"><p class="intro">Type a message or use the microphone.</p></section>
+  <div class="controls"><button id="talk" disabled>Hold to talk</button><button id="stop" class="secondary" disabled>Stop</button>
+    <label for="end-mode">Talk mode</label><select id="end-mode" disabled><option value="manual">Release button or Space to send</option><option value="auto">Detect end of speech</option><option value="handsfree">Hands-free</option></select>
+    <label for="input-source">Microphone</label><select id="input-source" disabled><option value="dell">Host microphone</option><option value="windows">Browser microphone</option></select>
+    <label for="language">Input language</label><select id="language"><option value="en-US">English</option><option value="ja-JP">Japanese</option></select>
+    <span id="status" role="status">Connecting…</span><button id="reconnect" class="secondary" hidden>Reconnect</button></div>
+  <form id="form"><label for="text">Message</label><div class="input-row"><textarea id="text" rows="2" maxlength="1000" placeholder="What would you like to talk about?"></textarea><button id="send" disabled>Send</button></div></form>
+  <footer>The microphone stops during replies. Input audio is discarded.<span id="limit"></span></footer>
 </main><script type="module" src="/app.js"></script>
 </html>

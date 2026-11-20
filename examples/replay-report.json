@@ -1,7 +1,7 @@
 {
   "status": "PASS_CASE_STUDY_REPLAY",
   "synthetic_data": true,
-  "schema_version": 10,
+  "schema_version": 13,
   "tier_order": [
     1,
     1,

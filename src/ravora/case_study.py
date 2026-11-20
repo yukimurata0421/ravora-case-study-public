@@ -6,6 +6,7 @@ import json
 from pathlib import Path
 import socket
 import tempfile
+import tomllib
 import threading
 import time
 from unittest.mock import patch
@@ -202,10 +203,14 @@ async def early_reaction_replay():
     return result
 
 
-async def console(port,seconds):
+async def console(port,seconds,*,route=None,avatar_binding=None):
+    route=route or {}
     with tempfile.TemporaryDirectory(prefix='ravora-console-') as directory:
         root=Path(directory);store=MemoryStore(root/'conversation.sqlite3')
-        server=await FastVoiceServer(offline_settings(),store,root,mode='mock',port=port).start()
+        server=await FastVoiceServer(offline_settings(),store,root,mode='mock',port=port,
+            default_input=route.get('input_source','windows'),dell_device=route.get('dell_device'),
+            default_end_mode=route.get('end_mode','manual'),end_silence_ms=route.get('end_silence_ms',800),
+            avatar_binding=avatar_binding).start()
         print('Offline simulation: canned transcription, test tones, no cloud calls.',flush=True)
         print('Open: '+server.origin+'/#token='+server.secret,flush=True)
         print('Session expires in '+str(seconds)+' seconds; temporary text and audio are removed at exit.',flush=True)
@@ -215,12 +220,33 @@ async def console(port,seconds):
 
 def main():
     parser=argparse.ArgumentParser(description=__doc__);parser.add_argument('action',choices=('replay','early-reaction','relationships','media-timing','serve'),nargs='?',default='replay')
-    parser.add_argument('--report',type=Path);parser.add_argument('--port',type=int,default=8767);parser.add_argument('--seconds',type=int,default=900)
+    parser.add_argument('--report',type=Path);parser.add_argument('--port',type=int);parser.add_argument('--seconds',type=int)
+    parser.add_argument('--config',type=Path,help='Console TOML with optional developer_voice and pngtuber sections')
     args=parser.parse_args()
-    if not 1024<=args.port<=65534 or not 10<=args.seconds<=3600:parser.error('port must be 1024..65534 and seconds 10..3600')
+    cfg={}
+    if args.config:
+        if args.action!='serve':parser.error('--config is for the console')
+        with args.config.open('rb') as file:cfg=tomllib.load(file)
+    route=cfg.get('developer_voice',{})
+    port=args.port if args.port is not None else route.get('port',8767)
+    seconds=args.seconds if args.seconds is not None else route.get('session_seconds',7200)
+    if type(port) is not int or not 1024<=port<=65534 or type(seconds) is not int or not 10<=seconds<=7200:
+        parser.error('port must be 1024..65534 and seconds 10..7200')
+    if route.get('input_source','windows') not in ('windows','dell') or route.get('end_mode','manual') not in ('manual','auto','handsfree'):
+        parser.error('Invalid microphone or end mode')
+    silence=route.get('end_silence_ms',800)
+    if type(silence) is not int or not 300<=silence<=2500:parser.error('end_silence_ms must be 300..2500')
+    if route.get('input_source')=='dell' or 'dell_device' in route:
+        from ravora.dell_microphone import parse_device
+        try:parse_device(route.get('dell_device'))
+        except ValueError:parser.error('Set dell_device to an ALSA card ID and PCM number')
+    binding=None
+    if 'pngtuber' in cfg:
+        from ravora.pngtuber import pngtuber_binding
+        binding=pngtuber_binding(args.config.resolve().parent,cfg)
     if args.action=='serve':
         if args.report:parser.error('--report is for replay commands only')
-        try:asyncio.run(console(args.port,args.seconds))
+        try:asyncio.run(console(port,seconds,route=route,avatar_binding=binding))
         except ModuleNotFoundError as exc:
             if exc.name=='websockets':parser.exit(2,'Install the optional console dependency: python3 -m pip install ".[console]"\n')
             raise

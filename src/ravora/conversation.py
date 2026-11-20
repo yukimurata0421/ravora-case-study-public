@@ -8,12 +8,14 @@ import threading
 import time
 import uuid
 
-from ravora.providers import ProviderError, adapters
+from ravora.providers import ProviderError, GeminiText, JevReaction, adapters
 from ravora.database import Connection as closing_connection
+from ravora.developer_identity import DEVELOPER_PLATFORMS, viewer_key
 from ravora.memory import MemoryRepository
 from ravora.memory_worker import MemoryWorker
 from ravora.conversation_context import ConversationContext
 from ravora.relationships import Relationships,relationship_text
+from ravora.semantic_memory import SemanticMemory, speech_background
 
 
 class SentenceBuffer:
@@ -39,23 +41,44 @@ class SentenceBuffer:
         return out
 
 
-class MemoryStore(Relationships,ConversationContext,MemoryRepository):
-    def start(self,turn_id,viewer,comment):
+class MemoryStore(Relationships,ConversationContext,SemanticMemory,MemoryRepository):
+    def start(self,turn_id,viewer,comment,*,developer_id=None):
+        """Start a turn and identify the configured developer from its bound input."""
         now=time.time()
         with self.connect() as db:
             db.execute('BEGIN IMMEDIATE')
-            source=db.execute('SELECT s.id,s.is_deleted,s.raw_purged_at FROM source_events s JOIN comment_inbox i ON i.receipt=s.id WHERE i.turn_id=?',(turn_id,)).fetchone()
+            source=db.execute('''SELECT s.id,s.is_deleted,s.raw_purged_at
+                FROM source_events s JOIN comment_inbox i ON i.receipt=s.id WHERE i.turn_id=?''',(turn_id,)).fetchone()
             status='source_removed' if source and source[1] else 'source_expired' if source and source[2] is not None else 'running'
             db.execute('''INSERT INTO conversation_turns(id,turn_id,source_event_id,viewer,comment,status,started,state,created_at)
                 VALUES(?,?,?,?,?,?,?,?,?)''',(turn_id,turn_id,source[0] if source else None,viewer,
                 comment if status=='running' else '',status,dt.datetime.now(dt.timezone.utc).isoformat(),
                 'SELECTING' if status=='running' else 'CANCELLED',now))
+            scope,_,owner=viewer.partition(':')
+            platform=owner.partition(':')[0]
+            developer_speaker=False
+            if (source and developer_id and scope in ('cloud','offline') and platform in DEVELOPER_PLATFORMS
+                    and owner==viewer_key(platform,developer_id)):
+                developer_speaker=db.execute('''SELECT 1 FROM developer_memory_sources d
+                    JOIN source_events s ON s.id=d.event_id
+                    WHERE d.event_id=? AND d.owner_key=? AND s.viewer_key=d.owner_key AND s.viewer_id=? AND s.expires_at>?''',
+                    (source[0],owner,developer_id,now)).fetchone() is not None
         if status!='running':raise ProviderError('COMMENT_NO_LONGER_AVAILABLE')
+        return developer_speaker
 
     def history(self,viewer,count=4):
         if not count:return []
+        owner=viewer.partition(':')[2]
+        where="t.viewer=? AND t.played=1 AND t.status='completed'"
+        args=[viewer]
+        if owner.partition(':')[0] in DEVELOPER_PLATFORMS:
+            where+=''' AND EXISTS(SELECT 1 FROM developer_memory_sources d JOIN source_events s ON s.id=d.event_id
+                WHERE d.event_id=t.source_event_id AND d.owner_key=? AND s.viewer_key=d.owner_key
+                  AND s.is_deleted=0 AND s.raw_purged_at IS NULL AND s.expires_at>?)'''
+            args.extend((owner,time.time()))
         with self.connect() as db:
-            rows=db.execute("SELECT comment,reply FROM conversation_turns WHERE viewer=? AND played=1 AND status='completed' ORDER BY rowid DESC LIMIT ?",(viewer,count)).fetchall()
+            rows=db.execute('SELECT t.comment,t.reply FROM conversation_turns t WHERE '+where+
+                            ' ORDER BY t.rowid DESC LIMIT ?',(*args,count)).fetchall()
         return [(role,text) for comment,reply in reversed(rows) for role,text in [('user',comment),('model',reply)]]
 
     def finish(self,turn_id,reply,status,metrics):
@@ -125,13 +148,42 @@ class MemoryStore(Relationships,ConversationContext,MemoryRepository):
         return key
 
     def call_state(self,key,state,*,attempted=False,code=None):
+        with self.connect() as db:self._call_state(db,key,state,attempted=attempted,code=code)
+
+    @staticmethod
+    def _call_state(db,key,state,*,attempted=False,code=None):
         now=time.time()
+        db.execute('UPDATE provider_calls SET state=?,attempted=MAX(attempted,?),updated=?,code=? WHERE id=?',(state,int(attempted),now,code,key))
+        db.execute('''UPDATE api_usage SET status=?,attempted=MAX(attempted,?),
+            latency_ms=CASE WHEN ? IN ('accepted','failed','outcome_unknown','discarded_after_cancel')
+                THEN MAX(0,(?-created_at)*1000) ELSE latency_ms END WHERE id=?''',(state,int(attempted),state,now,key))
+
+    def dispatch_budgeted_reply(self,key,input_bytes,output_tokens,attempts,monthly_usd):
+        """Reserve estimated Flash-Lite cost in integer microdollars, including concurrent hedges."""
+        # Text-only. Allow one input token per UTF-8 byte plus protocol overhead.
+        # Standard price per million tokens: $0.30 input and $2.50 output (including thinking).
+        per_attempt=(3*(input_bytes+256)+9)//10+(5*output_tokens+1)//2
+        reservation=attempts*per_attempt
         with self.connect() as db:
-            db.execute('UPDATE provider_calls SET state=?,attempted=MAX(attempted,?),updated=?,code=? WHERE id=?',(state,int(attempted),now,code,key))
-            # This measures controller stage latency, not provider billing or wire time.
-            db.execute('''UPDATE api_usage SET status=?,attempted=MAX(attempted,?),
-                latency_ms=CASE WHEN ? IN ('accepted','failed','outcome_unknown','discarded_after_cancel')
-                    THEN MAX(0,(?-created_at)*1000) ELSE latency_ms END WHERE id=?''',(state,int(attempted),state,now,key))
+            db.execute('BEGIN IMMEDIATE')
+            month=dt.datetime.now(dt.timezone(dt.timedelta(hours=9))).strftime('%Y-%m')
+            call=db.execute("""SELECT 1 FROM provider_calls p JOIN api_usage a ON a.id=p.id WHERE p.id=?
+                AND p.provider='gemini' AND p.operation IN ('generate','stream_generate') AND p.state='prepared'
+                AND p.attempted=0 AND a.model='gemini-3.5-flash-lite' AND a.mode='cloud'""",(key,)).fetchone()
+            if not call:raise ProviderError('INVALID_REPLY_BUDGET_RESERVATION')
+            # Old attempted calls have no reservation. Carry at least two cents per call,
+            # or its recorded usage with all possible attempts, whichever is larger.
+            used=db.execute("""SELECT COALESCE(SUM(COALESCE(json_extract(p.summary,'$.reply_reserved_microusd'),
+                MAX(20000,(CASE p.operation WHEN 'stream_generate' THEN 3 ELSE 1 END)*
+                    ((3*COALESCE(a.input_tokens,0)+9)/10+(5*MAX(400,COALESCE(a.output_tokens,0)+COALESCE(a.thought_tokens,0))+1)/2)))),0)
+                FROM provider_calls p JOIN api_usage a ON a.id=p.id WHERE p.provider='gemini'
+                AND p.operation IN ('generate','stream_generate') AND p.attempted=1
+                AND COALESCE(json_extract(p.summary,'$.reply_budget_month'),
+                    strftime('%Y-%m',a.created_at,'unixepoch','+9 hours'))=?""",(month,)).fetchone()[0]
+            if used+reservation>monthly_usd*1_000_000:raise ProviderError('LOCAL_MONTHLY_REPLY_LLM_LIMIT')
+            db.execute("""UPDATE provider_calls SET summary=json_set(summary,'$.reply_budget_month',?,
+                '$.reply_reserved_microusd',?) WHERE id=?""",(month,reservation,key))
+            self._call_state(db,key,'dispatched',attempted=True)
 
     def call_usage(self,key,usage):
         values=[]
@@ -195,25 +247,40 @@ class SpeechController:
                 try:sentences.put(value,timeout=.05);return
                 except queue.Full:pass
         memory_viewer=self.s.mode+':'+viewer
-        self.store.start(turn_id,memory_viewer,comment)
+        developer_speaker=self.store.start(turn_id,memory_viewer,comment,developer_id=self.s.developer_id)
         memory_wait=self.clock()
-        if not self.memory_worker.wait_for(viewer,cancel=cancel):
+        semantic_enabled=self.s.memory_enabled and self.s.semantic_memory_mode!='off'
+        if semantic_enabled:self.memory_worker.wake()
+        if not semantic_enabled and not self.memory_worker.wait_for(viewer,cancel=cancel):
             metrics['total_ms']=round((self.clock()-start)*1000,2)
             self.store.finish(turn_id,'','failed',metrics)
             if not cancel.is_set():emit({'kind':'error','status':'failed','code':'MEMORY_WORKER_NOT_READY','metrics':metrics})
             return metrics
         metrics['memory_wait_ms']=round((self.clock()-memory_wait)*1000,2)
         history=self.store.history(memory_viewer,self.s.memory_turns)
-        memories,strategy=self.store.recall_memory(viewer,comment,scope=self.s.mode) if self.s.memory_enabled else ([], 'disabled')
+        memories,strategy=self.store.conversation_memories(viewer,comment,self.s)
+        candidates=self.store.episode_candidates(viewer,comment,scope=self.s.mode,
+            limit=self.s.semantic_candidate_limit,max_chars=self.s.semantic_max_chars) if semantic_enabled else []
+        semantic_done=threading.Event();semantic_result={};generation_decision={}
+        previous_message=self.store.semantic_previous_message(viewer,scope=self.s.mode) if candidates else ''
+        generation_history=history
         def prepare_context(key):
+            nonlocal generation_history
             # Refresh before dispatch: a removed source cannot survive in the
             # adapter's context from an earlier turn.
-            notes,method=self.store.recall_memory(viewer,comment,scope=self.s.mode) if self.s.memory_enabled else ([], 'disabled')
+            notes,method=self.store.conversation_memories(viewer,comment,self.s,judgment=generation_decision.get('value'))
+            if isinstance(self.text,GeminiText):
+                self.text.set_retrieval_strategy(method,reaction=generation_decision.get('reaction'))
+            elif hasattr(self.text,'set_retrieval_strategy'):self.text.set_retrieval_strategy(method)
             supported=hasattr(self.text,'set_memories')
             if supported:self.text.set_memories(notes)
             self.store.record_retrievals(turn_id,notes,context_prepared=supported,strategy=method,call_id=key)
+            if semantic_enabled:
+                self.store.record_semantic_retrieval(turn_id,comment,candidates,generation_decision.get('value'),used=generation_decision.get('value') is not None)
             context=self.store.recall_context(viewer,comment,scope=self.s.mode,developer_id=self.s.developer_id,
                 limit=self.s.context_max_items,max_chars=self.s.context_max_chars) if self.s.memory_enabled and self.s.context_enabled else []
+            generation_history,context=speech_background(self.s,comment,bool(candidates),generation_decision.get('value'),
+                self.store.history(memory_viewer,self.s.memory_turns),context,selected=notes)
             context_supported=hasattr(self.text,'set_context')
             if context_supported:self.text.set_context(context)
             self.store.record_context_retrievals(turn_id,context,call_id=key,prepared=context_supported)
@@ -248,6 +315,8 @@ class SpeechController:
             if not current():self.store.call_state(key,'cancelled_before_send');return False
             if provider=='gemini':prepare_context(key)
             remote=self.s.mode=='cloud'
+            if provider=='gemini' and remote and self.s.monthly_reply_llm_usd:
+                return True  # GeminiText supplies the assembled payload size immediately before send.
             self.store.call_state(key,'dispatched' if remote else 'simulated',attempted=remote)
             if remote:
                 with metrics_lock:metrics['provider_requests']+=1
@@ -270,9 +339,24 @@ class SpeechController:
         def generate():
             buffer=SentenceBuffer(self.s.sentence_chars);characters=0;key=None;got_response=False
             try:
+                if candidates and self.s.semantic_memory_mode=='jev':
+                    wait_started=time.monotonic();deadline_at=wait_started+self.s.semantic_wait_ms/1000
+                    semantic_done.wait(self.s.semantic_wait_ms/1000)
+                    if semantic_result.get('ready_at',float('inf'))<=deadline_at:
+                        generation_decision.update(value=semantic_result['value'],reaction=semantic_result['reaction'])
+                    metrics['semantic_wait_ms']=round((time.monotonic()-wait_started)*1000,3)
                 key=prepared('gemini','generate',{'comment_characters':len(comment),'history_turns':len(history)//2})
                 if not dispatch(key,'gemini'):return
-                for delta in self.text.stream(comment,history):
+                speaker={'developer_speaker':developer_speaker} if isinstance(self.text,GeminiText) else {}
+                if self.s.mode=='cloud' and self.s.monthly_reply_llm_usd:
+                    if not isinstance(self.text,GeminiText):raise ProviderError('REPLY_LLM_BUDGET_MODEL_NOT_PRICED')
+                    def before_send(size,output,attempts):
+                        if not current():raise ProviderError('TURN_CANCELLED')
+                        self.store.dispatch_budgeted_reply(key,size,output,attempts,self.s.monthly_reply_llm_usd)
+                        with metrics_lock:metrics['provider_requests']+=1
+                        publish('call_dispatched',call_id=key,provider='gemini')
+                    speaker['before_send']=before_send
+                for delta in self.text.stream(comment,generation_history,**speaker):
                     if not got_response:received(key,'gemini');got_response=True
                     if not current():break
                     if not isinstance(delta,str):raise ProviderError('INVALID_GENERATED_TEXT')
@@ -297,9 +381,18 @@ class SpeechController:
             try:
                 key=prepared('jev','reaction',{'comment_characters':len(comment)})
                 if not dispatch(key,'jev'):return
-                value=self.reaction.classify(comment);received(key,'jev')
+                if candidates and self.s.semantic_memory_mode=='jev' and isinstance(self.reaction,JevReaction):
+                    current_candidates=self.store.revalidate_episode_candidates(viewer,comment,self.s,candidates)
+                    value=self.reaction.classify(comment,candidates=current_candidates,previous_message=previous_message)
+                else:value=self.reaction.classify(comment)
+                received(key,'jev')
                 if not isinstance(value,dict) or value.get('reaction') not in ('joy','surprise','neutral'):raise ProviderError('INVALID_REACTION')
                 if current():
+                    semantic=value.pop('semantic',None)
+                    if semantic is not None:
+                        semantic_result.update(value=semantic,reaction=value.get('reaction'),ready_at=time.monotonic())
+                        semantic_done.set()
+                        self.store.record_semantic_retrieval(turn_id,comment,candidates,semantic,call_id=key)
                     self.store.record_reaction(turn_id,value)
                     metrics['reaction_ms']=round((self.clock()-start)*1000,2);publish('reaction',**value)
                 self.store.call_usage(key,getattr(self.reaction,'usage',{}))
@@ -309,6 +402,7 @@ class SpeechController:
                     try:failed(key,'jev',exc)
                     except Exception:pass
                 publish('reaction_unavailable',reaction='neutral')
+            finally:semantic_done.set()
         for function in (generate,react):
             thread=threading.Thread(target=function,daemon=True);thread.start();aux.append(thread)
         status='completed';code=None

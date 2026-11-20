@@ -1,6 +1,8 @@
 """Small replaceable provider adapters; credentials never enter browser data."""
 import base64
 import hashlib
+import http.client
+import threading
 import io
 import json
 from pathlib import Path
@@ -13,7 +15,7 @@ import wave
 from ravora.speech import LocalSpeech
 from ravora.context_prompt import CONTEXT_RULES,context_text
 from ravora.relationships import RELATIONSHIP_RULES,relationship_text
-from ravora.persona import conversation_prompt
+from ravora.persona import DEVELOPER_SPEAKER, conversation_prompt, listener_instruction
 
 
 class ProviderError(RuntimeError):
@@ -50,6 +52,74 @@ class Transport:
         except (ValueError,UnicodeError):raise ProviderError('INVALID_PROVIDER_JSON') from None
 
 
+class JevFinalConnection:
+    """One input owns one TLS connection. Only classify() can send an HTTP request."""
+    url = 'https://api.typesafe.ai/v1/systemone'
+
+    def __init__(self, settings):
+        self.enabled = settings.api_enabled and settings.stt_api_enabled
+        self.timeout = min(settings.timeout, 3)
+        self.lock = threading.Lock()
+        self.idle = None
+        self.closed = False
+
+    def connect(self):
+        return http.client.HTTPSConnection('api.typesafe.ai', timeout=self.timeout,
+                                           context=ssl.create_default_context())
+
+    def warm(self):
+        if not self.enabled:
+            return
+        connection = None
+        try:
+            connection = self.connect()
+            connection.connect()
+            with self.lock:
+                if not self.closed:
+                    self.idle = connection
+                    connection = None
+        except OSError:
+            pass
+        finally:
+            if connection is not None:
+                connection.close()
+
+    def close(self):
+        with self.lock:
+            self.closed = True
+            if self.idle is not None:
+                self.idle.close()
+                self.idle = None
+
+    def json(self, url, headers, payload):
+        if not self.enabled:
+            raise ProviderError('API_DISABLED')
+        if url != self.url:
+            raise ProviderError('UNSUPPORTED_PROVIDER_ORIGIN')
+        with self.lock:
+            if self.closed:
+                raise ProviderError('JEV_CONNECTION_CLOSED')
+            connection, self.idle = self.idle, None
+            self.closed = True
+        connection = connection or self.connect()
+        try:
+            connection.request('POST', '/v1/systemone', json.dumps(payload).encode(),
+                               {'Content-Type':'application/json', **headers})
+            with connection.getresponse() as response:
+                if not 200 <= response.status < 300:
+                    raise ProviderError('PROVIDER_HTTP_' + str(response.status))
+                data = response.read(256 * 1024 + 1)
+                if len(data) > 256 * 1024:
+                    raise ProviderError('PROVIDER_RESPONSE_TOO_LARGE')
+                return json.loads(data)
+        except (OSError, http.client.HTTPException):
+            raise ProviderError('PROVIDER_CONNECTION_FAILED') from None
+        except (ValueError, UnicodeError):
+            raise ProviderError('INVALID_PROVIDER_JSON') from None
+        finally:
+            connection.close()
+
+
 def sse_events(response, deadline):
     data=[];total=0
     for raw in response:
@@ -73,7 +143,10 @@ class GeminiText:
     def __init__(self,settings,transport=None):
         self.prompt=conversation_prompt(settings.persona,settings.persona_file,reply_style=settings.reply_style)
         self.s=settings;self.http=transport or Transport(settings.timeout,enabled=settings.api_enabled)
-        self.memories=[];self.usage={};self.context=[];self.relationship=None
+        self.memories=[];self.usage={};self.context=[];self.relationship=None;self.retrieval_strategy=None;self.listener_reaction=None
+
+    def set_retrieval_strategy(self,strategy,*,reaction=None):
+        self.retrieval_strategy=strategy;self.listener_reaction=reaction
 
     def set_memories(self,memories):self.memories=memories[:10]
 
@@ -81,8 +154,9 @@ class GeminiText:
 
     def set_relationship(self,background):self.relationship=background
 
-    def stream(self,comment,history):
-        prompt=self.prompt
+    def stream(self,comment,history,*,developer_speaker=False,before_send=None):
+        prompt=self.prompt+listener_instruction(self.retrieval_strategy,self.listener_reaction)
+        if developer_speaker:prompt+=DEVELOPER_SPEAKER
         if self.context:prompt+=CONTEXT_RULES
         if self.relationship:prompt+=RELATIONSHIP_RULES
         self.usage={}
@@ -95,6 +169,8 @@ class GeminiText:
         payload={'systemInstruction':{'parts':[{'text':prompt}]},'contents':contents,'generationConfig':{'maxOutputTokens':400,'temperature':.7}}
         url=f'https://generativelanguage.googleapis.com/v1beta/models/{self.s.gemini_model}:streamGenerateContent?alt=sse'
         ended=False;size=0
+        if before_send is not None:
+            before_send(len(json.dumps(payload,ensure_ascii=False).encode()),payload['generationConfig']['maxOutputTokens'],1)
         with self.http.open(url,{'x-goog-api-key':self.s.gemini_key},payload) as response:
             for event in sse_events(response,time.monotonic()+self.s.turn_timeout):
                 usage=event.get('usageMetadata',{})
@@ -141,7 +217,7 @@ _REACTION_CONTINUITY_MARGIN = .10
 class JevReaction:
     def __init__(self,settings,transport=None):self.s=settings;self.http=transport or Transport(min(settings.timeout,3),enabled=settings.api_enabled)
 
-    def classify(self,comment,*,dialogue=False):
+    def classify(self,comment,*,dialogue=False,candidates=(),previous_message=''):
         self.usage={}
         questions = {
             label: {'type': 'noul', 'instructions': f'{_REACTION_CONTEXT} {question}'}
@@ -154,18 +230,30 @@ class JevReaction:
                 'available transcript. A routine factual question, a settled choice, or the mere use '
                 'of words like "think" or "wonder" is insufficient.'
             )}
-        payload={'model':self.s.jev_model,'state':comment,'questions':questions}
+        reaction_questions=dict(questions)
+        if candidates:
+            from ravora.semantic_memory import semantic_questions, encoded
+            questions.update(semantic_questions(candidates))
+            for name in reaction_questions:
+                questions[name]={**questions[name], 'instructions':
+                    'Evaluate only current_message, not the emotional content of past_candidates. '+questions[name]['instructions']}
+            state=encoded({'current_message':comment,'previous_message':previous_message[:1000],
+                'past_candidates':{f'e{i}':c['summary'] for i,c in enumerate(candidates)}})
+        else:state=comment
+        payload={'model':self.s.jev_model,'state':state,'questions':questions}
         answer=self.http.json('https://api.typesafe.ai/v1/systemone',{'Authorization':'Bearer '+self.s.jev_key},payload)
         self.usage={'response_model':answer.get('model')}
+        for name in ('input_tokens','output_tokens','total_tokens'):
+            value=answer.get('usage',{}).get(name)
+            if type(value) is int and value>=0:self.usage[name]=value
         scores={}
-        for name in questions:
+        for name in reaction_questions:
             item=answer.get('answers',{}).get(name,{})
             value=item.get('noul')
             if item.get('type')!='noul' or isinstance(value,bool) or not isinstance(value,(float,int)) or not 0<=value<=1:raise ProviderError('INVALID_JEV_REACTION')
             scores[name]=value
         label=max(scores,key=scores.get)
-        allowed = ('joy', 'surprise', 'concern', 'thinking') if dialogue else ('joy', 'surprise')
-        reaction=label if scores[label]>=_REACTION_MIN_SCORE and label in allowed else 'neutral'
+        reaction=label if scores[label]>=_REACTION_MIN_SCORE and (dialogue or label in ('joy', 'surprise')) else 'neutral'
         if reaction == 'concern':
             reaction = 'concerned'
         continuity = []
@@ -173,8 +261,13 @@ class JevReaction:
                 and min(scores['joy'], scores['surprise']) >= _REACTION_MIN_SCORE
                 and round(abs(scores['joy'] - scores['surprise']), 10) <= _REACTION_CONTINUITY_MARGIN):
             continuity = ['joy', 'surprise']
-        return {'reaction':reaction,'scores':scores,'source':'jev-noul','model':answer.get('model',self.s.jev_model),
+        result={'reaction':reaction,'scores':scores,'source':'jev-noul','model':answer.get('model',self.s.jev_model),
                 'continuity_reactions':continuity}
+        if candidates:
+            from ravora.semantic_memory import parse_judgment
+            try:result['semantic']=parse_judgment(answer,candidates)
+            except (ValueError,TypeError,AttributeError):result['semantic']={'reference':'unavailable','reason':'INVALID_SEMANTIC_RESPONSE'}
+        return result
 
 
 class WaveNetSpeech:

@@ -7,14 +7,9 @@ import uuid
 
 from ravora.memory import safe_summary
 from ravora.context_prompt import context_text
+from ravora.developer_identity import DEVELOPER_PLATFORMS, developer_keys
 
-DEVELOPER_PLATFORMS=('developer','developer-local','developer-mock')
 KINDS={1:'developer_dialogue',2:'comment_exchange',3:'assistant_answer'}
-
-
-def developer_keys(identifier):
-    digest=hashlib.sha256(identifier.encode()).hexdigest()[:40]
-    return tuple(platform+':v2:'+digest for platform in DEVELOPER_PLATFORMS)
 
 
 def sensitive(text):
@@ -101,7 +96,10 @@ class ConversationContext:
             for tier in (1,2,3):
                 if tier==1 and not private:continue
                 where='v.scope=? AND v.tier=?';params=[scope,tier]
-                if tier==1:where+=' AND v.viewer_key IN (?,?,?)';params.extend(owners)
+                if tier==1:
+                    where+=''' AND v.viewer_key IN (?,?,?) AND EXISTS(SELECT 1 FROM developer_memory_sources d
+                        WHERE d.event_id=v.source_event_id AND d.owner_key=v.viewer_key)'''
+                    params.extend(owners)
                 elif not private:where+=' AND v.viewer_key=?';params.append(viewer)
                 elif tier==3:
                     where+=' AND (v.platform NOT IN (?,?,?) OR v.viewer_key IN (?,?,?))';params.extend((*DEVELOPER_PLATFORMS,*owners))

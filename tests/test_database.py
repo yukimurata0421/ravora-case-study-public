@@ -1,5 +1,4 @@
 import concurrent.futures
-from contextlib import closing
 import json
 from pathlib import Path
 import shutil
@@ -8,25 +7,69 @@ import tempfile
 import threading
 import time
 import unittest
+from unittest.mock import patch
 
 from ravora.comments import Comment, CommentInbox
 from ravora.conversation import MemoryStore, SpeechController
 from ravora.database import Database, MIGRATIONS, SCHEMA_VERSION
 from ravora.settings import ProviderSettings
 from support import Text, Reaction, Speech, HTTP
-from ravora.providers import GeminiText
-
-
-def copy_schema(source,destination):
-    # Schema tests need SQL contents, not an installed directory's permission bits.
-    destination.mkdir()
-    for path in source.glob('*.sql'):shutil.copyfile(path,destination/path.name)
+from ravora.providers import GeminiText, ProviderError
 
 
 class DatabaseTests(unittest.TestCase):
     def setUp(self):
         self.tmp=tempfile.TemporaryDirectory();self.addCleanup(self.tmp.cleanup)
         self.root=Path(self.tmp.name);self.path=self.root/'db.sqlite3'
+
+    def test_reply_reservations_are_atomic_across_sessions_and_keep_unknown_attempts(self):
+        store=MemoryStore(self.path)
+        store.start('turn','cloud:test','Hello.')
+        def call():
+            return store.prepare_call('turn','gemini','stream_generate',{},model='gemini-3.5-flash-lite',mode='cloud')
+        old=call()
+        store.call_state(old,'outcome_unknown',attempted=True)
+        # The old request counts for $0.02. Each concurrent new request needs $0.60.
+        calls=[call(),call()]
+        barrier=threading.Barrier(2)
+        def submit(key):
+            barrier.wait()
+            try:store.dispatch_budgeted_reply(key,665000,400,3,1)
+            except ProviderError as exc:
+                self.assertEqual(str(exc),'LOCAL_MONTHLY_REPLY_LLM_LIMIT')
+                return False
+            return True
+        with concurrent.futures.ThreadPoolExecutor(max_workers=2) as workers:
+            results=list(workers.map(submit,calls))
+        self.assertEqual(sorted(results),[False,True])
+        winner=calls[results.index(True)]
+        store.call_state(winner,'outcome_unknown')
+        with self.assertRaisesRegex(ProviderError,'INVALID_REPLY_BUDGET_RESERVATION'):
+            store.dispatch_budgeted_reply(winner,665000,400,3,1)
+        with store.connect() as db:
+            used=db.execute("SELECT json_extract(summary,'$.reply_reserved_microusd') FROM provider_calls WHERE id=?",(winner,)).fetchone()[0]
+            self.assertEqual(db.execute('SELECT sum(attempted) FROM api_usage').fetchone()[0],2)
+        # Would fit without the carried historical charge.
+        input_bytes=(1_000_000-used-10_000)*10//3-256
+        with self.assertRaisesRegex(ProviderError,'LOCAL_MONTHLY_REPLY_LLM_LIMIT'):
+            MemoryStore(self.path).dispatch_budgeted_reply(call(),input_bytes,1,1,1)
+
+    def test_legacy_reply_budget_stops_http_before_send(self):
+        store=MemoryStore(self.path)
+        settings=ProviderSettings(mode='cloud',api_enabled=True,monthly_reply_llm_usd=1,memory_extractor='local_rules')
+        http=HTTP(stream=b'data: {"candidates":[{"finishReason":"STOP","content":{"parts":[{"text":"Hello."}]}}]}\n\n')
+        controller=SpeechController(settings,store,self.root,providers=(GeminiText(settings,http),Reaction(),Speech()))
+        self.addCleanup(controller.memory_worker.close)
+        with patch.object(store,'dispatch_budgeted_reply',side_effect=ProviderError('LOCAL_MONTHLY_REPLY_LLM_LIMIT')) as guard:
+            controller.run('Hello.','viewer','held',lambda _:None,threading.Event())
+            guard.assert_called_once()
+            self.assertEqual(guard.call_args.args[-3:],(400,1,1))
+            self.assertFalse(http.calls)
+        controller.run('Hello.','viewer','accepted',lambda _:None,threading.Event())
+        self.assertEqual(len(http.calls),1)
+        with store.connect() as db:
+            self.assertEqual(db.execute("SELECT turn_id,attempted FROM provider_calls WHERE provider='gemini' ORDER BY prepared").fetchall(),
+                             [('held',0),('accepted',1)])
 
     def source(self,store,*,name='one',author='viewer',platform='youtube-fixture',text='I enjoy coffee.'):
         comment=Comment(platform,'chat',name,author,'Same name',text,time.time())
@@ -38,7 +81,7 @@ class DatabaseTests(unittest.TestCase):
         store.approve_memory(key,reviewed_non_sensitive=True);return key
 
     def test_populated_legacy_database_is_migrated_without_changing_original_ledger(self):
-        with closing(sqlite3.connect(self.path)) as db, db:
+        with sqlite3.connect(self.path) as db:
             db.executescript('''CREATE TABLE conversation_turns(id TEXT PRIMARY KEY,viewer TEXT NOT NULL,comment TEXT NOT NULL,reply TEXT NOT NULL DEFAULT '',status TEXT NOT NULL,played INTEGER NOT NULL DEFAULT 0,started TEXT NOT NULL,metrics TEXT NOT NULL DEFAULT '{}');
                 CREATE TABLE speech_usage(id TEXT PRIMARY KEY,month TEXT NOT NULL,characters INTEGER NOT NULL,status TEXT NOT NULL);
                 CREATE TABLE provider_calls(id TEXT PRIMARY KEY,turn_id TEXT NOT NULL,provider TEXT NOT NULL,operation TEXT NOT NULL,state TEXT NOT NULL,attempted INTEGER NOT NULL DEFAULT 0,prepared REAL NOT NULL,updated REAL NOT NULL,summary TEXT NOT NULL,code TEXT);''')
@@ -66,7 +109,7 @@ class DatabaseTests(unittest.TestCase):
 
     def test_failed_migration_rolls_back_schema_and_preserves_version_and_rows(self):
         store=MemoryStore(self.path);store.start('turn','viewer','comment')
-        directory=self.root/'migrations';copy_schema(MIGRATIONS,directory)
+        directory=self.root/'migrations';shutil.copytree(MIGRATIONS,directory)
         (directory/f'{SCHEMA_VERSION+1:03d}_invalid.sql').write_text('CREATE TABLE should_rollback(id INTEGER);\nTHIS IS INVALID;\n')
         with self.assertRaises(sqlite3.OperationalError):Database(self.path,migrations=directory)
         with store.connect() as db:
@@ -76,7 +119,7 @@ class DatabaseTests(unittest.TestCase):
 
     def test_applied_migration_checksum_and_newer_database_are_not_silently_reset(self):
         store=MemoryStore(self.path)
-        directory=self.root/'migrations';copy_schema(MIGRATIONS,directory)
+        directory=self.root/'migrations';shutil.copytree(MIGRATIONS,directory)
         with (directory/'001_memory.sql').open('a') as f:f.write('\n-- changed\n')
         with self.assertRaisesRegex(ValueError,'APPLIED_MIGRATION_CHANGED'):Database(self.path,migrations=directory)
         with store.connect() as db:db.execute('PRAGMA user_version=99')
@@ -163,7 +206,7 @@ class DatabaseTests(unittest.TestCase):
         self.assertEqual(len(restored.search_memory(comment.viewer,'coffee')),1)
 
     def test_inspection_and_backup_are_read_only_and_do_not_migrate_legacy_schema(self):
-        with closing(sqlite3.connect(self.path)) as db, db:
+        with sqlite3.connect(self.path) as db:
             db.execute('CREATE TABLE old_data(id TEXT PRIMARY KEY,text TEXT)')
             db.execute("INSERT INTO old_data VALUES('one','preserve me')")
         self.path.chmod(0o600)
@@ -172,7 +215,7 @@ class DatabaseTests(unittest.TestCase):
         self.assertIsNone(existing.status()['tables']['source_events'])
         with self.assertRaises(sqlite3.OperationalError),existing.connect() as db:db.execute("DELETE FROM old_data")
         destination=self.root/'before-migration.sqlite3';existing.backup(destination)
-        with closing(sqlite3.connect(self.path)) as source, closing(sqlite3.connect(destination)) as restored:
+        with sqlite3.connect(self.path) as source,sqlite3.connect(destination) as restored:
             self.assertEqual(source.execute('PRAGMA user_version').fetchone()[0],0)
             self.assertEqual(restored.execute('PRAGMA user_version').fetchone()[0],0)
             self.assertEqual(restored.execute('SELECT * FROM old_data').fetchall(),[('one','preserve me')])

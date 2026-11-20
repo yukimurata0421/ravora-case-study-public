@@ -206,3 +206,26 @@ human microphone latency, or long-running capture performance.
 
 [Aggregated measurements](../publication/audio-timing-evaluation-20261118.json) ·
 [Reproduction](reproduce.md)
+
+## November 20 lip and jaw revision
+
+Four independent landmarks along the nose, upper lip, lower lip and chin
+determine the face midline. The avatar binding rejects inconsistent landmarks
+before warping. It corrects the outer lip edges against rest thickness and
+checks for folded geometry. The shader keeps the upper teeth anchored as the
+lower lip covers them. The 75 ms smoothing window preserves more of a short
+stressed vowel while allowing the mouth to close for labial consonants.
+
+The [34.83-second 1080p dinner recording](media/concept02-lip-motion.mp4)
+contains a synthetic input speaker and three Zephyr replies. The development
+browser measured 2.62, 1.77 and 2.61 seconds from input end to reply audio in
+those turns. The [three-way smile comparison](media/concept02-lip-comparison.mp4)
+reuses a line to show the change in mouth shape. The published surface and
+articulation logic match the recording's source hashes after adapting the
+module import for the portable package. These observations cover the recorded
+turns; Windows speaker latency and long-term conversation quality remain unmeasured.
+
+For a compatible portrait, the optional landmark measurement script accepts
+the mouth region as its center and radii in pixels. It prints proposed landmark
+coordinates and residuals for review before adding them to the manifest.
+Install NumPy and Pillow for this script. [Measurement script](../scripts/measure_face_midline.py)

@@ -43,6 +43,15 @@ class MemoryWorkerTests(unittest.TestCase):
         self.s=replace(ProviderSettings(),memory_turns=0)
         self.worker=self.new_worker()
 
+    def test_auto_developer_extraction_uses_local_rules_when_memory_api_is_off(self):
+        settings=replace(self.s,mode='cloud',comment_source='developer',memory_extractor='auto',memory_api_enabled=False)
+        local=self.new_worker(settings=settings)
+        self.assertIsInstance(local.extractor,LocalPreferenceExtractor)
+        self.assertFalse(local.remote)
+        for change in ({'comment_source':'youtube'},{'memory_api_enabled':True},{'memory_extractor':'gemini'}):
+            with self.subTest(change=change):
+                self.assertTrue(self.new_worker(settings=replace(settings,**change)).remote)
+
     def new_worker(self,*,store=None,settings=None,extractor=None):
         worker=MemoryWorker(store or self.store,settings or self.s,extractor=extractor)
         self.addCleanup(worker.close);return worker

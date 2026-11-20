@@ -6,6 +6,7 @@ import math
 import re
 
 from ravora.providers import ProviderError,Transport
+from ravora.semantic_memory import EPISODE_POLICY, EPISODE_SCHEMA, EPISODE_PROMPT, EpisodeCandidate, validate_episodes
 
 
 GEMINI_POLICY='gemini-grounded-memory-v1'
@@ -42,7 +43,7 @@ topics useful for later retrieval, including natural synonyms when helpful.'''
 
 def source_block_reason(text):
     if not isinstance(text,str) or not 0<len(text)<=1000:raise ProviderError('INVALID_MEMORY_INPUT')
-    if SOURCE_OPTOUT.search(text):return 'VIEWER_OPT_OUT'
+    if SOURCE_OPTOUT.search(text) or re.search('記憶しないで|保存しないで|覚えないで|忘れて',text):return 'VIEWER_OPT_OUT'
     if SENSITIVE.search(text):return 'SENSITIVE_SOURCE'
     return None
 
@@ -114,9 +115,12 @@ class GeminiMemoryExtractor:
         if not re.fullmatch('[a-z0-9][a-z0-9._-]{0,100}',model):raise ProviderError('INVALID_MEMORY_MODEL')
         reply=job.get('reply','')[:2000]
         if SENSITIVE.search(reply):reply=''
-        payload={'systemInstruction':{'parts':[{'text':PROMPT}]},
-            'contents':[{'role':'user','parts':[{'text':json.dumps({'viewer_message':text,'assistant_reply':reply},ensure_ascii=False)}]}],
-            'generationConfig':{'responseMimeType':'application/json','responseJsonSchema':MEMORY_SCHEMA,'maxOutputTokens':1600}}
+        episodic=job.get('policy')==EPISODE_POLICY
+        data={'viewer_message':text,'assistant_reply':reply}
+        if episodic:data['prior_candidates']=job.get('prior_candidates',[])
+        payload={'systemInstruction':{'parts':[{'text':EPISODE_PROMPT if episodic else PROMPT}]},
+            'contents':[{'role':'user','parts':[{'text':json.dumps(data,ensure_ascii=False)}]}],
+            'generationConfig':{'responseMimeType':'application/json','responseJsonSchema':EPISODE_SCHEMA if episodic else MEMORY_SCHEMA,'maxOutputTokens':1600}}
         answer=self.http.json(f'https://generativelanguage.googleapis.com/v1beta/models/{model}:generateContent',{'x-goog-api-key':self.s.gemini_key},payload)
         if not isinstance(answer,dict):raise ProviderError('INVALID_MEMORY_RESPONSE')
         usage=answer.get('usageMetadata',{})
@@ -139,6 +143,13 @@ class GeminiMemoryExtractor:
         data=strict_json(body)
         if not isinstance(data,dict) or set(data)!= {'memories'} or not isinstance(data['memories'],list) or len(data['memories'])>4:raise ProviderError('INVALID_MEMORY_SCHEMA')
         memories=[]
+        if episodic:
+            required=set(EPISODE_SCHEMA['properties']['memories']['items']['required'])
+            for item in data['memories']:
+                if not isinstance(item,dict) or set(item)!=required or not isinstance(item['tags'],list):raise ProviderError('INVALID_EPISODE_SCHEMA')
+                memories.append(EpisodeCandidate(**{**item,'tags':tuple(item['tags'])}))
+            try:return validate_episodes(GeminiExtraction(tuple(memories)),text)
+            except ValueError as exc:raise ProviderError(str(exc)) from None
         required={'summary','tags','evidence_quote','confidence','sensitivity'}
         for item in data['memories']:
             if not isinstance(item,dict) or set(item)!=required or not isinstance(item['tags'],list):raise ProviderError('INVALID_MEMORY_SCHEMA')

@@ -8,7 +8,7 @@ import time
 import uuid
 
 from ravora.comments import clean
-from ravora.providers import JevReaction, ProviderError
+from ravora.providers import JevFinalConnection, JevReaction, ProviderError
 
 
 def normalized(text):
@@ -25,12 +25,28 @@ class EarlyReactions:
         self.calls={};self.children=[];self.partial_started=False;self.final_started=False;self.finalized=False
         self._phase=ContextVar('reaction_phase',default='final')
         self.words=[];self.word_since=[];self.word_updates=[]
+        self.candidates=[];self.semantic=None;self.semantic_viewer=None;self.previous_message=''
+        self.final_done=asyncio.Event()
+        self.semantic_ready_at=None
+        self.connection=None;self.warm_task=None
         self.wake=asyncio.Event();self.task=asyncio.create_task(self.run())
+
+    def warm_final_connection(self):
+        if (self.mock or not self.s.api_enabled or not self.s.stt_api_enabled or not self.s.memory_enabled
+                or self.s.semantic_memory_mode != 'jev' or self.connection is not None):
+            return
+        self.connection = JevFinalConnection(self.s)
+        self.warm_task = asyncio.create_task(asyncio.to_thread(self.connection.warm))
 
     async def _classify(self,text):
         if self.mock:return {'reaction':'joy' if self._phase.get()=='partial' else 'neutral','source':'mock'},{}
         def call():
-            adapter=JevReaction(self.s);value=adapter.classify(text,dialogue=self.dialogue)
+            transport=self.connection if self._phase.get()=='final' else None
+            adapter=JevReaction(self.s, transport) if transport else JevReaction(self.s)
+            candidates=self.candidates if self._phase.get()=='final' else []
+            if candidates:
+                candidates=self.store.revalidate_episode_candidates(self.semantic_viewer,text,self.s,candidates)
+            value=adapter.classify(text,dialogue=self.dialogue,candidates=candidates,previous_message=self.previous_message)
             return value,adapter.usage
         return await asyncio.to_thread(call)
 
@@ -149,6 +165,7 @@ class EarlyReactions:
                     self.final_started=True
                     key=self.prepare(snapshot)
                     if key is not None:self.children.append(asyncio.create_task(self.evaluate(key,snapshot)))
+                    else:self.final_done.set()
                 break
             if snapshot['phase']=='partial':
                 if self.partial_started or self.sealed:continue
@@ -181,6 +198,7 @@ class EarlyReactions:
             async with asyncio.timeout(min(3,self.s.timeout)):
                 value,usage=await self.classify(snapshot['text'])
             received=True
+            semantic=value.pop('semantic',None)
             if not self.active or not self.current():
                 self.finish(key,'discarded_after_cancel',value=value,usage=usage)
             elif snapshot['phase']=='partial' and not self.latest['key'].startswith(snapshot['key']):
@@ -191,7 +209,12 @@ class EarlyReactions:
                     self.finish(key,'superseded_or_closed',value=value,usage=usage)
                     return
                 value,update=accepted
+                if snapshot['phase']=='final' and semantic is not None:
+                    self.semantic=semantic
+                    self.semantic_ready_at=time.monotonic()
+                    self.store.record_semantic_retrieval(self.turn,snapshot['text'],self.candidates,semantic,call_id=key)
                 self.finish(key,'accepted',value=value,usage=usage)
+                if snapshot['phase']=='final':self.final_done.set()
                 await self.emit({'kind':'reaction','phase':snapshot['phase'],'provisional':snapshot['phase']=='partial',
                     'input_id':self.input_id,**update,**value})
                 self.finish(key,'accepted',value=value,usage=usage,emitted=True)
@@ -206,10 +229,13 @@ class EarlyReactions:
             self.finish(key,state,value=value,usage=usage,code=code)
             if self.active and self.current():
                 await self.emit({'kind':'reaction_unavailable','phase':snapshot['phase'],'input_id':self.input_id,'code':code})
-        finally:self._phase.reset(token)
+        finally:
+            if snapshot['phase']=='final':self.final_done.set()
+            self._phase.reset(token)
 
     def stop(self):
         self.active=False;self.wake.set()
+        if self.connection:self.connection.close()
         for child in self.children:
             if not child.done():child.cancel()
 

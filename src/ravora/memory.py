@@ -8,8 +8,10 @@ import time
 import uuid
 
 from ravora.database import Database
+from ravora.developer_identity import memory_source_filter
 from ravora.memory_extraction import POLICY, Extraction, LocalPreferenceExtractor, retrieval_query
 from ravora.gemini_memory import GEMINI_POLICY,validate_extraction
+from ravora.semantic_memory import EPISODE_POLICY,validate_episodes
 
 
 def safe_summary(text):
@@ -93,20 +95,22 @@ class MemoryRepository(Database):
         # Quote tokens, so viewer text cannot inject FTS operators or SQL.
         words=re.findall(r'[^\W_]+',query[:1000],re.UNICODE)[:16]
         match=' OR '.join('"'+word+'"' for word in words)
-        join=' JOIN memory_fts ON memory_fts.rowid=m.rowid' if match else ''
+        # Drive MATCH from the FTS index once, not once per viewer memory row.
+        source=('memory_fts CROSS JOIN memory_items m ON m.rowid=memory_fts.rowid' if match else
+                'memory_items m INDEXED BY memory_owner_rank')
         params=[viewer_key,scope,now]
         where="""m.viewer_key=? AND m.scope=? AND m.expires_at>? AND m.review_state='approved'
             AND m.sensitivity='non_sensitive' AND m.deleted_at IS NULL
-            AND EXISTS(SELECT 1 FROM memory_sources x WHERE x.memory_id=m.memory_id)
             AND NOT EXISTS(SELECT 1 FROM memory_sources x JOIN source_events s ON s.id=x.event_id
                 WHERE x.memory_id=m.memory_id AND (s.is_deleted=1 OR s.viewer_key!=m.viewer_key))"""
+        where+=memory_source_filter(viewer_key)
         if match:where+=' AND memory_fts MATCH ?';params.append(match)
         if since is not None:where+=' AND m.created_at>=?';params.append(since)
         for tag in list(tags)[:8]:
             where+=' AND EXISTS(SELECT 1 FROM json_each(m.tags) WHERE value=?)';params.append(tag)
         rank='bm25(memory_fts),m.confidence DESC,m.created_at DESC' if match else 'm.confidence DESC,m.created_at DESC'
         with self.connect() as db:
-            rows=db.execute(f'SELECT m.memory_id,m.summary,m.tags,m.confidence,m.created_at,m.expires_at FROM memory_items m{join} WHERE {where} ORDER BY {rank} LIMIT ?',(*params,limit)).fetchall()
+            rows=db.execute(f'SELECT m.memory_id,m.summary,m.tags,m.confidence,m.created_at,m.expires_at FROM {source} WHERE {where} ORDER BY {rank} LIMIT ?',(*params,limit)).fetchall()
             result=[]
             for key,summary,tag_json,confidence,created,expires in rows:
                 sources=[{'event_id':e,'platform':p,'received_at':t,'raw_available':purged is None and exp>now}
@@ -134,7 +138,7 @@ class MemoryRepository(Database):
 
     @staticmethod
     def enqueue_memory_job(db,turn_id,*,scope,ttl_seconds,capacity,policy=POLICY,model=None,min_confidence=.7):
-        if policy==GEMINI_POLICY and (not isinstance(model,str) or not re.fullmatch(r'[a-z0-9][a-z0-9._-]{0,100}',model)):
+        if policy in (GEMINI_POLICY,EPISODE_POLICY) and (not isinstance(model,str) or not re.fullmatch(r'[a-z0-9][a-z0-9._-]{0,100}',model)):
             raise ValueError('MEMORY_MODEL_REQUIRED')
         now=time.time()
         count=db.execute("SELECT COUNT(*) FROM memory_jobs WHERE scope=? AND status IN ('pending','running')",(scope,)).fetchone()[0]
@@ -188,7 +192,10 @@ class MemoryRepository(Database):
             if not row:return None
             db.execute("""UPDATE memory_jobs SET status='running',claim_token=?,lease_until=?,claimed_at=?,
                 attempts=attempts+1 WHERE turn_id=? AND status='pending'""",(token,now+lease_seconds,now,row[0]))
-        return dict(zip(('turn_id','source_event_id','viewer_key','scope','policy','ttl_seconds','text','reply','model','min_confidence'),row),claim_token=token)
+        job=dict(zip(('turn_id','source_event_id','viewer_key','scope','policy','ttl_seconds','text','reply','model','min_confidence'),row),claim_token=token)
+        if policy==EPISODE_POLICY:
+            job['prior_candidates']=self.episode_candidates(job['viewer_key'],job['text'],scope=scope)
+        return job
 
     def complete_memory_job(self,job,result):
         if job['policy']==POLICY:
@@ -196,11 +203,13 @@ class MemoryRepository(Database):
             items=result.preferences
         elif job['policy']==GEMINI_POLICY:
             result=validate_extraction(result,job['text'],job['min_confidence']);items=result.candidates
+        elif job['policy']==EPISODE_POLICY:
+            result=validate_episodes(result,job['text']);items=result.candidates
         else:raise ValueError('INVALID_EXTRACTION_POLICY')
         now=time.time()
         with self.connect() as db:
             db.execute('BEGIN IMMEDIATE')
-            row=db.execute("""SELECT s.text,s.viewer_key,j.ttl_seconds FROM memory_jobs j
+            row=db.execute("""SELECT s.text,s.viewer_key,j.ttl_seconds,s.received_at FROM memory_jobs j
                 JOIN source_events s ON s.id=j.source_event_id JOIN conversation_turns t ON t.turn_id=j.turn_id
                 WHERE j.turn_id=? AND j.status='running' AND j.claim_token=? AND j.lease_until>?
                   AND s.is_deleted=0 AND s.raw_purged_at IS NULL AND s.expires_at>?
@@ -215,6 +224,28 @@ class MemoryRepository(Database):
             saved=0
             for preference in items:
                 content=preference.content();key=uuid.uuid4().hex
+                if job['policy']==EPISODE_POLICY:
+                    parent=preference.previous_memory_id or None
+                    if parent:
+                        offered={p['memory_id'] for p in job.get('prior_candidates',[])}
+                        prior=db.execute('''SELECT m.viewer_key,m.scope,m.deleted_at,m.expires_at FROM memory_items m
+                            JOIN memory_episodes e ON e.memory_id=m.memory_id WHERE m.memory_id=?''',(parent,)).fetchone()
+                        if parent not in offered or not prior or prior[:2]!=(job['viewer_key'],job['scope']) or prior[2] is not None or prior[3]<=now:
+                            raise ValueError('EPISODE_PARENT_UNAVAILABLE')
+                    db.execute('''INSERT INTO memory_items(memory_id,viewer_key,scope,summary,tags,confidence,
+                        review_state,sensitivity,created_at,expires_at,extraction_turn_id,topic_key,approval_method)
+                        VALUES(?,?,?,?,?,1,'approved','non_sensitive',?,?,?,?,?)''',
+                        (key,job['viewer_key'],job['scope'],content['summary'],json.dumps(content['tags']),
+                         row[3],now+row[2],job['turn_id'],preference.topic,job['policy']))
+                    quote=preference.evidence_quote;offset=job['text'].index(quote)
+                    db.execute('''INSERT INTO memory_sources(memory_id,event_id,quote_start,quote_end,quote_sha256)
+                        VALUES(?,?,?,?,?)''',(key,job['source_event_id'],offset,offset+len(quote),hashlib.sha256(quote.encode()).hexdigest()))
+                    db.execute('''INSERT INTO memory_episodes(memory_id,episode_id,subject_quote,event_state,state_quote,
+                        time_quote,previous_memory_id,relation,link_state) VALUES(?,?,?,?,?,?,?,?,?)''',
+                        (key,uuid.uuid4().hex,preference.subject_quote,preference.event_state,preference.state_quote,
+                         preference.time_quote,parent,preference.relation,'proposed' if parent else 'new'))
+                    saved+=1
+                    continue
                 newer=db.execute('''SELECT 1 FROM memory_items m JOIN memory_jobs newer ON newer.turn_id=m.extraction_turn_id
                     JOIN memory_jobs current ON current.turn_id=? WHERE m.viewer_key=? AND m.scope=?
                     AND m.topic_key=? AND m.deleted_at IS NULL

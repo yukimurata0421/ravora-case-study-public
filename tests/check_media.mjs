@@ -83,8 +83,9 @@ test('A stressed vowel still opens clearly without jumping between adjacent 30 f
   const sample = createPreviewMouth(plan, Array(50).fill(-23), .01, 24000, 12000);
   const openings = Array.from({length: 12}, (_, i) => sample((i + 1) / 30).amount);
   const changes = openings.slice(1).map((opening, i) => Math.abs(opening - openings[i]));
-  assert.ok(Math.max(...openings) > .65);
-  assert.ok(Math.max(...changes) < .22);
+  // The 75 ms window preserves the short stressed peak while spreading its rise over three frames.
+  assert.ok(Math.max(...openings) > .74);
+  assert.ok(Math.max(...changes) < .24);
 });
 
 test('Blended vowels use one weighted target geometry', () => {

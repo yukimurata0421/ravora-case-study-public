@@ -17,8 +17,8 @@ from ravora.conversation_context import developer_keys
 from ravora.edge_grpc import EdgeClients
 from ravora.fast_voice import FastVoiceSession
 from ravora.fast_voice_server import MockVoiceClients
-from ravora.persona import CONVERSATION_RULES, MAX_PERSONA_BYTES, REPLY_RULES, conversation_prompt, load_persona
-from ravora.providers import GeminiText
+from ravora.persona import CONVERSATION_RULES, MAX_PERSONA_BYTES, REPLY_RULES, conversation_prompt, listener_instruction, load_persona
+from ravora.providers import GeminiText, ProviderError
 from ravora.settings import ProviderSettings, SettingsError, load_settings
 
 
@@ -135,6 +135,17 @@ class PersonaSettingsTests(unittest.TestCase):
         path.write_bytes(b'x' * MAX_PERSONA_BYTES)
         replace(ProviderSettings(), persona='custom', persona_file=str(path)).validate()
 
+    def test_uncertain_reference_can_acknowledge_a_statement_without_requesting_its_story(self):
+        for strategy in ('episodes_abstained','episodes_unrelated'):
+            plain=listener_instruction(strategy,'neutral')
+            self.assertIn('declarative acknowledgment',plain)
+            self.assertNotIn('open question',plain)
+            self.assertEqual(plain,listener_instruction(strategy,None))
+            interested=listener_instruction(strategy,'joy')
+            self.assertIn('Leave the people, dialogue, cause and punchline unspecified',interested)
+            self.assertNotEqual(plain,interested)
+        self.assertEqual(listener_instruction('episodes_jev','joy'),'')
+
     def test_preset_styles_are_distinct_with_shared_memory_rules(self):
         cheeky = conversation_prompt('cheeky')
         calm = conversation_prompt('calm')
@@ -150,6 +161,35 @@ class PersonaSettingsTests(unittest.TestCase):
 
 
 class PersonaPathTests(unittest.IsolatedAsyncioTestCase):
+    async def test_budgeted_fast_reply_checks_all_hedges_before_first_request(self):
+        with tempfile.TemporaryDirectory() as directory:
+            root=Path(directory)
+            settings=ProviderSettings(api_enabled=True,stt_api_enabled=True,monthly_reply_llm_usd=7,memory_enabled=False)
+            store=MemoryStore(root/'memory.sqlite3')
+            client=WireVoiceClients().edge
+            client.synthesize_stream=MockVoiceClients().synthesize_stream
+            async def discard(*args):pass
+            session=FastVoiceSession(settings,store,root,client,discard,discard)
+            try:
+                with patch('ravora.early_reaction.EarlyReactions._classify',return_value=({'reaction':'neutral'},{})), \
+                        patch('socket.socket.connect',side_effect=AssertionError('network forbidden')):
+                    with patch.object(store,'dispatch_budgeted_reply',side_effect=ProviderError('LOCAL_MONTHLY_REPLY_LLM_LIMIT')) as guard:
+                        await session.start_text(uuid.uuid4().hex,'Hello.')
+                        await asyncio.wait_for(session.task,4)
+                        self.assertEqual(guard.call_args.args[-3:],(400,3,7))
+                        self.assertFalse(client.llm.requests)
+                    await session.start_text(uuid.uuid4().hex,'Hello.')
+                    await asyncio.wait_for(session.task,4)
+                    self.assertEqual(session.phase,'generated')
+                    self.assertEqual(len(client.llm.requests),1)
+                with store.connect() as db:
+                    rows=db.execute("""SELECT attempted,json_extract(summary,'$.reply_reserved_microusd')
+                        FROM provider_calls WHERE provider='gemini' ORDER BY prepared""").fetchall()
+                    self.assertEqual(rows[0],(0,None))
+                    self.assertEqual(rows[1][0],1)
+                    self.assertGreater(rows[1][1],3000)
+            finally:await session.close()
+
     async def test_env_selection_reaches_both_wire_requests_with_memory_contract(self):
         with tempfile.TemporaryDirectory() as directory:
             root = Path(directory)
@@ -187,7 +227,7 @@ class PersonaPathTests(unittest.IsolatedAsyncioTestCase):
                     history = [('user', 'Hello.'), ('model', 'Welcome back.')]
                     rest.set_context(context)
                     rest.set_memories(memories)
-                    list(rest.stream(text, history))
+                    list(rest.stream(text, history, developer_speaker=True))
                     clients = WireVoiceClients()
                     events = []
 

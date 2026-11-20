@@ -5,18 +5,22 @@ import time
 from ravora.memory_extraction import LocalPreferenceExtractor,POLICY
 from ravora.gemini_memory import GeminiMemoryExtractor,GeminiExtraction,GEMINI_POLICY,source_block_reason
 from ravora.providers import ProviderError
+from ravora.semantic_memory import EPISODE_POLICY
 
 
 class MemoryWorker:
     def __init__(self,store,settings,*,extractor=None):
         self.store=store;self.s=settings
         name=settings.memory_extractor
-        if name=='auto':name='gemini' if settings.mode=='cloud' else 'local_rules'
+        if name=='auto':
+            remote=settings.mode=='cloud' and (settings.comment_source!='developer' or settings.memory_api_enabled)
+            name='gemini' if remote else 'local_rules'
         self.extractor=extractor or (GeminiMemoryExtractor(settings) if name=='gemini' else LocalPreferenceExtractor())
         self.policy=getattr(self.extractor,'policy',GEMINI_POLICY if name=='gemini' else POLICY)
-        self.remote=self.policy==GEMINI_POLICY
+        if self.policy==GEMINI_POLICY and settings.semantic_memory_mode!='off':self.policy=EPISODE_POLICY
+        self.remote=self.policy in (GEMINI_POLICY,EPISODE_POLICY)
         self.model=(settings.memory_model or settings.gemini_model) if self.remote else None
-        self.policies=(POLICY,GEMINI_POLICY) if self.remote else (POLICY,)
+        self.policies=(POLICY,GEMINI_POLICY,EPISODE_POLICY) if self.remote else (POLICY,)
         self.stop=threading.Event();self.lock=threading.Lock();self.thread=None;self.signalled=False
         self.last_error=None;self.active_viewer=None
 
@@ -38,13 +42,16 @@ class MemoryWorker:
                 if not job and self.remote:
                     job=self.store.claim_memory_job(self.s.mode,policy=GEMINI_POLICY,
                         lease_seconds=max(15,self.s.memory_api_timeout+10))
+                if not job and self.remote:
+                    job=self.store.claim_memory_job(self.s.mode,policy=EPISODE_POLICY,
+                        lease_seconds=max(15,self.s.memory_api_timeout+10))
                 if not job:
                     with self.lock:
                         if self.signalled:continue
                         self.thread=None;return
                 with self.lock:self.active_viewer=job['viewer_key']
                 try:
-                    if job['policy']==GEMINI_POLICY:
+                    if job['policy'] in (GEMINI_POLICY,EPISODE_POLICY):
                         self._remote(job);continue
                     local=LocalPreferenceExtractor() if self.remote else self.extractor
                     result=local.extract(job['text'])
@@ -80,6 +87,9 @@ class MemoryWorker:
         blocked=source_block_reason(job['text'])
         if blocked:
             self.store.complete_memory_job(job,GeminiExtraction(reason=blocked));return
+        if job['policy']==EPISODE_POLICY:
+            job['prior_candidates']=self.store.revalidate_episode_candidates(
+                job['viewer_key'],job['text'],self.s,job.get('prior_candidates',[]))
         key=self.store.prepare_memory_call(job)
         if not key:return
         if not self.s.api_enabled or not self.s.memory_api_enabled or not self.s.gemini_key:

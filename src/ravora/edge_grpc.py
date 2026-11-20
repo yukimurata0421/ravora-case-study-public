@@ -1,5 +1,6 @@
 """Finite direct GCP clients. Reused TLS gRPC channels; retries and global fallback disabled."""
 import asyncio
+from contextlib import aclosing
 import io
 import json
 import re
@@ -8,6 +9,8 @@ import wave
 from ravora.context_prompt import CONTEXT_RULES,context_text
 from ravora.relationships import RELATIONSHIP_RULES,relationship_text
 from ravora.persona import conversation_prompt
+from ravora.settings import DEFAULT_STREAMING_VOICE
+from ravora.stream_pitch import load_live_shifter, pitch_shift_pcm
 
 PROJECT='example-project'
 PROFILES=('wavenet_sentence','chirp_sentence','chirp_stream')
@@ -31,16 +34,24 @@ def wave_pcm(data,rate=24000):
         return pcm
 
 
+# Normal first responses arrive in 0.8-1.1 s; a request still silent after 1.3 s is likely a slow one.
+HEDGE_AFTER=1.3
+HEDGES=2
+
+
 class EdgeClients:
     def __init__(self,credential,*,stt_region='asia-northeast1',tts_region='asia-northeast1',project=PROJECT,
-                 language='en-US',voice='en-US-Chirp3-HD-Aoede',speaking_rate=.96):
+                 language='en-US',voice=DEFAULT_STREAMING_VOICE,speaking_rate=.96,stream_pitch=0.):
         if stt_region not in ('asia-northeast1','asia-southeast1','us','eu') or tts_region!='asia-northeast1':raise EdgeError('UNAPPROVED_API_REGION')
         if not re.fullmatch(r'[a-z][a-z0-9-]{4,28}[a-z0-9]',project) or language not in ('en-US','ja-JP'):raise EdgeError('INVALID_PROJECT_OR_LANGUAGE')
         self.credential=credential;self.stt_region=stt_region;self.tts_region=tts_region;self.channels=[]
         self.project=project;self.language=language;self.voice=voice;self.speaking_rate=speaking_rate
+        self.stream_pitch=stream_pitch
         self.endpoints={'stt':stt_region+'-speech.googleapis.com','llm':'generativelanguage.googleapis.com',
             'tts':tts_region+'-texttospeech.googleapis.com'}
     async def open(self):
+        if self.stream_pitch:
+            load_live_shifter()
         import grpc
         from google.auth.credentials import AnonymousCredentials
         from google.cloud import speech_v2 as speech,texttospeech_v1 as tts
@@ -90,7 +101,10 @@ class EdgeClients:
             ('authorization','Bearer '+self.credential['access_token']),('x-goog-user-project',self.project)))
         async for response in stream:
             if response.speech_event_type:
-                events.append({'type':response.speech_event_type.name,'offset_ms':response.speech_event_offset.total_seconds()*1000})
+                event={'type':response.speech_event_type.name,'offset_ms':response.speech_event_offset.total_seconds()*1000}
+                events.append(event)
+                if event['type'] in ('SPEECH_ACTIVITY_BEGIN','SPEECH_ACTIVITY_END'):
+                    await emit({'kind':'stt_activity',**event})
             partial=[];stabilities=[];segment_final=False
             for result in response.results:
                 if not result.alternatives:continue
@@ -103,15 +117,18 @@ class EdgeClients:
                     stability=float(getattr(result,'stability',0))
                     stabilities.append(stability if stability>0 else None)
             snapshot=' '.join([*final,*partial]).strip()
-            if len(snapshot)>1000:raise EdgeError('EMPTY_OR_OVERSIZED_STT')
+            if len(snapshot)>1000:
+                stream.cancel()
+                raise EdgeError('STT_TRANSCRIPT_TOO_LONG')
             if snapshot and (partial or segment_final):
                 await emit({'kind':'stt_partial','text':snapshot,
                     'stability':min(stabilities) if stabilities and all(x is not None for x in stabilities) else None,
                     'segment_final':segment_final and not partial})
         text=' '.join(final).strip()
-        if not text or len(text)>1000:raise EdgeError('EMPTY_OR_OVERSIZED_STT')
+        if not text:raise EdgeError('STT_NO_FINAL_TRANSCRIPT')
         return text,{'events':events,'final_segments':len(final),'model':model,'endpoint':self.endpoints['stt']}
-    async def generate(self,text,*,model='gemini-3.5-flash-lite',prompt=None,history=(),memories=(),context=(),relationship=None):
+    async def generate(self,text,*,model='gemini-3.5-flash-lite',prompt=None,history=(),memories=(),context=(),relationship=None,timings=None,before_send=None):
+        build_start=time.monotonic()
         g=self.gen_types
         prompt=prompt or conversation_prompt()
         if context:prompt+=CONTEXT_RULES
@@ -125,24 +142,102 @@ class EdgeClients:
         request=g.GenerateContentRequest(model='models/'+model,system_instruction=g.Content(parts=[g.Part(text=prompt)]),
             contents=contents,generation_config=g.GenerationConfig(max_output_tokens=400,temperature=.7))
         self.llm_usage={};size=0;finish=None
-        stream=await self.llm.stream_generate_content(request=request,retry=None,timeout=25,metadata=(('x-goog-api-key',self.credential['gemini_key']),))
-        async for response in stream:
-            if response.usage_metadata:
-                u=response.usage_metadata
-                self.llm_usage.update(input_tokens=u.prompt_token_count,output_tokens=u.candidates_token_count,total_tokens=u.total_token_count,
-                    thought_tokens=u.thoughts_token_count,response_model=response.model_version)
-            for candidate in response.candidates:
-                if candidate.index:continue
-                for part in candidate.content.parts:
-                    if part.text and not part.thought:
-                        size+=len(part.text)
-                        if size>1000:raise EdgeError('REPLY_CHARACTER_LIMIT')
-                        yield part.text
-                if candidate.finish_reason:finish=candidate.finish_reason.name
+        if before_send is not None:
+            # Reserve the full text payload and every possible hedge before the first RPC.
+            size_bytes=len(prompt.encode())+sum(len(part.text.encode())+32 for item in contents for part in item.parts)
+            before_send(size_bytes,request.generation_config.max_output_tokens,1+HEDGES)
+        rpc_start=time.monotonic()
+        def elapsed_ms():
+            return round((time.monotonic()-rpc_start)*1000,3)
+        heartbeat=None
+        if timings is not None:
+            timings['request_build_ms']=round((rpc_start-build_start)*1000,3)
+            timings['channel_state']=self.channels[1].get_state().name if self.channels else 'unobserved'
+            timings['max_loop_lag_ms']=0.
+            loop=asyncio.get_running_loop()
+            def watch_loop(expected):
+                nonlocal heartbeat
+                now=loop.time()
+                timings['max_loop_lag_ms']=max(timings['max_loop_lag_ms'],round((now-expected)*1000,3))
+                heartbeat=loop.call_at(now+.1,watch_loop,now+.1)
+            scheduled=loop.time()+.1
+            heartbeat=loop.call_at(scheduled,watch_loop,scheduled)
+        # Hedged requests: gemini-3.5-flash-lite answers these short turns in ~0.8-1.1 s, but about one
+        # call in three takes 5-12 s on the server (gateway-reported) whatever the history or context
+        # (measured 2026-11-19). If no response has arrived after HEDGE_AFTER, the same request is sent
+        # again (at most twice) and the first stream to respond is used; the others are cancelled.
+        streams=[]
+        async def open_stream(index):
+            stream=await self.llm.stream_generate_content(request=request,retry=None,timeout=25,metadata=(('x-goog-api-key',self.credential['gemini_key']),))
+            streams.append(stream)
+            gateway=None;opened_ms=elapsed_ms();headers_ms=None
+            if hasattr(stream,'initial_metadata'):
+                # If present, retain only the numeric gateway duration. Metadata can contain identifiers.
+                for name,value in await stream.initial_metadata():
+                    if name=='server-timing' and isinstance(value,str):
+                        duration=re.search(r'(?:^|,)\s*gfet4t7;\s*dur=(\d{1,6}(?:\.\d{1,6})?)\b',value)
+                        if duration:gateway=float(duration[1])
+                headers_ms=elapsed_ms()
+            responses=stream.__aiter__()
+            try:first=await responses.__anext__()
+            except StopAsyncIteration:first=None
+            return index,stream,responses,first,gateway,opened_ms,headers_ms
+        attempts=[asyncio.create_task(open_stream(0))];opened=1;winner=None;failure=None
+        try:
+            while winner is None:
+                wait=HEDGE_AFTER*opened-(time.monotonic()-rpc_start) if opened<=HEDGES else None
+                done,_=await asyncio.wait(attempts,timeout=None if wait is None else max(0,wait),return_when=asyncio.FIRST_COMPLETED)
+                if not done:
+                    attempts.append(asyncio.create_task(open_stream(opened)));opened+=1;continue
+                for task in done:
+                    attempts.remove(task)
+                    if task.exception() is None and winner is None:winner=task.result()
+                    elif failure is None:failure=task.exception()
+                if winner is None and not attempts:raise failure
+        finally:
+            for task in attempts:task.cancel()
+            for other in streams:
+                if winner is None or other is not winner[1]:other.cancel()
+            if winner is None:
+                if timings is not None:timings['rpc_exit_ms']=elapsed_ms()
+                if heartbeat is not None:heartbeat.cancel()
+        index,stream,responses,first,gateway,opened_ms,headers_ms=winner
+        if timings is not None:
+            timings['hedged_requests']=opened-1;timings['hedge_winner']=index
+            timings['rpc_open_ms']=opened_ms
+            if headers_ms is not None:timings['headers_ms']=headers_ms
+            if gateway is not None:timings['gateway_reported_ms']=gateway
+        async def chained():
+            if first is not None:yield first
+            async for response in responses:yield response
+        try:
+            async for response in chained():
+                if timings is not None and 'first_response_ms' not in timings:
+                    timings['first_response_ms']=elapsed_ms()
+                if response.usage_metadata:
+                    u=response.usage_metadata
+                    self.llm_usage.update(input_tokens=u.prompt_token_count,output_tokens=u.candidates_token_count,total_tokens=u.total_token_count,
+                        thought_tokens=u.thoughts_token_count,response_model=response.model_version)
+                for candidate in response.candidates:
+                    if candidate.index:continue
+                    for part in candidate.content.parts:
+                        if part.text and not part.thought:
+                            size+=len(part.text)
+                            if size>1000:raise EdgeError('REPLY_CHARACTER_LIMIT')
+                            if timings is not None and 'first_text_ms' not in timings:
+                                timings['first_text_ms']=elapsed_ms()
+                                heartbeat.cancel()
+                            yield part.text
+                    if candidate.finish_reason:finish=candidate.finish_reason.name
+        finally:
+            if timings is not None:
+                timings['rpc_exit_ms']=elapsed_ms()
+            if heartbeat is not None:
+                heartbeat.cancel()
         self.llm_usage['finish_reason']=finish
         if finish!='STOP':raise EdgeError('INCOMPLETE_GENERATION')
     async def synthesize(self,text,*,chirp=False):
-        t=self.tts_types;voice='en-US-Chirp3-HD-Aoede' if chirp else 'en-US-Wavenet-H'
+        t=self.tts_types;voice=self.voice if chirp else 'en-US-Wavenet-H'
         config={'audio_encoding':t.AudioEncoding.LINEAR16,'sample_rate_hertz':24000,'speaking_rate':.96}
         if not chirp:config['pitch']=2
         result=await self.tts.synthesize_speech(request=t.SynthesizeSpeechRequest(input=t.SynthesisInput(text=text),
@@ -151,14 +246,28 @@ class EdgeClients:
         return wave_pcm(result.audio_content)
     async def synthesize_stream(self,texts):
         t=self.tts_types
+        # Open the TTS stream with the first reply text, not before it: the service aborts an idle
+        # stream (gRPC ABORTED, seen as PROVIDER_HTTP_409) after ~6 s without input, and the LLM's
+        # first text took 5.5 s and more in later turns. Synthesis cannot start earlier anyway.
+        texts=texts.__aiter__()
+        try:first=await texts.__anext__()
+        except StopAsyncIteration:return
         async def requests():
             yield t.StreamingSynthesizeRequest(streaming_config=t.StreamingSynthesizeConfig(
                 voice=t.VoiceSelectionParams(language_code='en-US',name=self.voice),
                 streaming_audio_config=t.StreamingAudioConfig(audio_encoding=t.AudioEncoding.PCM,sample_rate_hertz=24000,speaking_rate=self.speaking_rate)))
+            yield t.StreamingSynthesizeRequest(input=t.StreamingSynthesisInput(text=first))
             async for text in texts:yield t.StreamingSynthesizeRequest(input=t.StreamingSynthesisInput(text=text))
         stream=await self.tts.streaming_synthesize(requests=requests(),retry=None,timeout=30,metadata=(('x-goog-api-key',self.credential['tts_key']),))
-        async for response in stream:
-            data=bytes(response.audio_content)
-            if data:
-                if len(data)%2:raise EdgeError('ODD_PCM_BYTES')
-                yield data
+        async def packets():
+            async for response in stream:
+                data=bytes(response.audio_content)
+                if data:
+                    if len(data)%2:raise EdgeError('ODD_PCM_BYTES')
+                    yield data
+        try:
+            async with aclosing(pitch_shift_pcm(packets(), self.stream_pitch)) as converted:
+                async for data in converted:
+                    yield data
+        finally:
+            stream.cancel()
