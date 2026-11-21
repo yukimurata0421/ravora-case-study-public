@@ -12,7 +12,15 @@ database, and deployment environment are excluded.
 
 ## Watch RAVORA in conversation
 
-### Zephyr and the latest mouth motion
+### RAY’s conversational smile
+
+Watch RAY answer “That freezer find is pure magic” around **0:17–0:19**.
+In the November 21 reference render, five upper-lip shapes follow the opening of
+her mouth while her teeth stay in place. The 2.5-second close-up plays the same
+line on both sides so you can compare the lips directly.
+[Watch the 1080p dinner conversation](https://github.com/yukimurata0421/ravora-case-study-public/raw/refs/heads/main/docs/media/ray-upper-lip-conversation.mp4) · [Compare the upper lip before and after](docs/media/ray-upper-lip-comparison.mp4) · [Capture measurements and known issues](docs/audio-timing.md#november-21-conversational-smile)
+
+### Zephyr and the November 20 mouth motion
 
 In this 35-second dinner conversation, RAVORA listens to a scripted speaker,
 thinks through the first choice, and smiles at the freezer discovery. The new

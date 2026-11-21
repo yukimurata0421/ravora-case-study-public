@@ -16,7 +16,7 @@
     "third-party renderer bundles",
     "host deployment and production controls"
   ],
-  "updated_at_jst": "2026-11-20T22:13:18+09:00",
+  "updated_at_jst": "2026-11-21T12:27:59+09:00",
   "files": [
     {
       "path": ".env.example",
@@ -34,7 +34,7 @@
     },
     {
       "path": ".gitignore",
-      "sha256": "dcf937d20511ccfdbeb4753a700ba51aabe5dd84859a4f144470d2c66cbe7ed3",
+      "sha256": "ef3c7bbc8c5beb933c5a51a34f6d95420f5e7f61d515dedde9e80d30dfd7909e",
       "kind": "generated",
       "note": "Portable documentation, fixture, or publication validation.",
       "source": "case-study"
@@ -48,14 +48,14 @@
     },
     {
       "path": "README.md",
-      "sha256": "95ae31c167916745ff35a8fb045a79aeb0e8525e3952edf5dd08a3559a24617b",
+      "sha256": "cfe7ad5fd2d863f6e3413ec981e379abc4162ca2224f2d1834db9a8536b00f54",
       "kind": "generated",
       "source": "case-study",
       "note": "Portable documentation, fixture, or publication validation."
     },
     {
       "path": "docs/audio-timing.md",
-      "sha256": "4ad55433f056924daf6fffe32f5207adddab4babdbcca3d5b1897a7bfc93b59b",
+      "sha256": "524920939f868f1822555c83ecec3c4c039f3593b13630dd8fe911b5641cad4b",
       "source": "case-study",
       "kind": "generated",
       "note": "Portable documentation, fixture, or publication validation."
@@ -180,6 +180,22 @@
       "sha256": "2d91889add5aaa7ea632921aafe8d1b4d0ea1d9540128fc93bcca58d8cf6fdd3"
     },
     {
+      "path": "docs/media/ray-upper-lip-comparison.mp4",
+      "sha256": "7505c396cc4265add50afbd40fe0a04ad9d5a8ee9b6978f94ba8a9e0a7449e00",
+      "source": "demos/concept02-thinking-live-20261121-upper-lip/smile-upper-lip-before-after.mp4",
+      "source_sha256": "7505c396cc4265add50afbd40fe0a04ad9d5a8ee9b6978f94ba8a9e0a7449e00",
+      "kind": "copied",
+      "note": "Rendered same-audio upper-lip comparison."
+    },
+    {
+      "path": "docs/media/ray-upper-lip-conversation.mp4",
+      "sha256": "17de0bd4fd1a268f89026a59b31d67b672897aec5ba96809db91575b24eedff8",
+      "source": "demos/concept02-thinking-live-20261121-upper-lip/ravora-thinking-conversation-compat.mp4",
+      "source_sha256": "17de0bd4fd1a268f89026a59b31d67b672897aec5ba96809db91575b24eedff8",
+      "kind": "copied",
+      "note": "Finished render of the scripted dinner conversation."
+    },
+    {
       "path": "docs/media/voice-audition.m4a",
       "sha256": "9962ff44efc4088e50bd9a356dc3b53924fb738f482f71e9439ff139c6af9215",
       "source": "evidence/chirp3-speaker-audition-20261120T124629Z/voices-in-order.wav",
@@ -201,7 +217,7 @@
     },
     {
       "path": "docs/reproduce.md",
-      "sha256": "28fe0089b62417e62b1f46ba18d40afdd2b81b30b5b5f45a31b16aaa087fbb4a",
+      "sha256": "37586053c6fe0a86c30b0bdce3f893d919099835dfa413e0161d87e560aa6cc2",
       "kind": "generated",
       "source": "case-study",
       "note": "Portable documentation, fixture, or publication validation."
@@ -236,7 +252,7 @@
     },
     {
       "path": "publication/README.md",
-      "sha256": "2e5598d8947cf717fcfcd4613b17bbdf7b2f6a303187d485e1e6ad11ab570b10",
+      "sha256": "0a79a4af57c98b9d55cca6f731a17bd3e084a3feb6eb2f53b874c8218a99bc5f",
       "kind": "generated",
       "source": "case-study",
       "note": "Portable documentation, fixture, or publication validation."
@@ -294,6 +310,13 @@
       "sha256": "956075ee585c1cd56bf9cbf9b2e4bedfeb3d3077406867ea84eb986608028abb"
     },
     {
+      "path": "publication/history/2026-11-20-conversation-and-voice-validation.json",
+      "sha256": "aefaa198dc0b0a04bb947cc1f1f9b9437d6b49e21cd81dbd053c79cd09c214b9",
+      "source": "case-study",
+      "kind": "generated",
+      "note": "Unchanged local validation record from the previous public snapshot."
+    },
+    {
       "path": "publication/history/2026-11-20-default-motion-validation.json",
       "sha256": "dbad0bc48449d39ea1f942c64325e87e66ce1728359d0837261bb00934d5d1cf",
       "source": "case-study",
@@ -346,7 +369,7 @@
     },
     {
       "path": "scripts/validate_public.py",
-      "sha256": "fda0d3e08446b48543197efae0ada8c7bd1e49bd974f9d4c7add42decb0d54a7",
+      "sha256": "5d43c9046a165331d8d743b1b9fc6b5496fe1df6c95ffa71f60cc4a333bc26d4",
       "kind": "generated",
       "note": "Portable documentation, fixture, or publication validation.",
       "source": "case-study"
@@ -449,10 +472,10 @@
     {
       "path": "src/ravora/fast_voice_server.py",
       "source": "src/ravora/fast_voice_server.py",
-      "source_sha256": "a8fa3fcff2782d30ecfaa9e7427d8615a160335bf34f9b4f2fb67215b0b6abdd",
+      "source_sha256": "779ccfe94076e8bae880522241208a3c8ce0530d5ae63c963199b57c502ff884",
       "kind": "adapted",
       "note": "Package-local authenticated console with configurable capture and optional caller-supplied artwork.",
-      "sha256": "564190e52f2206d4f32cd9005d4cdff8f02e0447532b63c41fb3db15de70ac33"
+      "sha256": "ba19500abb9f5ce0c668f3883d521955fd8413232c69c2c5be957f5f4a7e3369"
     },
     {
       "path": "src/ravora/gemini_memory.py",
@@ -656,11 +679,11 @@
     },
     {
       "path": "src/ravora/pngtuber.py",
-      "sha256": "b5d971d5f8ee40b3e498f9462f9db657bac5f49e65eb0b81c3ed1f0043d189ee",
+      "sha256": "d3b366b467d60640d8a2d2ec7489a255058db2c0c8b96b29469d8216e4d852dd",
       "source": "src/ravora/pngtuber.py",
-      "source_sha256": "b5d971d5f8ee40b3e498f9462f9db657bac5f49e65eb0b81c3ed1f0043d189ee",
+      "source_sha256": "d3b366b467d60640d8a2d2ec7489a255058db2c0c8b96b29469d8216e4d852dd",
       "kind": "copied",
-      "note": "Landmark registration, SHA-256 asset binding, mouth geometry and thickness constraints. Source art is excluded."
+      "note": "Hash-checked artwork, face-relative lip geometry and registration for upper-lip layers."
     },
     {
       "path": "src/ravora/providers.py",
@@ -742,9 +765,9 @@
     },
     {
       "path": "src/ravora/web/developer/fast-app.js",
-      "sha256": "671c54e27cb51cad8cb5191f5cf9368fdd8b6bfd01c6325b6d16a2e67773bc8e",
+      "sha256": "e181162cb94bfd7d9dcf0bbcd1310fccc5e90169ef511a6a7661bce62e0a3448",
       "source": "renderer/developer/fast-app.js",
-      "source_sha256": "53efeaf916f4db7e4a0b9e258a015882d2e69be1d3171435f03795c5815b9ce1",
+      "source_sha256": "fbca4b4353b1a94df7706364b4ec56190246489476b96054eaef7554feabf23c",
       "kind": "adapted",
       "note": "Source port with packaged paths and synthetic fixtures."
     },
@@ -774,11 +797,11 @@
     },
     {
       "path": "src/ravora/web/developer/talk-avatar.js",
-      "sha256": "7bf9fbd8ebead87bd981da7015ad868837a8ae9509cd21dcf9c2fce71c81ef68",
+      "sha256": "4d45314aadf87847bf7124ab6508892275e379993b00269ad6063d91c00331ce",
       "source": "renderer/developer/talk-avatar.js",
-      "source_sha256": "a133689e262183573f3e2aef4e55571775f8dcefa29d47896c67aa63c4bba1dd",
+      "source_sha256": "038bd631d50065f23eeb42bb04cf01d8624c5d7025391c3ea34fc1460dbd5a91",
       "kind": "adapted",
-      "note": "Registered sprite or WebGL playback, with a synthetic fallback for no-artwork use."
+      "note": "Packaged WebGL and sprite renderers with an artwork-free synthetic fallback."
     },
     {
       "path": "src/ravora/web/expressions.mjs",
@@ -815,9 +838,9 @@
       "path": "src/ravora/web/pngtuber-surface.mjs",
       "source": "renderer/pngtuber-core.js",
       "kind": "copied",
-      "source_sha256": "e8cc453355e694dae7175bf90ffa0e56cac1651fe8de36f9bdf0cf3827ca524a",
-      "sha256": "e8cc453355e694dae7175bf90ffa0e56cac1651fe8de36f9bdf0cf3827ca524a",
-      "note": "Exact source snapshot."
+      "source_sha256": "15a507fe149a9fff3a4bd6a91adb6a8f75fd2cf32d72dc8beee34cab5822051f",
+      "sha256": "15a507fe149a9fff3a4bd6a91adb6a8f75fd2cf32d72dc8beee34cab5822051f",
+      "note": "Default WebGL surface with head-anchored teeth and opening-dependent upper-lip compositing."
     },
     {
       "path": "src/ravora/web/presence.mjs",
@@ -853,7 +876,7 @@
     },
     {
       "path": "tests/check_media.mjs",
-      "sha256": "2036e13c22e9e1d99f5b63816b0a2061f4700d45c85110fcd657af53e34c43b5",
+      "sha256": "3c6fcbabd9bf02a87e818a50e7b0d6f10ad0cc7c71810c1e1415aa59c8936ab6",
       "kind": "generated",
       "source": "case-study",
       "note": "Portable documentation, fixture, or publication validation."
@@ -868,7 +891,7 @@
     },
     {
       "path": "tests/test_avatar_geometry.py",
-      "sha256": "0d6f0c6edf973bb12be1063d8a5aa35004064543e8ccb98ec6c6abc6dabf03bf",
+      "sha256": "4cec6e7042962f67b4fd65cbe431c54fc0174652ea55f2631fdb2f6dace2883d",
       "source": "case-study",
       "kind": "generated",
       "note": "Portable documentation, fixture, or publication validation."

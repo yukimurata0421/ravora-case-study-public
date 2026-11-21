@@ -127,3 +127,12 @@ Each entry supplies a relative PNG `path` and its hex `sha256`. Optional blink
 poses, a registered rig and expression-vowel patches use the same binding.
 The console validates the asset root, file hashes, dimensions and geometry
 before serving these files. [Avatar binding](../src/ravora/pngtuber.py)
+
+With registered expression-vowel artwork, a manifest can also supply
+`upper_lip_layers.happy`. List the layers in increasing `opening` order from
+0 to 1. For each layer provide its RGBA PNG path and SHA-256, its pixel
+`offset` on the idle portrait, and the `outer` and `inner` lip edges as 31
+pairs of crop-local pixel coordinates each. Hardware WebGL2 blends these
+layers during a spoken smile. The 2D fallback uses the talking and blinking
+sprites and overlays any registered facial expressions. The built-in synthetic
+face still works without artwork. [Reference smile and comparison](audio-timing.md#november-21-conversational-smile)

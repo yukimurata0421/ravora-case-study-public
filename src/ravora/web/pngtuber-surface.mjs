@@ -31,8 +31,10 @@ export function createPngtuberSurface(images,asset){
       float skin = smoothstep(.35, 1., vLip);
       // The lips stay the neutral vowel's (the expression artworks draw thin, stretched lips: taking
       // them too made speech look clenched, and the opening read 45% smaller). Only the cavity comes
-      // from the expression artwork: one tooth row hanging from the upper seam, revealing more of
-      // the same registered interior as the cavity opens. It spans the whole opening out to the
+      // from the expression artwork, as a plate fixed to the head: the upper teeth sit behind the
+      // resting upper lip (the artwork's upper inner rim laid on the rest one) and the moving lips
+      // reveal them. (Hung from the moving upper seam and stretched with the mesh columns, the teeth
+      // rose, sank, shrank and slid sideways with every vowel.) It spans the whole opening out to the
       // corners: limited to +-40 px around the mouth centre, the expression teeth kept the smile's
       // arc only in the middle while the neutral vowel's cavity showed at the sides, ending in a
       // square notch at a widened smile corner. Right at the corners the expression cavity is a
@@ -41,8 +43,28 @@ export function createPngtuberSurface(images,asset){
       // past the lips.)
       if (exprMix > 0. && inside > .95) {
         float inner = smoothstep(.95, 1., inside);
-        vec2 oralUV = vec2(uv2.x, mix(topUV, uv2.y, flatAmount));
-        donor.rgb = mix(donor.rgb, sampleColor(tex3, oralUV).rgb, smoothstep(0., .45, exprMix) * inner * smoothstep(0., 1., across));
+        vec2 here = (position - voiceCrop.xy) / max(voiceCrop.zw, vec2(1.));
+        // The smile lifts the upper lip (happy A: 15 px at full strength). The plate is laid by the
+        // expression strength 35% of the way from the resting upper rim towards the artwork's own
+        // (lifted) rim, so the tooth tops stay just behind the speaking upper lip: on the resting rim a
+        // band of gum showed above the teeth while smiling, on the artwork's rim the teeth hid behind
+        // the lip. It moves with the expression, not the vowels.
+        // Towards full strength (from .65) the plate goes all the way to the artwork's own rim, where
+        // the full smile's lifted lip leaves no gum showing.
+        float e = clamp(exprMix, 0., 1.), lift = .35 * e;
+        float anchor = mix(restUV, topUV, lift + (1. - lift) * smoothstep(.65, 1., e));
+        float below = here.y - anchor;
+        vec3 oral = sampleColor(tex3, vec2(here.x, topUV + max(0., below))).rgb;
+        if (below < 0.) {
+          // upper lip lifted above its rest: the gum above the teeth (the artwork's inner upper-lip
+          // colour, smoothed sideways and shaded) instead of stretching the teeth tops into streaks
+          float px = 1. / max(1., voiceCrop.z), py = 1. / max(1., voiceCrop.w);
+          vec3 gum = vec3(0.);
+          for (int k = -3; k <= 3; k++) gum += sampleColor(tex3, vec2(here.x + float(k) * 2. * px, topUV - 1.5 * py)).rgb;
+          gum = gum / 7. * .82;
+          oral = mix(oral, gum, smoothstep(0., 1.5 * py, -below));
+        }
+        donor.rgb = mix(donor.rgb, oral, smoothstep(0., .45, exprMix) * inner * smoothstep(0., 1., across));
       }
       float material = smoothstep(.05, .85, amount) * donor.a * skin;
       vec3 rgb = mix(a.rgb, donor.rgb, material);
@@ -79,8 +101,8 @@ export function createPngtuberSurface(images,asset){
       color = vec4(rgb * a.a * coverage, a.a * coverage);
       return;
     }`;
-  const vertex='#version 300 es\nprecision highp float; precision highp int; in vec2 source; in vec4 mouthCoords0; in vec4 mouthCoords1; in vec4 mouthCoords2; out vec4 mouthUV0; out vec4 mouthUV1; out vec4 mouthUV2; in vec2 cavityTop; out float topUV; out float across; uniform vec4 voiceCrop; in vec2 target; in vec2 target2; in vec2 shape; uniform int shapeMode; in float lipw; out float vLip; uniform float exprMix; in float cavity; in float flex; uniform vec2 size; uniform float amount; uniform float mouthWidth; uniform vec4 mood; uniform vec3 headMotion; uniform vec3 bodyMotion; uniform float browSide; uniform int kind; uniform vec4 region; uniform vec2 extent; uniform vec4 crop; uniform float outFlip; uniform float flatAmount; out vec2 uv0; out vec2 uv1; out vec2 uv2; out vec2 position; out float inside; out float vAmount; uniform sampler2D motion0; uniform sampler2D motion1; uniform sampler2D motion2; uniform sampler2D motion3; uniform vec4 poseW; uniform vec4 gazeW; vec2 dec(vec2 v){return (v*255.-128.)/4.;} void main(){float am=amount;if(kind==1){float xn=min(1.,abs(source.x-region.x)/(region.z*.5));am=flatAmount>.5?max(amount,0.):pow(max(amount,0.),1.+(1.2+max(0.,1.-mouthWidth)*7.)*xn*xn);}vAmount=am;vLip=lipw;mouthUV0=mouthCoords0;mouthUV1=mouthCoords1;mouthUV2=mouthCoords2;topUV=(cavityTop.x-voiceCrop.y)/max(1.,voiceCrop.w);across=cavityTop.y;if(kind==1&&flatAmount>.5)vAmount=am*(1.-smoothstep(.45,.8,abs(source.x-region.x)/(region.z*1.6)))*(1.-smoothstep(.6,1.,abs(source.y-region.y)/(region.w*(source.y<region.y?1.:1.6))));position=shapeMode==1?mix(source,shape,am):mix(source,mix(target,target2,exprMix),am);uv2=kind==7?(target2-voiceCrop.xy)/max(voiceCrop.zw,vec2(1.)):(target2-crop.xy)/crop.zw;if(kind==1){vec2 o=abs(source-region.xy);float rows=1.-smoothstep(region.w*.5,region.w*.95,o.y);float fade=1.-smoothstep(region.z*.35,region.z*.92,o.x);position.x+=(position.x-region.x)*(mouthWidth-1.)*fade*rows*flex;float corner=pow(min(1.,o.x/(region.z*.7)),1.6)*(1.-smoothstep(region.z*.95,extent.x*.95,o.x))*rows;position.y-=mood.x*8.*corner*flex;}if(kind==2){position.y+=(position.y-region.y)*.20*mood.w*(1.-amount)*flex;position.y-=max(0.,mood.x)*4.*(1.-amount)*smoothstep(-.1,.45,(source.y-region.y)/region.w)*flex;}if(kind==3)position.y-=flex*(mood.y*12.+mood.z*12.*browSide*(source.x-region.x)/region.z);uv0=source/size;if(kind==7)position=shape;uv1=(kind==1||kind==5||kind==7||kind==8)?(target-crop.xy)/crop.zw:target/size;inside=cavity;if(kind==6){vec2 m=source/size;vec4 a=textureLod(motion0,m,0.),b=textureLod(motion1,m,0.),c=textureLod(motion2,m,0.),e=textureLod(motion3,m,0.);position=source+dec(a.rg)*poseW.x+dec(a.ba)*poseW.y+dec(b.rg)*poseW.z+dec(b.ba)*poseW.w+dec(c.rg)*gazeW.x+dec(c.ba)*gazeW.y+dec(e.rg)*gazeW.z+dec(e.ba)*gazeW.w;}vec2 p=position;vec2 neck=size*vec2(.5,.59);float headWeight=1.-smoothstep(size.y*.52,size.y*.68,p.y);float hc=cos(headMotion.x),hs=sin(headMotion.x);vec2 d=p-neck;vec2 head=vec2(hc*d.x-hs*d.y,hs*d.x+hc*d.y)+neck+headMotion.yz;p=mix(p,head,headWeight);p.y+=bodyMotion.y*(1.-smoothstep(size.y*.65,size.y,p.y));vec2 root=size*vec2(.5,.96);d=p-root;float bc=cos(bodyMotion.x),bs=sin(bodyMotion.x);p=vec2(bc*d.x-bs*d.y,bs*d.x+bc*d.y)+root;p.x+=bodyMotion.z*(1.-smoothstep(size.y*.75,size.y,p.y));gl_Position=vec4(p.x/size.x*2.-1.,(1.-p.y/size.y*2.)*outFlip,0.,1.);}';
-  const fragment='#version 300 es\nprecision highp float; precision highp int; uniform sampler2D tex0; uniform sampler2D tex1; uniform float amount; uniform int kind; uniform vec4 region; uniform vec2 extent; uniform sampler2D tex2; uniform float layer; uniform float teethHide; uniform float fullArt; uniform vec2 size; uniform vec2 gaze; uniform vec4 eyeA; uniform vec4 eyeB; uniform vec2 fade; uniform vec4 crop; uniform float blend; uniform float faceBlink; uniform vec4 eyeExt; uniform vec2 eyeHide; uniform float lipHide; uniform vec2 detailBand; uniform float flatAmount; in vec2 uv0; in vec2 uv1; in vec2 uv2; in vec4 mouthUV0; in vec4 mouthUV1; in vec4 mouthUV2; uniform vec2 mouthPaint; uniform sampler2D mouthNeutral; uniform float mouthFace; uniform sampler2D mouthVowels[5]; uniform float mouthWeights[5]; in float topUV; in float across; uniform sampler2D tex3; uniform float exprMix; in float vLip; in vec2 position; in float inside; in float vAmount; out vec4 color; vec3 linearize(vec3 c){return mix(c/12.92,pow((c+.055)/1.055,vec3(2.4)),step(vec3(.04045),c));} vec3 encode(vec3 c){return mix(c*12.92,1.055*pow(max(c,vec3(0.)),vec3(1./2.4))-.055,step(vec3(.0031308),c));} vec4 sampleColorBias(sampler2D tex,vec2 uv,float bias){vec4 c=texture(tex,uv,bias);float a=c.a;vec3 rgb=a>.0001?c.rgb/a:vec3(0.);a=a>.98?1.:a*smoothstep(.008,.06,a);return vec4(rgb,a);} vec4 sampleColor(sampler2D tex,vec2 uv){return sampleColorBias(tex,uv,0.);} vec4 sampleSharp(sampler2D tex,vec2 uv){vec2 ts=vec2(textureSize(tex,0));vec2 sp=uv*ts,tc=floor(sp-.5)+.5,f=sp-tc;vec2 w0=f*(-.5+f*(1.-.5*f)),w1=1.+f*f*(-2.5+1.5*f),w2=f*(.5+f*(2.-1.5*f)),w3=f*f*(-.5+.5*f);vec2 w12=w1+w2,t0=(tc-1.)/ts,t3=(tc+2.)/ts,t12=(tc+w2/w12)/ts;vec4 c=(textureLod(tex,vec2(t0.x,t0.y),0.)*w0.x+textureLod(tex,vec2(t12.x,t0.y),0.)*w12.x+textureLod(tex,vec2(t3.x,t0.y),0.)*w3.x)*w0.y+(textureLod(tex,vec2(t0.x,t12.y),0.)*w0.x+textureLod(tex,vec2(t12.x,t12.y),0.)*w12.x+textureLod(tex,vec2(t3.x,t12.y),0.)*w3.x)*w12.y+(textureLod(tex,vec2(t0.x,t3.y),0.)*w0.x+textureLod(tex,vec2(t12.x,t3.y),0.)*w12.x+textureLod(tex,vec2(t3.x,t3.y),0.)*w3.x)*w3.y;c=clamp(c,0.,1.);float al=c.a;vec3 rgb=al>.0001?min(c.rgb/al,vec3(1.)):vec3(0.);al=al>.98?1.:al*smoothstep(.008,.06,al);return vec4(rgb,al);} vec4 sampleColorLod(sampler2D tex,vec2 uv,float lod){vec4 c=textureLod(tex,uv,lod);float a=c.a;vec3 rgb=a>.0001?c.rgb/a:vec3(0.);a=a>.98?1.:a*smoothstep(.008,.06,a);return vec4(rgb,a);} void main(){if(kind==6){color=texture(tex0,uv0);return;}if(kind==8){color=mix(texture(tex0,uv1),texture(tex1,uv1),amount)*layer;return;}vec2 eyeUV=uv0;if(kind==2){vec2 q=(uv0*size-region.xy)/vec2(region.z*.65,region.w*.82);float mask=(1.-smoothstep(.52,1.,length(q)))*max(inside,0.);eyeUV-=gaze*mask/size;}float band=max(-inside,0.),cav=max(inside,0.);vec4 a=sampleColor(tex0,eyeUV);if(kind==2&&band>0.){vec4 o=sampleColor(tex2,eyeUV);a=faceBlink>.5?mix(a,o,band*smoothstep(.04,.3,amount)):mix(o,a,band*smoothstep(.04,.3,amount));}if(kind==0){color=vec4(a.rgb*a.a,a.a);return;}if(kind==4){float h=a.a*(1.-smoothstep(.55,1.,amount))*(1.-smoothstep(.78,1.,length((position-region.xy)/region.zw)));color=vec4(a.rgb*h,h);return;}if(kind==5){vec2 p=uv0*size;vec2 qa=(p-eyeA.xy)/eyeA.zw;vec2 qb=(p-eyeB.xy)/eyeB.zw;float hideA=(1.-smoothstep(.75,.98,length((p-eyeA.xy)/eyeExt.xy)))*eyeHide.x;float hideB=(1.-smoothstep(.75,.98,length((p-eyeB.xy)/eyeExt.zw)))*eyeHide.y;float iris=max(1.-smoothstep(15.,24.,length(p-eyeA.xy-vec2(2.,-4.))),1.-smoothstep(15.,24.,length(p-eyeB.xy-vec2(-1.,-4.))));vec2 dm=(p-region.xy)/(region.zw*vec2(1.65,p.y<region.y?1.67:2.9));float mz=1.-smoothstep(1.,1.3,length(dm));float zone=mix(1.,fade.x,mz);vec4 fl=texture(tex2,uv1);vec2 F=(fl.rg*255.-128.)/4.;float t=layer*zone;float c=mix(smoothstep(0.,.03,t),smoothstep(.25,.5,t),1.-fl.a);vec2 g=vec2(clamp(gaze.x,-4.5,4.5),clamp(gaze.y,-1.2,1.2)*.4)*iris;vec4 n=sampleColor(tex0,(p-t*F-g)/size);vec2 pe=p+(1.-t)*F;vec4 e=sampleColor(tex1,(pe-crop.xy)/crop.zw);vec4 ne=sampleColor(tex0,pe/size);vec3 rgb=encode(mix(linearize(n.rgb),linearize(mix(ne.rgb,e.rgb,e.a)),c));if(detailBand.y>detailBand.x)rgb=mix(rgb,n.rgb,1.-smoothstep(detailBand.x,detailBand.y,p.y));float al=mix(n.a,ne.a,c)*fl.b*zone*(1.-hideA)*(1.-hideB)*(1.-lipHide*(1.-smoothstep(1.,1.35,length((p-region.xy)/(region.zw*vec2(.85,.75))))))*step(.001,layer)*blend;color=vec4(rgb*al,al);return;}'+registeredMouthFragment+'vec4 b=sampleColor(tex1,uv1);if(kind==1&&exprMix>0.){b=mix(b,sampleColor(tex3,uv2),smoothstep(0.,.2,exprMix)*smoothstep(.8,1.,vLip));}float w=kind==1?vAmount:amount;if(kind==1){w=mix(w,smoothstep(0.,.10,vAmount),cav);w=mix(w,mix(smoothstep(0.,.15,vAmount),smoothstep(.12,.3,vAmount),1.-smoothstep(.25,.45,dot(b.rgb,vec3(.299,.587,.114)))),flatAmount);float lum=dot(b.rgb,vec3(.299,.587,.114));float teeth=smoothstep(.55,.72,lum)*(1.-smoothstep(.10,.18,b.r-b.b))*cav;b.rgb=mix(b.rgb,vec3(.17,.08,.08),teeth*teethHide*(1.-smoothstep(.3,.7,vAmount)));}if(kind==2)w=mix(smoothstep(.55,1.,amount),smoothstep(.88,1.,amount),cav);float d=length((position-region.xy)/region.zw);float mask=1.-smoothstep(.78,1.,d);if(kind==1){if(fullArt>.5){vec2 q=abs(position-region.xy)/extent;q*=q;q*=q;mask=1.-smoothstep(.86,.98,pow(q.x+q.y,.25));vec2 e=min(uv1,1.-uv1);w*=smoothstep(0.,.05,e.x)*smoothstep(0.,.05,e.y);}else{w*=mask;mask=1.-smoothstep(.80,.98,length((position-region.xy)/vec2(extent.x,region.w)));}}vec3 rgb=encode(mix(linearize(a.rgb),linearize(b.rgb),w));float alpha=mix(a.a,b.a,w)*mask*(kind==1?layer:1.);color=vec4(rgb*alpha,alpha);}';
+  const vertex='#version 300 es\nprecision highp float; precision highp int; in vec2 source; in vec4 mouthCoords0; in vec4 mouthCoords1; in vec4 mouthCoords2; out vec4 mouthUV0; out vec4 mouthUV1; out vec4 mouthUV2; in vec3 cavityTop; out float topUV; out float across; out float restUV; uniform vec4 voiceCrop; in vec2 target; in vec2 target2; in vec2 shape; uniform int shapeMode; in float lipw; out float vLip; uniform float exprMix; in float cavity; in float flex; uniform vec2 size; uniform float amount; uniform float mouthWidth; uniform vec4 mood; uniform vec3 headMotion; uniform vec3 bodyMotion; uniform float browSide; uniform int kind; uniform vec4 region; uniform vec2 extent; uniform vec4 crop; uniform float outFlip; uniform float flatAmount; out vec2 uv0; out vec2 uv1; out vec2 uv2; out vec2 position; out float inside; out float vAmount; uniform sampler2D motion0; uniform sampler2D motion1; uniform sampler2D motion2; uniform sampler2D motion3; uniform vec4 poseW; uniform vec4 gazeW; vec2 dec(vec2 v){return (v*255.-128.)/4.;} void main(){float am=amount;if(kind==1){float xn=min(1.,abs(source.x-region.x)/(region.z*.5));am=flatAmount>.5?max(amount,0.):pow(max(amount,0.),1.+(1.2+max(0.,1.-mouthWidth)*7.)*xn*xn);}vAmount=am;vLip=lipw;mouthUV0=mouthCoords0;mouthUV1=mouthCoords1;mouthUV2=mouthCoords2;topUV=(cavityTop.x-voiceCrop.y)/max(1.,voiceCrop.w);across=cavityTop.y;restUV=(cavityTop.z-voiceCrop.y)/max(1.,voiceCrop.w);if(kind==1&&flatAmount>.5)vAmount=am*(1.-smoothstep(.45,.8,abs(source.x-region.x)/(region.z*1.6)))*(1.-smoothstep(.6,1.,abs(source.y-region.y)/(region.w*(source.y<region.y?1.:1.6))));position=shapeMode==1?mix(source,shape,am):mix(source,mix(target,target2,exprMix),am);uv2=kind==7?(target2-voiceCrop.xy)/max(voiceCrop.zw,vec2(1.)):(target2-crop.xy)/crop.zw;if(kind==1){vec2 o=abs(source-region.xy);float rows=1.-smoothstep(region.w*.5,region.w*.95,o.y);float fade=1.-smoothstep(region.z*.35,region.z*.92,o.x);position.x+=(position.x-region.x)*(mouthWidth-1.)*fade*rows*flex;float corner=pow(min(1.,o.x/(region.z*.7)),1.6)*(1.-smoothstep(region.z*.95,extent.x*.95,o.x))*rows;position.y-=mood.x*8.*corner*flex;}if(kind==2){position.y+=(position.y-region.y)*.20*mood.w*(1.-amount)*flex;position.y-=max(0.,mood.x)*4.*(1.-amount)*smoothstep(-.1,.45,(source.y-region.y)/region.w)*flex;}if(kind==3)position.y-=flex*(mood.y*12.+mood.z*12.*browSide*(source.x-region.x)/region.z);uv0=source/size;if(kind==7)position=shape;uv1=(kind==1||kind==5||kind==7||kind==8)?(target-crop.xy)/crop.zw:target/size;inside=cavity;if(kind==6){vec2 m=source/size;vec4 a=textureLod(motion0,m,0.),b=textureLod(motion1,m,0.),c=textureLod(motion2,m,0.),e=textureLod(motion3,m,0.);position=source+dec(a.rg)*poseW.x+dec(a.ba)*poseW.y+dec(b.rg)*poseW.z+dec(b.ba)*poseW.w+dec(c.rg)*gazeW.x+dec(c.ba)*gazeW.y+dec(e.rg)*gazeW.z+dec(e.ba)*gazeW.w;}vec2 p=position;vec2 neck=size*vec2(.5,.59);float headWeight=1.-smoothstep(size.y*.52,size.y*.68,p.y);float hc=cos(headMotion.x),hs=sin(headMotion.x);vec2 d=p-neck;vec2 head=vec2(hc*d.x-hs*d.y,hs*d.x+hc*d.y)+neck+headMotion.yz;p=mix(p,head,headWeight);p.y+=bodyMotion.y*(1.-smoothstep(size.y*.65,size.y,p.y));vec2 root=size*vec2(.5,.96);d=p-root;float bc=cos(bodyMotion.x),bs=sin(bodyMotion.x);p=vec2(bc*d.x-bs*d.y,bs*d.x+bc*d.y)+root;p.x+=bodyMotion.z*(1.-smoothstep(size.y*.75,size.y,p.y));gl_Position=vec4(p.x/size.x*2.-1.,(1.-p.y/size.y*2.)*outFlip,0.,1.);}';
+  const fragment='#version 300 es\nprecision highp float; precision highp int; uniform sampler2D tex0; uniform sampler2D tex1; uniform float amount; uniform int kind; uniform vec4 region; uniform vec2 extent; uniform sampler2D tex2; uniform float layer; uniform float teethHide; uniform float fullArt; uniform vec2 size; uniform vec2 gaze; uniform vec4 eyeA; uniform vec4 eyeB; uniform vec2 fade; uniform vec4 crop; uniform float blend; uniform float faceBlink; uniform vec4 eyeExt; uniform vec2 eyeHide; uniform float lipHide; uniform vec2 detailBand; uniform float flatAmount; in vec2 uv0; in vec2 uv1; in vec2 uv2; in vec4 mouthUV0; in vec4 mouthUV1; in vec4 mouthUV2; uniform vec2 mouthPaint; uniform sampler2D mouthNeutral; uniform float mouthFace; uniform sampler2D mouthVowels[5]; uniform float mouthWeights[5]; in float topUV; in float across; in float restUV; uniform sampler2D tex3; uniform float exprMix; uniform vec4 voiceCrop; in float vLip; in vec2 position; in float inside; in float vAmount; out vec4 color; vec3 linearize(vec3 c){return mix(c/12.92,pow((c+.055)/1.055,vec3(2.4)),step(vec3(.04045),c));} vec3 encode(vec3 c){return mix(c*12.92,1.055*pow(max(c,vec3(0.)),vec3(1./2.4))-.055,step(vec3(.0031308),c));} vec4 sampleColorBias(sampler2D tex,vec2 uv,float bias){vec4 c=texture(tex,uv,bias);float a=c.a;vec3 rgb=a>.0001?c.rgb/a:vec3(0.);a=a>.98?1.:a*smoothstep(.008,.06,a);return vec4(rgb,a);} vec4 sampleColor(sampler2D tex,vec2 uv){return sampleColorBias(tex,uv,0.);} vec4 sampleSharp(sampler2D tex,vec2 uv){vec2 ts=vec2(textureSize(tex,0));vec2 sp=uv*ts,tc=floor(sp-.5)+.5,f=sp-tc;vec2 w0=f*(-.5+f*(1.-.5*f)),w1=1.+f*f*(-2.5+1.5*f),w2=f*(.5+f*(2.-1.5*f)),w3=f*f*(-.5+.5*f);vec2 w12=w1+w2,t0=(tc-1.)/ts,t3=(tc+2.)/ts,t12=(tc+w2/w12)/ts;vec4 c=(textureLod(tex,vec2(t0.x,t0.y),0.)*w0.x+textureLod(tex,vec2(t12.x,t0.y),0.)*w12.x+textureLod(tex,vec2(t3.x,t0.y),0.)*w3.x)*w0.y+(textureLod(tex,vec2(t0.x,t12.y),0.)*w0.x+textureLod(tex,vec2(t12.x,t12.y),0.)*w12.x+textureLod(tex,vec2(t3.x,t12.y),0.)*w3.x)*w12.y+(textureLod(tex,vec2(t0.x,t3.y),0.)*w0.x+textureLod(tex,vec2(t12.x,t3.y),0.)*w12.x+textureLod(tex,vec2(t3.x,t3.y),0.)*w3.x)*w3.y;c=clamp(c,0.,1.);float al=c.a;vec3 rgb=al>.0001?min(c.rgb/al,vec3(1.)):vec3(0.);al=al>.98?1.:al*smoothstep(.008,.06,al);return vec4(rgb,al);} vec4 sampleColorLod(sampler2D tex,vec2 uv,float lod){vec4 c=textureLod(tex,uv,lod);float a=c.a;vec3 rgb=a>.0001?c.rgb/a:vec3(0.);a=a>.98?1.:a*smoothstep(.008,.06,a);return vec4(rgb,a);} void main(){if(kind==6){color=texture(tex0,uv0);return;}if(kind==8){color=mix(texture(tex0,uv1),texture(tex1,uv1),amount)*layer;return;}vec2 eyeUV=uv0;if(kind==2){vec2 q=(uv0*size-region.xy)/vec2(region.z*.65,region.w*.82);float mask=(1.-smoothstep(.52,1.,length(q)))*max(inside,0.);eyeUV-=gaze*mask/size;}float band=max(-inside,0.),cav=max(inside,0.);vec4 a=sampleColor(tex0,eyeUV);if(kind==2&&band>0.){vec4 o=sampleColor(tex2,eyeUV);a=faceBlink>.5?mix(a,o,band*smoothstep(.04,.3,amount)):mix(o,a,band*smoothstep(.04,.3,amount));}if(kind==0){color=vec4(a.rgb*a.a,a.a);return;}if(kind==4){float h=a.a*(1.-smoothstep(.55,1.,amount))*(1.-smoothstep(.78,1.,length((position-region.xy)/region.zw)));color=vec4(a.rgb*h,h);return;}if(kind==5){vec2 p=uv0*size;vec2 qa=(p-eyeA.xy)/eyeA.zw;vec2 qb=(p-eyeB.xy)/eyeB.zw;float hideA=(1.-smoothstep(.75,.98,length((p-eyeA.xy)/eyeExt.xy)))*eyeHide.x;float hideB=(1.-smoothstep(.75,.98,length((p-eyeB.xy)/eyeExt.zw)))*eyeHide.y;float iris=max(1.-smoothstep(15.,24.,length(p-eyeA.xy-vec2(2.,-4.))),1.-smoothstep(15.,24.,length(p-eyeB.xy-vec2(-1.,-4.))));vec2 dm=(p-region.xy)/(region.zw*vec2(1.65,p.y<region.y?1.67:2.9));float mz=1.-smoothstep(1.,1.3,length(dm));float zone=mix(1.,fade.x,mz);vec4 fl=texture(tex2,uv1);vec2 F=(fl.rg*255.-128.)/4.;float t=layer*zone;float c=mix(smoothstep(0.,.03,t),smoothstep(.25,.5,t),1.-fl.a);vec2 g=vec2(clamp(gaze.x,-4.5,4.5),clamp(gaze.y,-1.2,1.2)*.4)*iris;vec4 n=sampleColor(tex0,(p-t*F-g)/size);vec2 pe=p+(1.-t)*F;vec4 e=sampleColor(tex1,(pe-crop.xy)/crop.zw);vec4 ne=sampleColor(tex0,pe/size);vec3 rgb=encode(mix(linearize(n.rgb),linearize(mix(ne.rgb,e.rgb,e.a)),c));if(detailBand.y>detailBand.x)rgb=mix(rgb,n.rgb,1.-smoothstep(detailBand.x,detailBand.y,p.y));float al=mix(n.a,ne.a,c)*fl.b*zone*(1.-hideA)*(1.-hideB)*(1.-lipHide*(1.-smoothstep(1.,1.35,length((p-region.xy)/(region.zw*vec2(.85,.75))))))*step(.001,layer)*blend;color=vec4(rgb*al,al);return;}'+registeredMouthFragment+'vec4 b=sampleColor(tex1,uv1);if(kind==1&&exprMix>0.){b=mix(b,sampleColor(tex3,uv2),smoothstep(0.,.2,exprMix)*smoothstep(.8,1.,vLip));}float w=kind==1?vAmount:amount;if(kind==1){w=mix(w,smoothstep(0.,.10,vAmount),cav);w=mix(w,mix(smoothstep(0.,.15,vAmount),smoothstep(.12,.3,vAmount),1.-smoothstep(.25,.45,dot(b.rgb,vec3(.299,.587,.114)))),flatAmount);float lum=dot(b.rgb,vec3(.299,.587,.114));float teeth=smoothstep(.55,.72,lum)*(1.-smoothstep(.10,.18,b.r-b.b))*cav;b.rgb=mix(b.rgb,vec3(.17,.08,.08),teeth*teethHide*(1.-smoothstep(.3,.7,vAmount)));}if(kind==2)w=mix(smoothstep(.55,1.,amount),smoothstep(.88,1.,amount),cav);float d=length((position-region.xy)/region.zw);float mask=1.-smoothstep(.78,1.,d);if(kind==1){if(fullArt>.5){vec2 q=abs(position-region.xy)/extent;q*=q;q*=q;mask=1.-smoothstep(.86,.98,pow(q.x+q.y,.25));vec2 e=min(uv1,1.-uv1);w*=smoothstep(0.,.05,e.x)*smoothstep(0.,.05,e.y);}else{w*=mask;mask=1.-smoothstep(.80,.98,length((position-region.xy)/vec2(extent.x,region.w)));}}vec3 rgb=encode(mix(linearize(a.rgb),linearize(b.rgb),w));float alpha=mix(a.a,b.a,w)*mask*(kind==1?layer:1.);color=vec4(rgb*alpha,alpha);}';
   function shader(type,code){const s=gl.createShader(type);gl.shaderSource(s,code);gl.compileShader(s);if(!gl.getShaderParameter(s,gl.COMPILE_STATUS))throw Error(gl.getShaderInfoLog(s));return s;}
   const program=gl.createProgram(),vs=shader(gl.VERTEX_SHADER,vertex),fs=shader(gl.FRAGMENT_SHADER,fragment);
   gl.attachShader(program,vs);gl.attachShader(program,fs);gl.linkProgram(program);if(!gl.getProgramParameter(program,gl.LINK_STATUS))throw Error(gl.getProgramInfoLog(program));gl.deleteShader(vs);gl.deleteShader(fs);gl.useProgram(program);
@@ -105,6 +127,13 @@ export function createPngtuberSurface(images,asset){
   // Per-expression vowel mouths: a second target and texture for each neutral vowel mesh.
   const exprVowelArt={};for(const [n,items] of Object.entries(asset.expressionVowels||{}))for(const [v,item] of Object.entries(items))if(images[`exprvowel_${n}_${v}`]){exprVowelArt[`exprvowel_${n}_${v}`]=item;sources[`exprvowel_${n}_${v}`]=images[`exprvowel_${n}_${v}`];}
   for(const key of Object.keys(vowelArt))sources[key]=images[key];
+  // Conversational upper-lip layers per expression: one RGBA crop per speech opening, registered to
+  // the mouth mesh by its upper border and inner rim (31 refined columns, corner to corner).
+  const upperLips={};
+  for(const [n,keys] of Object.entries(asset.upperLipLayers||{})){
+    const loaded=keys.map((k,i)=>({...k,key:`upperlip_${n}_${i}`})).filter(k=>images[k.key]);
+    if(loaded.length===keys.length){upperLips[n]=loaded;for(const k of loaded)sources[k.key]=images[k.key];}
+  }
   // Optional drawn expression face patches (scripts/build_expressions.py), same placement scheme.
   const expressionArt=Object.fromEntries(Object.entries(asset.expressions||{}).filter(([n])=>images['expr_'+n]).map(([n,item])=>['expr_'+n,item]));
   for(const key of Object.keys(expressionArt))sources[key]=images[key];
@@ -113,7 +142,7 @@ export function createPngtuberSurface(images,asset){
   const flowKeys=Object.keys(expressionArt).map(k=>'exprflow_'+k.slice(5));
   const motionKeys=[0,1,2,3].filter(i=>images['motion'+i]).length===4?['motion0','motion1','motion2','motion3']:[];
   for(const key of motionKeys)sources[key]=images[key];
-  for(const key of ['idle','talking','blink','clean','hair',...Object.keys(vowelArt),...Object.keys(expressionArt),...flowKeys,...motionKeys,...Object.keys(exprVowelArt)]){
+  for(const key of ['idle','talking','blink','clean','hair',...Object.keys(vowelArt),...Object.keys(expressionArt),...flowKeys,...motionKeys,...Object.keys(exprVowelArt),...Object.values(upperLips).flat().map(k=>k.key)]){
     const tex=gl.createTexture();textures[key]=tex;gl.bindTexture(gl.TEXTURE_2D,tex);
     gl.texParameteri(gl.TEXTURE_2D,gl.TEXTURE_WRAP_S,gl.CLAMP_TO_EDGE);gl.texParameteri(gl.TEXTURE_2D,gl.TEXTURE_WRAP_T,gl.CLAMP_TO_EDGE);
     gl.texParameteri(gl.TEXTURE_2D,gl.TEXTURE_MIN_FILTER,gl.LINEAR_MIPMAP_LINEAR);gl.texParameteri(gl.TEXTURE_2D,gl.TEXTURE_MAG_FILTER,gl.LINEAR);
@@ -293,11 +322,11 @@ export function createPngtuberSurface(images,asset){
         // Per vertex: the expression artwork's upper inner lip in this column (refined row 6), and
         // how far the column is from the nearer mouth corner (0 at a corner column, 1 from two native
         // columns inwards) for drawing the expression teeth out to the corners.
-        const count=data.length/mesh.N,C2=voice.columns,kL=6,kR=((C2-1)/3-2)*3,anchors=new Float32Array(2*count);
-        for(let i=0;i<count;i++){const k=i%C2;anchors[2*i]=data[(6*C2+k)*mesh.N+7];anchors[2*i+1]=Math.max(0,Math.min(1,Math.min(k-kL,kR-k)/6));}
+        const count=data.length/mesh.N,C2=voice.columns,kL=6,kR=((C2-1)/3-2)*3,anchors=new Float32Array(3*count);
+        for(let i=0;i<count;i++){const k=i%C2;anchors[3*i]=data[(6*C2+k)*mesh.N+7];anchors[3*i+1]=Math.max(0,Math.min(1,Math.min(k-kL,kR-k)/6));anchors[3*i+2]=data[(6*C2+k)*mesh.N+1];}
         mesh.cavityAnchors=gl.createBuffer();gl.bindBuffer(gl.ARRAY_BUFFER,mesh.cavityAnchors);
         gl.bufferData(gl.ARRAY_BUFFER,anchors,gl.STATIC_DRAW);
-        gl.enableVertexAttribArray(topAttribute);gl.vertexAttribPointer(topAttribute,2,gl.FLOAT,false,0,0);
+        gl.enableVertexAttribArray(topAttribute);gl.vertexAttribPointer(topAttribute,3,gl.FLOAT,false,0,0);
       }
       gl.activeTexture(gl.TEXTURE3);gl.bindTexture(gl.TEXTURE_2D,textures[key]);
       gl.uniform4fv(uniforms.voiceCrop,[...texture.offset,texture.width,texture.height]);
@@ -311,6 +340,56 @@ export function createPngtuberSurface(images,asset){
     gl.drawElements(gl.TRIANGLES,mesh.count,gl.UNSIGNED_SHORT,0);
     gl.uniform1f(uniforms.exprMix,0);gl.uniform1f(uniforms.flatAmount,0);
     if(paint)gl.uniform2f(mouthPaintUniform,0,0);
+    if(upperLipState&&upperLips[upperLipState.name])drawUpperLip((voice||donor).columns,mesh,data,upperLips[upperLipState.name],upperLipState);
+  }
+  // The neutral vowel's upper lip, stretched into a smile, read as a uniform rubber band. While an
+  // expression with upper-lip layers shows, its own generated upper lip is laid over the mouth: the
+  // two keys around the speech opening are each put on the current inner rim (their own thickness
+  // above it, plus the band joining the lip to the skin) and mixed premultiplied, then composited
+  // once. The inner rim clips it, so teeth and the lower lip stay the mesh's.
+  let upperLipState=null,lipProgram=null,lipVao=null,lipBuffer=null,lipIndex=null,lipUniforms=null,lipCount=0;
+  const LIP_COLUMNS=31,LIP_BAND=8;
+  // Compiled when the surface is made, not on the first smiling word (a stall at reply onset).
+  function drawUpperLipSetup(){
+    if(lipProgram)return;
+    const vs='#version 300 es\nin vec2 pos; in vec2 uvA; in vec2 uvB; uniform vec2 size; uniform float outFlip; out vec2 vA; out vec2 vB; void main(){vA=uvA;vB=uvB;gl_Position=vec4(pos.x/size.x*2.-1.,(1.-pos.y/size.y*2.)*outFlip,0.,1.);}';
+    const fs='#version 300 es\nprecision highp float; in vec2 vA; in vec2 vB; uniform sampler2D texA; uniform sampler2D texB; uniform float mixF; uniform float weight; out vec4 color; void main(){color=mix(texture(texA,vA),texture(texB,vB),mixF)*weight;}';
+    lipProgram=gl.createProgram();
+    for(const [type,src] of [[gl.VERTEX_SHADER,vs],[gl.FRAGMENT_SHADER,fs]]){const sh=gl.createShader(type);gl.shaderSource(sh,src);gl.compileShader(sh);if(!gl.getShaderParameter(sh,gl.COMPILE_STATUS))throw Error('PNGTUBER_UPPER_LIP_SHADER '+gl.getShaderInfoLog(sh));gl.attachShader(lipProgram,sh);}
+    gl.linkProgram(lipProgram);if(!gl.getProgramParameter(lipProgram,gl.LINK_STATUS))throw Error('PNGTUBER_UPPER_LIP_PROGRAM');
+    lipUniforms=Object.fromEntries(['size','outFlip','texA','texB','mixF','weight'].map(k=>[k,gl.getUniformLocation(lipProgram,k)]));
+    lipVao=gl.createVertexArray();gl.bindVertexArray(lipVao);lipBuffer=gl.createBuffer();gl.bindBuffer(gl.ARRAY_BUFFER,lipBuffer);
+    gl.bufferData(gl.ARRAY_BUFFER,LIP_COLUMNS*3*6*4,gl.DYNAMIC_DRAW);
+    [['pos',0],['uvA',8],['uvB',16]].forEach(([name,off])=>{const loc=gl.getAttribLocation(lipProgram,name);gl.enableVertexAttribArray(loc);gl.vertexAttribPointer(loc,2,gl.FLOAT,false,24,off);});
+    const idx=[];for(let j=0;j<LIP_COLUMNS-1;j++)for(let r=0;r<2;r++){const a=r*LIP_COLUMNS+j,b=a+1,c=a+LIP_COLUMNS,d=c+1;idx.push(a,b,c,b,d,c);}
+    lipIndex=gl.createBuffer();gl.bindBuffer(gl.ELEMENT_ARRAY_BUFFER,lipIndex);gl.bufferData(gl.ELEMENT_ARRAY_BUFFER,new Uint16Array(idx),gl.STATIC_DRAW);lipCount=idx.length;
+  }
+  function drawUpperLip(cols,mesh,data,keys,state){
+    const w=state.weight;if(!(w>.001))return;
+    drawUpperLipSetup();
+    const a=Math.max(0,Math.min(1,state.amount));let i=0;while(i<keys.length-2&&a>keys[i+1].opening)i++;
+    const A=keys[i],B=keys[i+1],f=Math.max(0,Math.min(1,(a-A.opening)/Math.max(1e-6,B.opening-A.opening)));
+    const N=mesh.N;
+    const verts=new Float32Array(LIP_COLUMNS*3*6);
+    for(let j=0;j<LIP_COLUMNS;j++){
+      const v=(6*cols+6+j)*N,ix=data[v+9],iy=data[v+10];
+      // this key's lip, and its outer border, relative to its own inner rim
+      const tx=(1-f)*(A.outer[j][0]-A.inner[j][0])+f*(B.outer[j][0]-B.inner[j][0]),ty=(1-f)*(A.outer[j][1]-A.inner[j][1])+f*(B.outer[j][1]-B.inner[j][1]);
+      const rows=[[ix+tx,iy+ty-LIP_BAND,-LIP_BAND],[ix+tx,iy+ty,0],[ix,iy,null]];
+      rows.forEach(([x,y,band],r)=>{
+        const o=(r*LIP_COLUMNS+j)*6;verts[o]=x;verts[o+1]=y;
+        for(const [K,off] of [[A,2],[B,4]]){
+          const px=band===null?K.inner[j][0]:K.outer[j][0],py=band===null?K.inner[j][1]:K.outer[j][1]+(band||0);
+          verts[o+off]=(px-K.offset[0])/K.width;verts[o+off+1]=(py-K.offset[1])/K.height;
+        }
+      });
+    }
+    gl.useProgram(lipProgram);gl.bindVertexArray(lipVao);gl.bindBuffer(gl.ARRAY_BUFFER,lipBuffer);gl.bufferSubData(gl.ARRAY_BUFFER,0,verts);
+    gl.uniform2f(lipUniforms.size,base.width,base.height);gl.uniform1f(lipUniforms.outFlip,-1);gl.uniform1f(lipUniforms.mixF,f);gl.uniform1f(lipUniforms.weight,w);
+    gl.activeTexture(gl.TEXTURE14);gl.bindTexture(gl.TEXTURE_2D,textures[A.key]);gl.uniform1i(lipUniforms.texA,14);
+    gl.activeTexture(gl.TEXTURE15);gl.bindTexture(gl.TEXTURE_2D,textures[B.key]);gl.uniform1i(lipUniforms.texB,15);
+    gl.drawElements(gl.TRIANGLES,lipCount,gl.UNSIGNED_SHORT,0);
+    gl.useProgram(program);gl.activeTexture(gl.TEXTURE0);
   }
   // The drawn vowels are fully articulated; conversational speech rarely opens that far.
   const MOUTH_REACH=Number.isFinite(asset.mouthReach)?Math.max(.3,Math.min(1,asset.mouthReach)):.7;
@@ -428,7 +507,7 @@ export function createPngtuberSurface(images,asset){
     }
     // The registered mesh follows every active vowel. The older layered draw uses its two strongest
     // crops. With no vowel artwork, the single talking image supplies the mouth.
-    let mouthLayers=[], registeredPoses=[], mouthPaint=null;
+    let mouthLayers=[], registeredPoses=[], mouthPaint=null;upperLipState=null;
 
     if(hasVowels){
       const input=vowels&&typeof vowels==='object'&&Object.keys(vowels).some(k=>vowelFeatures[k])?vowels:vowelsFor(mouthWidth);
@@ -444,6 +523,7 @@ export function createPngtuberSurface(images,asset){
       // While an expression with its own vowel mouths is showing, each vowel mesh morphs towards that
       // expression's vowel (shape and colour) by the expression weight.
       const lead=legacyArt.find(([n])=>exprVowelFeatures[n]),mixTo=lead?Math.min(1,lead[1]):0;
+      upperLipState=lead&&upperLips[lead[0]]?{name:lead[0],weight:smoothstep01((mixTo-.15)/.35)*(1-Math.max(0,Math.min(1,expression.restPose ?? mouthArt))),amount}:null;
       mouthLayers=weights.map(([v,w],i)=>{const ev=lead&&exprVowelFeatures[lead[0]][v];return{vowel:v,f:ev||vowelFeatures[v],amount,layer:i===0?1:w/total,share:w/total,width:1,teeth:0,exprMix:ev?mixTo:0,exprTex:ev?textures[`exprvowel_${lead[0]}_${v}`]:null};});
     }else{const f=features.find(x=>x.kind==='mouth');if(f)mouthLayers=[{f,amount:open,layer:1,width:mouthWidth,teeth:1}];}
     if(registered) {
@@ -541,6 +621,7 @@ export function createPngtuberSurface(images,asset){
     gl.activeTexture(gl.TEXTURE0);
     draws++;return canvas;
   }
+  if(Object.keys(upperLips).length){drawUpperLipSetup();gl.bindVertexArray(null);gl.useProgram(program);}
   return{canvas,gpu,render,features,brows,hairSplit,expressionNames:new Set(Object.keys(expressionPatches)),resize(edge){canvas.width=Math.min(base.width,edge);canvas.height=Math.round(canvas.width*base.height/base.width);
     needsMipmaps=canvas.width<base.width*.7;
     gl.activeTexture(gl.TEXTURE0);gl.bindTexture(gl.TEXTURE_2D,composeTexture);
@@ -696,7 +777,7 @@ export function createPngtuberMotion(controls){
 }
 
 export async function loadPngtuberImages(asset, images={}) {
-  const entries=[...Object.entries(asset.images),...Object.entries(asset.vowels||{}).map(([n,v])=>['vowel_'+n,v]),...Object.entries(asset.expressions||{}).map(([n,v])=>['expr_'+n,v]),...Object.entries(asset.expressions||{}).filter(([,v])=>v.flow).map(([n,v])=>['exprflow_'+n,v.flow]),...Object.entries(asset.expressions||{}).filter(([,v])=>v.mouth).map(([n,v])=>['exprmouth_'+n,v.mouth]),...Object.entries(asset.idleGlance||{}).map(([i,item])=>['glance_'+i,item]),...(asset.motion?.textures||[]).map((v,i)=>['motion'+i,v]),...Object.entries(asset.expressionVowels||{}).flatMap(([n,items])=>Object.entries(items).map(([v,item])=>[`exprvowel_${n}_${v}`,item]))];
+  const entries=[...Object.entries(asset.images),...Object.entries(asset.vowels||{}).map(([n,v])=>['vowel_'+n,v]),...Object.entries(asset.expressions||{}).map(([n,v])=>['expr_'+n,v]),...Object.entries(asset.expressions||{}).filter(([,v])=>v.flow).map(([n,v])=>['exprflow_'+n,v.flow]),...Object.entries(asset.expressions||{}).filter(([,v])=>v.mouth).map(([n,v])=>['exprmouth_'+n,v.mouth]),...Object.entries(asset.idleGlance||{}).map(([i,item])=>['glance_'+i,item]),...(asset.motion?.textures||[]).map((v,i)=>['motion'+i,v]),...Object.entries(asset.expressionVowels||{}).flatMap(([n,items])=>Object.entries(items).map(([v,item])=>[`exprvowel_${n}_${v}`,item])),...Object.entries(asset.upperLipLayers||{}).flatMap(([n,keys])=>keys.map((k,i)=>[`upperlip_${n}_${i}`,k]))];
   await Promise.all(entries.map(async ([name, item]) => {
     if (images[name]) return;
     const image = new Image();

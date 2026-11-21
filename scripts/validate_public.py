@@ -17,6 +17,8 @@ PUBLIC_MOVIES = {
     'docs/media/concept02-mouth-comparison.mp4',
     'docs/media/concept02-lip-motion.mp4',
     'docs/media/concept02-lip-comparison.mp4',
+    'docs/media/ray-upper-lip-conversation.mp4',
+    'docs/media/ray-upper-lip-comparison.mp4',
 }
 
 

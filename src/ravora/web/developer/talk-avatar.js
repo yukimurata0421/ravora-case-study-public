@@ -3,11 +3,46 @@ import {createExpressionMotion, composeExpression, expressionName} from '/expres
 import {buildPresenceTimeline, samplePresence, presenceForSurface, createIdleGlance} from '/presence.mjs';
 import {createPcmMouth, speechEnvelope} from '/articulation.mjs';
 
+// The artwork is registered to the idle sprite. Cut out the animated eyes during a
+// blink and the articulated lower face during speech. Cache at patch resolution.
+function spritePatch(bitmap, offset, regions, blink, speaking) {
+  if (!blink && !speaking) return bitmap;
+  if (!regions) return null;
+  const patch=document.createElement('canvas');
+  patch.width=bitmap.width;patch.height=bitmap.height;
+  const g=patch.getContext('2d');
+  g.drawImage(bitmap,0,0);
+  g.globalCompositeOperation='destination-out';
+  if (blink) {
+    for (const eye of regions.eyes) {
+      g.save();
+      g.translate(eye.cx-offset[0],eye.cy-offset[1]);g.scale(eye.rx,eye.ry);
+      const mask=g.createRadialGradient(0,0,0,0,0,1.15);
+      mask.addColorStop(0.85,'black');mask.addColorStop(1,'transparent');
+      g.fillStyle=mask;g.fillRect(-1.15,-1.15,2.3,2.3);g.restore();
+    }
+  }
+  if (speaking) {
+    const {cy,ry}=regions.mouth, top=cy-ry-offset[1];
+    const mask=g.createLinearGradient(0,top,0,top+ry*.35);
+    mask.addColorStop(0,'transparent');mask.addColorStop(1,'black');
+    g.fillStyle=mask;g.fillRect(0,0,patch.width,patch.height);
+  }
+  return patch;
+}
+
 export async function startAvatar(canvas, reaction, hasArtwork) {
   const stage=canvas.parentElement, g=canvas.getContext('2d');
+  if (!g) throw new Error('CANVAS_2D_UNAVAILABLE');
   const asset=hasArtwork?await (await fetch('/demo-avatar')).json():null;
-  // The four registered poses can animate immediately and also work without WebGL2.
-  const images=asset?await loadPngtuberImages({images:asset.images}):null;
+  const sprites={...asset?.images}, names=new Set();
+  for(const name of ['happy','surprise','thinking','concerned']){
+    if(asset?.expressions?.[name]){
+      sprites['expr_'+name]=asset.expressions[name];names.add(name);
+    }
+  }
+  const images=asset?await loadPngtuberImages({images:sprites}):null;
+  const patches=new Map(), spriteActing=createExpressionMotion(.22,names,null,false);
   const plan=buildPresenceTimeline([],180,20261116), glance=createIdleGlance(20261116);
   let surface, acting, mouth, clock, origin, last=-Infinity, weight=0;
   const idle={open:0,width:1,shape:'closed',db:-100,vowels:null};
@@ -47,7 +82,21 @@ export async function startAvatar(canvas, reaction, hasArtwork) {
       const bitmap=images[talk?(blink?'talking_blink':'talking'):(blink?'blink':'idle')];
       g.clearRect(0,0,canvas.width,canvas.height);
       const h=canvas.height,w=h*bitmap.width/bitmap.height;
-      g.drawImage(bitmap,(canvas.width-w)/2+movement.bodyX,movement.breath,w,h);
+      const x=(canvas.width-w)/2+movement.bodyX,y=movement.breath,scale=h/bitmap.height;
+      g.drawImage(bitmap,x,y,w,h);
+      const emotion=spriteActing.sample(t,expressionName(reaction()),1);
+      for(const name of names){
+        const amount=emotion['art_'+name];
+        if(amount<=0)continue;
+        const key=name+'-'+blink+'-'+playing, offset=asset.expressions[name].offset;
+        if(!patches.has(key))patches.set(key,spritePatch(images['expr_'+name],offset,asset.regions,blink,playing));
+        const patch=patches.get(key);
+        if(patch){
+          g.globalAlpha=amount;
+          g.drawImage(patch,x+offset[0]*scale,y+offset[1]*scale,patch.width*scale,patch.height*scale);
+        }
+      }
+      g.globalAlpha=1;
     }
     const mouthState=lip.open>.1?'open':'closed';
     if(stage.dataset.mouth!==mouthState)stage.dataset.mouth=mouthState;
@@ -69,6 +118,9 @@ export async function startAvatar(canvas, reaction, hasArtwork) {
       // Display WebGL directly so presenting a frame needs no GPU-to-2D readback.
       rig.canvas.className='avatar-rig';rig.canvas.setAttribute('aria-hidden','true');
       canvas.after(rig.canvas);
+      rig.canvas.addEventListener('webglcontextlost',()=>{
+        surface=null;rig.canvas.remove();stage.dataset.renderer='sprites';
+      },{once:true});
       surface=rig;stage.dataset.renderer='rig';
     }).catch(()=>{}); // Keep the animated poses when the GPU or textures are unavailable.
   }

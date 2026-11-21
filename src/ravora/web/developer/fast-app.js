@@ -9,7 +9,7 @@ try{
 history.replaceState(null,'',location.pathname);
 window.addEventListener('hashchange',()=>{if(fragmentKey())location.reload();});
 let ws,cfg,busy=false,epoch=0,held=false,listening=false,mic=null,ctx,node,meter,current=null,inputId=null,startAt=0,inputEnd=null,assistant=null,timer=null,preparing=false,reactionSeq=0,reactionLocked=false;
-let avatar;
+let avatar,avatarLoading;
 let armedNotice='Waiting for speech…';
 const stage=$('reaction-preview');
 $('fullscreen').addEventListener('click',async()=>{
@@ -23,11 +23,10 @@ const uuid=()=>crypto.randomUUID().replaceAll('-','');
 function send(value){if(ws?.readyState!==WebSocket.OPEN)throw Error('Connection closed.');ws.send(JSON.stringify(value));}
 function status(text){$('status').textContent=text;$('stage-status').textContent=text;}
 function expression(name='neutral'){
-  const captions={neutral:'Listening',joy:'Happy',surprise:'Surprised'};if(!(name in captions))name='neutral';
-  diagnostics.expression=name;document.querySelectorAll('[data-reaction]').forEach(image=>image.classList.toggle('active',image.dataset.reaction===name));
+  const captions={neutral:'Listening',joy:'Happy',surprise:'Surprised',concerned:'Concerned',thinking:'Thinking'};if(!Object.hasOwn(captions,name))name='neutral';
+  diagnostics.expression=name;
   $('reaction-caption').textContent=captions[name];$('reaction-preview').setAttribute('aria-label',`Ravora: ${captions[name]}`);
 }
-document.querySelectorAll('[data-reaction]').forEach(image=>image.addEventListener('error',()=>$('reaction-preview').classList.add('unavailable')));
 const handsfree=()=>$('end-mode').value==='handsfree';
 const autoEnd=()=>$('end-mode').value!=='manual';
 function controls(){const connected=Boolean(cfg&&ws?.readyState===WebSocket.OPEN),ready=connected&&!busy;$('talk').disabled=!connected||(busy&&!held);$('stop').disabled=!connected;$('send').disabled=!ready;$('language').disabled=!ready;$('input-source').disabled=!ready;$('end-mode').disabled=!ready;
@@ -191,7 +190,7 @@ async function connect(){
       cfg=value.config;$('end-mode').value=cfg.end_mode;$('input-source').value=cfg.default_input;$('language').value=cfg.input_language;$('mode').textContent=cfg.mock?'Offline console':'Voice console';
       $('end-mode').querySelector('[value="handsfree"]').disabled=!cfg.handsfree;
       $('input-source').querySelector('[value="dell"]').disabled=!cfg.dell_mic_available;
-      if(!avatar)import('/talk-avatar.js').then(module=>module.startAvatar($('talk-avatar'),()=>diagnostics.expression,cfg.avatar_available)).then(view=>{avatar=view;}).catch(()=>{});
+      if(!avatarLoading)avatarLoading=import('/talk-avatar.js').then(module=>module.startAvatar($('talk-avatar'),()=>diagnostics.expression,cfg.avatar_available)).then(view=>{avatar=view;}).catch(()=>{avatarLoading=null;});
       $('notice').textContent=cfg.mock?'Offline simulation. Speech recognition is simulated and replies use test tones.':'Speech recognition uses the configured provider. Replies are in English.';
       $('limit').textContent=`Up to ${cfg.max_seconds} seconds per input. Stop ends recording and playback.`;busy=false;controls();status('Ready');return;
     }

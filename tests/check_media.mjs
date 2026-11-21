@@ -5,8 +5,25 @@ import {createPreviewMouth} from '../src/ravora/web/preview-mouth.mjs';
 import {createAudioClockCapture, encodeObservedDraws} from '../src/ravora/web/audio-clock-capture.mjs';
 import {createExpressionMotion, createMouthHandoff} from '../src/ravora/web/expressions.mjs';
 import {createIdleGlance} from '../src/ravora/web/presence.mjs';
-import {writeMouthLandmarks} from '../src/ravora/web/pngtuber-surface.mjs';
+import {loadPngtuberImages, writeMouthLandmarks} from '../src/ravora/web/pngtuber-surface.mjs';
 import {sharedMouthTargets} from '../src/ravora/web/mouth-plan.mjs';
+
+test('The surface preloads each registered opening and reuses decoded layers', async () => {
+  const previous = globalThis.Image;
+  const decoded = [];
+  globalThis.Image = class { async decode() { decoded.push(this.src); } };
+  try {
+    const keys = [0, .25, .5, .75, 1].map((opening, i) => ({opening, url: '/lip-' + i + '.png'}));
+    const asset = {images: {}, upperLipLayers: {happy: keys}};
+    const images = await loadPngtuberImages(asset);
+    await loadPngtuberImages(asset, images);
+    assert.deepEqual(decoded, keys.map(key => key.url));
+    keys.forEach((key, i) => assert.equal(images['upperlip_happy_' + i].src, key.url));
+  } finally {
+    if (previous === undefined) delete globalThis.Image;
+    else globalThis.Image = previous;
+  }
+});
 
 test('A finalized smile keeps its animation and concern replaces it smoothly', () => {
   const motion = createExpressionMotion(.4, new Set(['happy', 'concerned']), null, false);

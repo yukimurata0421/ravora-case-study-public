@@ -76,6 +76,20 @@ def pngtuber_binding(root: Path, config: dict):
         raise ValueError('PNGTUBER_FACE_MIDLINE_NEEDS_RIG')
     rig,expression_vowels,face_midline=_face_axis_mouths(rig,expression_vowels,public['idle']['width'],public['idle']['height'],midline)
     rig,expression_vowels=_lip_thickness_mouths(rig,expression_vowels,public['idle']['width'],public['idle']['height'])
+    if face_midline:
+        line=(face_midline['x0'],face_midline['slope'])
+        # Symmetric movement, rest tilt and lip thickness each nudge the others by a fraction of a
+        # pixel (the tilt shear is taken about the midline, the thickness scales about the seams):
+        # three rounds settle all three.
+        for _ in range(3):
+            rig,expression_vowels=_symmetric_mouths(rig,expression_vowels,public['idle']['width'],public['idle']['height'],line)
+            rig,expression_vowels=_level_mouths(rig,expression_vowels,public['idle']['width'],public['idle']['height'],line)
+            rig,expression_vowels=_lip_thickness_mouths(rig,expression_vowels,public['idle']['width'],public['idle']['height'])
+
+    upper_lips,upper_lip_paths=_upper_lip_layers(root,owned,document.get('upper_lip_layers'),public['idle']['width'],public['idle']['height'])
+    if upper_lips and not expression_vowels:
+        raise ValueError('PNGTUBER_UPPER_LIP_NEEDS_EXPRESSION_VOWELS')
+    paths.update(upper_lip_paths)
     motion,motion_paths=_motion(root,owned,document.get('motion'))
     paths.update(motion_paths)
     glance,glance_paths=_patches(root,owned,document.get('idle_glance'),public['idle']['width'],public['idle']['height'],
@@ -96,9 +110,10 @@ def pngtuber_binding(root: Path, config: dict):
     if expression_vowels:identity={**identity,"expression_vowels":expression_vowels}
     if glance:identity={**identity,"idle_glance":glance}
     if midline:identity={**identity,"face_midline":document['face_midline']}
+    if upper_lips:identity={**identity,"upper_lip_layers":upper_lips}
     digest=hashlib.sha256(json.dumps(identity,sort_keys=True).encode()).hexdigest()
     return paths,{"type":"pngtuber","name":str(document.get('name','PNG avatar'))[:100],"sha256":digest,"regions":regions,"rig":rig,
-        "demo":bool(document.get('demo',False)),"images":public,"vowels":vowels,"expressions":expressions,"motion":motion,"expressionVowels":expression_vowels,"idleGlance":glance,"mouthReach":float(reach),"controls":controls,
+        "demo":bool(document.get('demo',False)),"images":public,"vowels":vowels,"expressions":expressions,"motion":motion,"expressionVowels":expression_vowels,"upperLipLayers":upper_lips,"idleGlance":glance,"mouthReach":float(reach),"controls":controls,
         "faceMidline":face_midline,"blink_artwork_provided":all(key in images for key in ('blink','talking_blink'))}
 
 
@@ -391,6 +406,145 @@ def _face_axis_mouths(rig,expression_vowels,width,height,midline=None):
     return rig,expression_vowels,{"x0":round(a,3),"slope":round(b,5),"angle":round(math.atan(b),5)}
 
 
+ROW_TILT_FRACTION=.55
+
+
+def row_tilt(points,row,cols,line,frac=ROW_TILT_FRACTION):
+    """Tilt (rad) of one lip row of a 7-row mouth pose: between the points at `frac` of each half
+    width from the face midline, taken at that row's own height (the midline is not vertical)."""
+    a,b=line
+    l=[(points[2*(r*cols+1)],points[2*(r*cols+1)+1]) for r in (2,3)];r_=[(points[2*(r*cols+cols-2)],points[2*(r*cols+cols-2)+1]) for r in (2,3)]
+    lx,rx=(l[0][0]+l[1][0])/2,(r_[0][0]+r_[1][0])/2
+    xs=[points[2*(row*cols+c)] for c in range(1,cols-1)];ys=[points[2*(row*cols+c)+1] for c in range(1,cols-1)]
+    def at(x):
+        for k in range(len(xs)-1):
+            if xs[k]<=x<=xs[k+1]:
+                f=(x-xs[k])/max(1e-9,xs[k+1]-xs[k]);return ys[k]+(ys[k+1]-ys[k])*f
+        return ys[0] if x<xs[0] else ys[-1]
+    y=sum(ys[len(ys)//2-2:len(ys)//2+3])/5
+    for _ in range(4):
+        xm=a+b*y;xl,xr=xm-frac*(xm-lx),xm+frac*(rx-xm);yl,yr=at(xl),at(xr);y=(yl+yr)/2
+    return math.atan2(yr-yl,xr-xl),xm
+
+
+def _level_rows(feature,target,line,width,height):
+    """Give every lip row of a pose the tilt it has at rest.
+
+    The generated open mouths are drawn level (neutral A's lower lip +3.9 deg, surprised A +10 deg
+    at full opening, against -3 to -6 deg at rest on this tilted face). Aligning the corners and
+    the midline left the opening and the lower lip level, so the mouth read parallel to the screen
+    on a tilted face. Each row is sheared about the face midline by the difference to its rest tilt
+    (rows 1-4); the corner columns stay, the columns next to them move half way."""
+    cols,src=feature['columns'],feature['source']
+    want={row:math.tan(row_tilt(src,row,cols,line)[0]) for row in (1,2,3,4)}
+    def shear(points,strength):
+        out=list(points)
+        for row in (1,2,3,4):
+            have,xm=row_tilt(points,row,cols,line);k=(want[row]-math.tan(have))*strength
+            for c in range(2,cols-2):
+                w=.5 if c in (2,cols-3) else 1.
+                i=2*(row*cols+c);out[i+1]=round(points[i+1]+(points[i]-xm)*k*w,2)
+        return out
+    for strength in (1.,.75,.5,.25):
+        out=target
+        for _ in range(3):   # the half-moved columns next to the corners need a second pass
+            out=shear(out,strength)
+        try:
+            _rig({'version':1,'features':[{**feature,'target':out}]},width,height);return out
+        except ValueError:continue
+    return target
+
+
+def _level_mouths(rig,expression_vowels,width,height,line):
+    if not rig or not line:return rig,expression_vowels
+    features=[{**f,'target':_level_rows(f,f['target'],line,width,height)}
+              if f['kind']=='mouth' and f['rows']==7 and f['columns']>=5 else f for f in rig['features']]
+    rig=_rig({**rig,'features':features},width,height)
+    if expression_vowels:
+        neutral={f['image'][6:]:f for f in features if f['image'].startswith('vowel_')}
+        expression_vowels={name:{v:{**item,'target2':_level_rows(neutral[v],item['target2'],line,width,height)
+                                     if neutral[v]['rows']==7 else item['target2']}
+                                  for v,item in items.items()} for name,items in expression_vowels.items()}
+    return rig,expression_vowels
+
+
+# Left and right points of a lip row are matched by the fraction of each half width from the face
+# midline ('yaw'): mirrored about the corners' midpoint instead ('corner'), the lower lip's centre left
+# the nose-chin line by up to 6 px and the opening tilted against the face (+5.9 deg, neutral A).
+SYMMETRY_MODE='yaw'
+
+
+def _corner_frame(points,cols):
+    l=((points[2*(2*cols+1)]+points[2*(3*cols+1)])/2,(points[2*(2*cols+1)+1]+points[2*(3*cols+1)+1])/2)
+    r=((points[2*(2*cols+cols-2)]+points[2*(3*cols+cols-2)])/2,(points[2*(2*cols+cols-2)+1]+points[2*(3*cols+cols-2)+1])/2)
+    w=math.hypot(r[0]-l[0],r[1]-l[1]);ax=((r[0]-l[0])/w,(r[1]-l[1])/w);return l,ax,(-ax[1],ax[0]),w
+
+
+def _row_profile(points,row,cols,line,mode):
+    """Lip row in its corner-line frame: (u, perpendicular offset) per interior column, u in [-1, 1]
+    from the left to the right corner with 0 on the face midline ('yaw') or the corners' midpoint."""
+    l,ax,ny,w=_corner_frame(points,cols)
+    if mode=='corner':m=w/2
+    else:
+        a,b=line;ym=l[1]+ax[1]*w/2;m=((a+b*ym)-l[0])*ax[0]+(ym-l[1])*ax[1]
+    out=[]
+    for c in range(1,cols-1):
+        x,y=points[2*(row*cols+c)]-l[0],points[2*(row*cols+c)+1]-l[1]
+        X,Y=x*ax[0]+y*ax[1],x*ny[0]+y*ny[1]
+        out.append(((X-m)/m if X<m else (X-m)/(w-m),Y))
+    return sorted(out),ny
+
+
+def _interp(prof,u):
+    for (u0,y0),(u1,y1) in zip(prof,prof[1:]):
+        if u0<=u<=u1:return y0+(y1-y0)*(u-u0)/max(1e-9,u1-u0)
+    return prof[0][1] if u<prof[0][0] else prof[-1][1]
+
+
+def _symmetric_rows(feature,target,line,width,height,mode=None):
+    """Make each lip row's movement from rest the same on both sides of the mouth.
+
+    Checked on the line from corner to corner: the generated open mouths move the left and right
+    halves differently (happy A at full strength: the lower lip 5.8 px lower on one side, neutral I
+    the upper rim 8 px). The portrait's own asymmetry stays: only the perpendicular movement from
+    the rest row is averaged between matching points of the two halves (corners and borders fixed)."""
+    mode=mode or SYMMETRY_MODE;cols,src=feature['columns'],feature['source']
+    out=list(target)
+    for row in (1,2,3,4):
+        prof,ny=_row_profile(target,row,cols,line,mode);rest,_=_row_profile(src,row,cols,line,mode)
+        delta=[(u,y-_interp(rest,u)) for u,y in prof]
+        l,ax,nyv,w=_corner_frame(target,cols)
+        for c in range(2,cols-2):
+            i=2*(row*cols+c)
+            x,y=target[i]-l[0],target[i+1]-l[1];X=x*ax[0]+y*ax[1]
+            if mode=='corner':m=w/2
+            else:
+                a,b=line;ym=l[1]+ax[1]*w/2;m=((a+b*ym)-l[0])*ax[0]+(ym-l[1])*ax[1]
+            u=(X-m)/m if X<m else (X-m)/(w-m)
+            d,dm=_interp(delta,u),_interp(delta,-u)
+            shift=(d+dm)/2-d
+            out[i]=round(out[i]+nyv[0]*shift,2);out[i+1]=round(out[i+1]+nyv[1]*shift,2)
+    for strength in (1.,.5):
+        t=[a+(b-a)*strength for a,b in zip(target,out)]
+        try:
+            _rig({'version':1,'features':[{**feature,'target':t}]},width,height);return t
+        except ValueError:continue
+    return target
+
+
+def _symmetric_mouths(rig,expression_vowels,width,height,line):
+    if not rig or not line:return rig,expression_vowels
+    features=[{**f,'target':_symmetric_rows(f,f['target'],line,width,height)}
+              if f['kind']=='mouth' and f['rows']==7 and f['columns']>=5 else f for f in rig['features']]
+    rig=_rig({**rig,'features':features},width,height)
+    if expression_vowels:
+        neutral={f['image'][6:]:f for f in features if f['image'].startswith('vowel_')}
+        expression_vowels={name:{v:{**item,'target2':_symmetric_rows(neutral[v],item['target2'],line,width,height)
+                                     if neutral[v]['rows']==7 else item['target2']}
+                                  for v,item in items.items()} for name,items in expression_vowels.items()}
+    return rig,expression_vowels
+
+
 LIP_THICKNESS=(.9,1.1)
 LIP_THICKNESS_ROUNDED=(.9,1.3)   # U and O push the lips out: more of them shows
 
@@ -441,6 +595,46 @@ def _lip_thickness_mouths(rig,expression_vowels,width,height):
                                      if neutral[v]['rows']==7 else item['target2']}
                                   for v,item in items.items()} for name,items in expression_vowels.items()}
     return rig,expression_vowels
+
+
+def _upper_lip_layers(root,owned,value,width,height):
+    """Conversational upper-lip layers per expression (assets/pngtuber/expression-vowels/*-upper-lip-*):
+    RGBA crops of the upper lip and the band joining it to the skin, one per speech opening, each
+    registered to the mouth mesh by its upper border and inner rim at the 31 refined columns from
+    corner to corner (crop pixels). The renderer lays two neighbouring keys on the current inner rim
+    and mixes them by the opening."""
+    if value is None:return None,{}
+    if not isinstance(value,dict) or not value or not set(value)<=set(EXPRESSIONS):raise ValueError('PNGTUBER_UPPER_LIP_FIELDS')
+    from PIL import Image
+    public,paths={},{}
+    for name,keys in value.items():
+        if not isinstance(keys,list) or not 2<=len(keys)<=8:raise ValueError('PNGTUBER_UPPER_LIP_FIELDS')
+        out=[]
+        for i,item in enumerate(keys):
+            if not isinstance(item,dict) or set(item)!={'opening','path','sha256','offset','outer','inner'}:raise ValueError('PNGTUBER_UPPER_LIP_FIELDS')
+            op=item['opening']
+            if type(op) not in (int,float) or not 0<=op<=1 or (out and op<=out[-1]['opening']):raise ValueError('PNGTUBER_UPPER_LIP_OPENING')
+            path=(root/item['path']).resolve(strict=True)
+            if not path.is_relative_to(owned) or path.suffix.lower()!='.png' or not 0<path.stat().st_size<=2*1024**2:raise ValueError('PNGTUBER_UPPER_LIP_IMAGE')
+            data=path.read_bytes()
+            if hashlib.sha256(data).hexdigest()!=item['sha256']:raise ValueError('PNGTUBER_IMAGE_SHA256_MISMATCH')
+            with Image.open(io.BytesIO(data)) as image:
+                if image.format!='PNG' or image.mode!='RGBA' or max(image.size)>512:raise ValueError('PNGTUBER_UPPER_LIP_IMAGE')
+                w,h=image.size
+            ox,oy=item['offset'] if isinstance(item['offset'],list) and len(item['offset'])==2 else (None,None)
+            if type(ox)!=int or type(oy)!=int or not (0<=ox and 0<=oy and ox+w<=width and oy+h<=height):raise ValueError('PNGTUBER_UPPER_LIP_OFFSET')
+            curves=[]
+            for key in ('outer','inner'):
+                pts=item[key]
+                if not isinstance(pts,list) or len(pts)!=31 or any(not isinstance(q,list) or len(q)!=2 or any(type(v) not in (int,float) or not math.isfinite(v) for v in q)
+                                                                    or not (0<=q[0]<=w and 0<=q[1]<=h) for q in pts):raise ValueError('PNGTUBER_UPPER_LIP_CURVES')
+                curves.append([[round(q[0]+ox,3),round(q[1]+oy,3)] for q in pts])
+            if any(o[1]>=n[1] for o,n in zip(curves[0][3:-3],curves[1][3:-3])):raise ValueError('PNGTUBER_UPPER_LIP_CURVES')
+            url=f'/pngtuber/upperlip_{name}_{i}.png';paths[url]=path
+            out.append({"opening":float(op),"url":url,"sha256":item['sha256'],"offset":[ox,oy],"width":w,"height":h,"outer":curves[0],"inner":curves[1]})
+        if out[0]['opening']!=0 or out[-1]['opening']!=1:raise ValueError('PNGTUBER_UPPER_LIP_OPENING')
+        public[name]=out
+    return public,paths
 
 
 def _expression_vowels(root,owned,value,rig,vowels,width,height):

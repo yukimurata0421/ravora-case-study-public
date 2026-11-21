@@ -17,7 +17,7 @@ Included:
 - reference provider interfaces and a mock-only portable entrypoint;
 - a packaged browser console, synthetic fixtures, and focused tests;
 - aggregate historical observations with explicit measurement limits;
-- four rendered [public conversations](../README.md#watch-ravora-in-conversation) with both voices, plus a same-audio comparison of jaw motion;
+- rendered [public conversations](../README.md#watch-ravora-in-conversation) with both voices, plus a same-audio comparison of jaw motion;
 - the prepared-audio adapter and the live renderer's default articulation, with [measurements](../docs/audio-timing.md#concept-02-default-motion).
 
 The reaction replay and tests cover provisional and final results, prefix
@@ -65,3 +65,8 @@ file contains one scripted audition line and is the only audio-only media
 exception. The newly rendered conversation uses the same scripted input as
 the dinner demo. Original portraits, microphone recordings and database
 contents remain private. [Previous motion snapshot](history/2026-11-20-default-motion-validation.json)
+
+The November 21 snapshot includes the registered upper-lip renderer, manifest
+validation, and two finished clips of the scripted dinner conversation.
+The current reference and the frame-spacing result are documented together.
+[Conversational smile](../docs/audio-timing.md#november-21-conversational-smile) · [Previous voice and conversation validation](history/2026-11-20-conversation-and-voice-validation.json)

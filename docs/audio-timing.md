@@ -229,3 +229,20 @@ For a compatible portrait, the optional landmark measurement script accepts
 the mouth region as its center and radii in pixels. It prints proposed landmark
 coordinates and residuals for review before adding them to the manifest.
 Install NumPy and Pillow for this script. [Measurement script](../scripts/measure_face_midline.py)
+
+## November 21 conversational smile
+
+The upper lip used to stretch horizontally when the avatar smiled during speech.
+The WebGL renderer now takes the two registered lip images on either side of
+the current mouth opening, aligns them to the inner edge of the moving lip,
+and blends them. The five reference openings are 0%, 25%, 50%, 75% and 100%.
+The teeth stay anchored to the head as the lower lip moves. A brown band of gum
+is still visible above the teeth near full opening.
+[Same-audio close-up](media/ray-upper-lip-comparison.mp4)
+
+The 29.568-second reference recording includes three scripted questions and
+RAY’s spoken replies. The smile is visible in the second reply around 17–19 s.
+At the first reply onset, the browser recorded an 83.3 ms gap between draws
+and the recording failed its frame-spacing check. The largest onset gaps for
+the second and third replies were 33.4 and 33.5 ms. The exported 30 fps file
+includes the held frames. [1080p reference recording](media/ray-upper-lip-conversation.mp4)

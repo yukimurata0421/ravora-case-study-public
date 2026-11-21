@@ -151,7 +151,7 @@ class FastVoiceServer:
         async def pcm(token,data):
             if session.current(token):await ws.send(bytes.fromhex(token['turn_id'])+data)
         session=FastVoiceSession(self.settings,self.store,self.output,self.clients,send,pcm,mock=self.mode=='mock',
-            end_silence_ms=self.end_silence_ms)
+            dialogue_reactions=True,end_silence_ms=self.end_silence_ms)
         self.connection=ws
         self.session=session;self.sessions.append(session)
         try:
