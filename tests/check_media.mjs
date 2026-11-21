@@ -3,7 +3,7 @@ import test from 'node:test';
 import {alignedMouth, createWordHandoff} from '../src/ravora/web/articulation.mjs';
 import {createPreviewMouth} from '../src/ravora/web/preview-mouth.mjs';
 import {createAudioClockCapture, encodeObservedDraws} from '../src/ravora/web/audio-clock-capture.mjs';
-import {createExpressionMotion, createMouthHandoff} from '../src/ravora/web/expressions.mjs';
+import {conversationExpression, createExpressionMotion, createMouthHandoff} from '../src/ravora/web/expressions.mjs';
 import {createIdleGlance} from '../src/ravora/web/presence.mjs';
 import {loadPngtuberImages, writeMouthLandmarks} from '../src/ravora/web/pngtuber-surface.mjs';
 import {sharedMouthTargets} from '../src/ravora/web/mouth-plan.mjs';
@@ -248,4 +248,12 @@ test('A late phoneme track joins the next word on the playback clock', () => {
     const late = createWordHandoff({...track,words}, arrival);
     assert.equal(late.sample(wave, draw, start, 24000), wave);
   }
+});
+
+test('Playback gives an expressive reply priority over a late listening reaction', () => {
+  assert.equal(conversationExpression('joy',false,'thinking'),'joy');
+  assert.equal(conversationExpression('joy',true,'thinking'),'thinking');
+  assert.equal(conversationExpression('concerned',true,'thinking'),'thinking');
+  assert.equal(conversationExpression('concerned',true,'neutral'),'concerned');
+  assert.equal(conversationExpression('joy',true,undefined),'joy');
 });

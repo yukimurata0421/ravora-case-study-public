@@ -20,13 +20,15 @@ from ravora.edge_grpc import EdgeClients,EdgeError,pcm_wave
 from ravora.early_reaction import EarlyReactions
 from ravora.memory_worker import MemoryWorker
 from ravora.persona import DEVELOPER_SPEAKER, conversation_prompt, listener_instruction
+from ravora.conversation import SentenceBuffer
+from ravora.public_output import CharacterError, PublicOutput, public_prompt, decode_reply
 from ravora.providers import ProviderError
 from ravora.safety import TurnFence
 from ravora.semantic_memory import load_speech_background
 
 
 def error_code(exc):
-    if isinstance(exc,(EdgeError,ProviderError)):return str(exc)
+    if isinstance(exc,(EdgeError,ProviderError,CharacterError)):return str(exc)
     code=getattr(exc,'code',None)
     if isinstance(code,int):return 'PROVIDER_HTTP_'+str(code)
     return {'TimeoutError':'TURN_DEADLINE','DeadlineExceeded':'PROVIDER_DEADLINE','ServiceUnavailable':'PROVIDER_CONNECTION_FAILED',
@@ -117,6 +119,7 @@ class FastVoiceSession:
         self.capture_task=None;self.input_source=None;self.capture_pending=bytearray()
         self.end_silence_ms=end_silence_ms;self.endpoint=None;self.onset=None;self.end_reason=None
         self.wait_for_quiet=False
+        self.mic_muted=False
         self.evaluation=evaluation
     def evaluate(self,method,*args,**kwargs):
         if self.evaluation is not None:
@@ -156,7 +159,14 @@ class FastVoiceSession:
             if self.token is not None:value={**value,'token':self.token}
             await self.send(value)
         return EarlyReactions(self.s,self.store,key,input_id,current,emit,mock=self.mock,dialogue=self.dialogue_reactions)
+    async def set_mic_muted(self, muted):
+        self.mic_muted = muted
+        if muted and self.phase in ('opening', 'armed', 'listening') and not self.audio_end:
+            self.end_reason = 'MIC_MUTED'
+            await self.cancel('MIC_MUTED')
+
     async def start_audio(self, input_id, language, *, dell_device=None, end_mode='manual'):
+        if self.mic_muted:return
         if end_mode not in ('auto', 'manual', 'handsfree'):
             raise EdgeError('INVALID_END_MODE')
         if language not in ('en-US', 'ja-JP'):
@@ -279,6 +289,7 @@ class FastVoiceSession:
             await self.send({'kind':'capture_ended','input_id':input_id,'reason':reason})
 
     async def audio_chunk(self, input_id, data):
+        if self.mic_muted:return
         # Windows may have PCM in flight when the server seals an automatic input.
         if self.input_source == 'windows' and self.endpoint and self.audio_end and input_id == self.input_id:
             return
@@ -319,6 +330,7 @@ class FastVoiceSession:
         except asyncio.QueueFull:raise EdgeError('INPUT_BACKPRESSURE_LIMIT') from None
         self.evaluate('pcm',data)
     async def end_audio(self,input_id,*,reason='client_end'):
+        if self.mic_muted:return
         if (self.input_source=='dell' or self.endpoint) and input_id==self.input_id and self.audio_end:return
         if input_id!=self.input_id or self.phase!='listening' or self.audio_end:raise EdgeError('STALE_MIC_END')
         if self.input_source=='dell':self.flush_capture(input_id)
@@ -447,6 +459,7 @@ class FastVoiceSession:
                 while not stop.is_set():
                     try:await asyncio.wait_for(queue.put(value),.1);return
                     except TimeoutError:pass
+            structured = getattr(self.clients.generate, 'ray_public_output', False)
             async def generate():
                 call=None
                 try:
@@ -479,6 +492,8 @@ class FastVoiceSession:
                     reaction=(self.early.value or {}).get('reaction') if semantic_decision else None
                     prompt=self.prompt+listener_instruction(strategy,reaction)
                     if developer_speaker:prompt+=DEVELOPER_SPEAKER
+                    if structured:
+                        prompt=public_prompt(prompt,(self.early.value or {}).get('reaction','neutral'))
                     metrics['llm_generate_start_ms']=round(elapsed(),3)
                     timing_args={}
                     if isinstance(self.clients,EdgeClients):
@@ -491,12 +506,33 @@ class FastVoiceSession:
                             self.store.dispatch_budgeted_reply(call,size,output,attempts,self.s.monthly_reply_llm_usd)
                             metrics['provider_requests']+=1
                         timing_args['before_send']=before_send
-                    async for delta in self.clients.generate(text,**timing_args,model=self.s.gemini_model,prompt=prompt,history=history,memories=notes,context=context,relationship=background):
+                    async def publish(output):
                         if not self.current(token) or not self.source_current(turn):raise EdgeError('TURN_CANCELLED')
-                        metrics['characters']+=len(delta)
+                        chunk=(' ' if reply else '')+output.speech
+                        metrics['characters']+=len(chunk)
                         if metrics['characters']>self.s.max_reply_chars:raise EdgeError('REPLY_CHARACTER_LIMIT')
                         if metrics['first_text_ms'] is None:metrics['first_text_ms']=elapsed()
-                        reply.append(delta);await emit({'kind':'text','text':delta});await put(delta)
+                        reply.append(chunk)
+                        if structured:await emit({'kind':'character_action',**output.action()})
+                        await emit({'kind':'text','text':chunk})
+                        await put(output.speech)
+
+                    wire=''
+                    sentences=SentenceBuffer(self.s.sentence_chars)
+                    async for delta in self.clients.generate(text,**timing_args,model=self.s.gemini_model,prompt=prompt,history=history,memories=notes,context=context,relationship=background):
+                        if not self.current(token) or not self.source_current(turn):raise EdgeError('TURN_CANCELLED')
+                        if not isinstance(delta,str):raise CharacterError('PUBLIC_OUTPUT_NOT_TEXT')
+                        if structured:
+                            if len(wire)+len(delta)>self.s.max_reply_chars+2048:raise CharacterError('PUBLIC_OUTPUT_TOO_LARGE')
+                            wire+=delta
+                        else:
+                            for sentence in sentences.feed(delta):
+                                await publish(PublicOutput.from_speech(sentence,self.s.max_reply_chars))
+                    if structured:
+                        await publish(decode_reply(wire,self.s.max_reply_chars))
+                    else:
+                        for sentence in sentences.feed('',final=True):
+                            await publish(PublicOutput.from_speech(sentence,self.s.max_reply_chars))
                     self.store.call_state(call,'accepted')
                 except BaseException as exc:
                     if call:failed(call,exc)
@@ -519,7 +555,7 @@ class FastVoiceSession:
                     yield value
             try:
                 async with asyncio.timeout(self.s.turn_timeout):
-                    if self.early.candidates or (not self.mock and self.s.monthly_reply_llm_usd):
+                    if structured or self.early.candidates or (not self.mock and self.s.monthly_reply_llm_usd):
                         # An unadmitted generation cannot dispatch TTS. The wire adapter also waits for text.
                         first_delta=await queue.get()
                         if first_delta is None:raise EdgeError(errors[0] if errors else 'EMPTY_GENERATED_REPLY')

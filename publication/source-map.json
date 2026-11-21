@@ -16,7 +16,7 @@
     "third-party renderer bundles",
     "host deployment and production controls"
   ],
-  "updated_at_jst": "2026-11-21T15:15:33+09:00",
+  "updated_at_jst": "2026-11-21T18:38:36+09:00",
   "files": [
     {
       "path": ".env.example",
@@ -48,7 +48,7 @@
     },
     {
       "path": "README.md",
-      "sha256": "f765d37605957653b5e61be7d1759bdf6f43b9300866cf86fb7f6bcbab672dfa",
+      "sha256": "9b319af3ccdab59afcca9a67d37af33bbe97abf567f1388aab3fa5707966c232",
       "kind": "generated",
       "source": "case-study",
       "note": "Portable documentation, fixture, or publication validation."
@@ -68,14 +68,14 @@
     },
     {
       "path": "docs/conversation-controls.md",
-      "sha256": "26af7dd0dffa9e21d25cd8491898f6f3d3f697a94630429394b09be9c51f52eb",
+      "sha256": "899a76f45b71843fb01b33f06b326b134709d59d22c342f4a25c357f1e94b3d3",
       "source": "case-study",
       "kind": "generated",
       "note": "Portable documentation, fixture, or publication validation."
     },
     {
       "path": "docs/early-reactions.md",
-      "sha256": "551bfb6e2bde350d08fa34dabb5dbe154cdc38455035723a52b44375f8e0feba",
+      "sha256": "eeef19cd7d19c7b41b7c9d815ce99a529e9be9707f557e38c2be3d7585f79da7",
       "kind": "generated",
       "source": "case-study",
       "note": "Portable documentation, fixture, or package validation."
@@ -266,7 +266,7 @@
     },
     {
       "path": "publication/README.md",
-      "sha256": "bb59a843cbe98a83977f279c1ef4dff3fb6ecdd4d922c9ad012b7d95db2f0d6f",
+      "sha256": "997fc8a0cdea230a4a89134ce8c420aa311487aec7d426d79665cdb3f7e3316d",
       "kind": "generated",
       "source": "case-study",
       "note": "Portable documentation, fixture, or publication validation."
@@ -343,6 +343,13 @@
       "source": "case-study",
       "note": "Portable evaluation, documentation, or publication validation.",
       "sha256": "1a9a8b237365e1e8befc632c76e482e3a9f384dc3bb2e87294f03d385e438d92"
+    },
+    {
+      "path": "publication/history/2026-11-21-voice-evaluation-validation.json",
+      "source": "case-study",
+      "kind": "generated",
+      "sha256": "eaa8b7d557f20092f7616887a062576f8489522342bbf8d8d2717d5b22f9e9d2",
+      "note": "Previous public validation record."
     },
     {
       "path": "publication/measurement-summary.json",
@@ -484,26 +491,26 @@
     {
       "path": "src/ravora/edge_grpc.py",
       "source": "src/ravora/edge_grpc.py",
-      "source_sha256": "416489a5a4af0299ade98d0c4973db872ebf876694fd03a8b0a1c511404225d2",
+      "source_sha256": "8588d46c0f66eb1943013a5e3eec39c00b979dc9508863bfe783c7db6e3218b0",
       "kind": "adapted",
-      "note": "Source port with packaged paths and synthetic fixtures.",
-      "sha256": "85f21096a1548f5d757dbe2ec696f76139c67fc209ef56409d6468f71d92d2a5"
+      "note": "Port of listener reactions, public reply cues or microphone controls for the portable console.",
+      "sha256": "44bdf5b0d3d0ea345eabe5d4de9b4d871d33b92df3d2f625c3e90f42a4ec3d51"
     },
     {
       "path": "src/ravora/fast_voice.py",
-      "sha256": "9cd841b995a351a021de7842b72d8bb4ad5fd093a1670a5febafad4db20f9092",
+      "sha256": "b7e30df1b513991a4051d62169a843aedb1407f3ec8e5f4ea0b75ca0cb7b0a83",
       "source": "src/ravora/fast_voice.py",
-      "source_sha256": "ab443e549471e41c90931e09503940a78c5a01f7edd2afc2a65588e033799c16",
+      "source_sha256": "b5545170b6057128e089c8291bc8c4b8603ae9220b522c91ddd26dd49d60ea47",
       "kind": "adapted",
-      "note": "Portable evaluation port with package-local assets, English review controls, and synthetic validation."
+      "note": "Port of listener reactions, public reply cues or microphone controls for the portable console."
     },
     {
       "path": "src/ravora/fast_voice_server.py",
       "source": "src/ravora/fast_voice_server.py",
-      "source_sha256": "779ccfe94076e8bae880522241208a3c8ce0530d5ae63c963199b57c502ff884",
+      "source_sha256": "406688738391f88c5f5a2a6f1c055b2ecaf619a062f213ce44300e6dd6f87d73",
       "kind": "adapted",
-      "note": "Portable evaluation port with package-local assets, English review controls, and synthetic validation.",
-      "sha256": "f6c080214d41155402ec71ca94b67420a2a42d9ba5fbc6ca20ed301050fb2a65"
+      "note": "Port of listener reactions, public reply cues or microphone controls for the portable console.",
+      "sha256": "2e29f474c8f42992f4ed60a019a379bbc04defcc828cfd106c61bf35e5de7cdf"
     },
     {
       "path": "src/ravora/gemini_memory.py",
@@ -715,11 +722,19 @@
     },
     {
       "path": "src/ravora/providers.py",
-      "sha256": "9f81fcdd9f6fd45d455233b424e35d874d4272b2f825267fca8a18e66dce6716",
+      "sha256": "09af778aae13710e24635c41ec982cd27e62cf48ed0ac24e8f9517e0bd83048a",
       "source": "src/ravora/providers.py",
-      "source_sha256": "9f81fcdd9f6fd45d455233b424e35d874d4272b2f825267fca8a18e66dce6716",
-      "kind": "copied",
-      "note": "Exact source snapshot."
+      "source_sha256": "51f41cf41e2b9943f2651b954f2a0245f63bbe8d864b7a3391874229db49805e",
+      "kind": "adapted",
+      "note": "Port of listener reactions, public reply cues or microphone controls for the portable console."
+    },
+    {
+      "path": "src/ravora/public_output.py",
+      "source": "src/ravora/ray_character.py",
+      "kind": "adapted",
+      "sha256": "1b205d15918dc621a4939b868a2f77e1c26eb497efd73e3ed7caa41b1146f239",
+      "note": "Public speech and action schema adapted from the character runtime.",
+      "source_sha256": "bc609c99443be83387fc14001885a5b98777e945e2148728e4a55b483dacf933"
     },
     {
       "path": "src/ravora/relationship_demo.py",
@@ -809,19 +824,19 @@
     },
     {
       "path": "src/ravora/web/developer/fast-app.js",
-      "sha256": "e2eacff858210732e1772ceda18ddd3d70926864461af8aae283560641588318",
+      "sha256": "610aa73e3bda1cd8fa0ba944478afbfdd37df752b6227edba1940dc61812dde7",
       "source": "renderer/developer/fast-app.js",
-      "source_sha256": "539aa2de6d0d88fbef35bad659581a164a5392ed7eecc0928915d8ca7db653f5",
+      "source_sha256": "38abd91cee9b5131358630adf6fbe919f56cee4a140695f396bbadb79102e56c",
       "kind": "adapted",
-      "note": "Portable evaluation port with package-local assets, English review controls, and synthetic validation."
+      "note": "Port of listener reactions, public reply cues or microphone controls for the portable console."
     },
     {
       "path": "src/ravora/web/developer/fast-index.html",
       "source": "renderer/developer/fast-index.html",
-      "source_sha256": "e77f8e49fb959c45edfea78a10c1ad4993152b98f9e6db16d2d449b6d474276d",
+      "source_sha256": "3b420d7ad3aedf54a533a0a8f6960b9a96f288b7adf968edc0f05547007241a8",
       "kind": "adapted",
-      "note": "Portable evaluation port with package-local assets, English review controls, and synthetic validation.",
-      "sha256": "e6c8c2c6f5c6896d05e60a06181d47088f56bce3f293af121a101472f4b6e1a6"
+      "note": "Port of listener reactions, public reply cues or microphone controls for the portable console.",
+      "sha256": "5f890d3f505475e8db58a7c1b7e01bf94b969cd85bc36850a28ec2f43d28f8ed"
     },
     {
       "path": "src/ravora/web/developer/mic-stream.js",
@@ -834,25 +849,26 @@
     {
       "path": "src/ravora/web/developer/style.css",
       "source": "renderer/developer/style.css",
-      "source_sha256": "41ad03e9e4ff0a1b0391e46f342ff7a922a6292d37706b65f08269245c4d5a0b",
+      "source_sha256": "6a488c5aceff9263803266dd5aebd6c176ecf593db6b65fdcf8c83a2884dd637",
       "kind": "adapted",
-      "note": "Portable evaluation port with package-local assets, English review controls, and synthetic validation.",
-      "sha256": "909d58fb62571d8c9f8533d24b363670a093a77e3f0df55795d47e096cac7acb"
+      "note": "Port of listener reactions, public reply cues or microphone controls for the portable console.",
+      "sha256": "2543aa4614e6b5674658c565ca1334ee1f4772057c2da6f89025696267d59a54"
     },
     {
       "path": "src/ravora/web/developer/talk-avatar.js",
-      "sha256": "4d45314aadf87847bf7124ab6508892275e379993b00269ad6063d91c00331ce",
+      "sha256": "39b9b418fd8cbafa958eb8dc6b9e1c327ba14b436106b8be21d6e7af5599be9c",
       "source": "renderer/developer/talk-avatar.js",
-      "source_sha256": "038bd631d50065f23eeb42bb04cf01d8624c5d7025391c3ea34fc1460dbd5a91",
+      "source_sha256": "0cc9d5241bba0295ad15c1e33e5a5236298e9df278be2ee537796eecf2a5782e",
       "kind": "adapted",
-      "note": "Packaged WebGL and sprite renderers with an artwork-free synthetic fallback."
+      "note": "Port of listener reactions, public reply cues or microphone controls for the portable console."
     },
     {
       "path": "src/ravora/web/expressions.mjs",
       "source": "renderer/expressions.js",
       "kind": "copied",
-      "source_sha256": "61773870a4d9f53b9673a6707136d78954a22dca4a989980c21d7f236f0f4d52",
-      "sha256": "61773870a4d9f53b9673a6707136d78954a22dca4a989980c21d7f236f0f4d52"
+      "source_sha256": "be3f40509e290a169b1399e2b016f3296e63cdd7b856fcf1c84a792afe9ed358",
+      "sha256": "be3f40509e290a169b1399e2b016f3296e63cdd7b856fcf1c84a792afe9ed358",
+      "note": "Exact source snapshot."
     },
     {
       "path": "src/ravora/web/latency-meter.js",
@@ -920,7 +936,7 @@
     },
     {
       "path": "tests/check_media.mjs",
-      "sha256": "3c6fcbabd9bf02a87e818a50e7b0d6f10ad0cc7c71810c1e1415aa59c8936ab6",
+      "sha256": "cd55c6cb5a72e858d133d6001eaf8057fc9f9f0e7d0aa1062ac492f200df224f",
       "kind": "generated",
       "source": "case-study",
       "note": "Portable documentation, fixture, or publication validation."
@@ -965,11 +981,11 @@
     },
     {
       "path": "tests/test_dual_reaction.py",
-      "sha256": "cb95b68fa428d252c89bd832a573aeb86e75589c5a0e613fcd0a7179a6fb4f29",
+      "sha256": "81c5e5ba8ead05bfa1d47a06764290d3b886acf86ba73619ab703d9be4d6cff8",
       "source": "tests/test_dual_reaction.py",
       "source_sha256": "c2d9a9cf6c8113700ccbaa5f3361afe3471332cf1d95720e9325611c625c5074",
       "kind": "adapted",
-      "note": "Adapted to the portable archive without host tooling or original media."
+      "note": "Port of listener reactions, public reply cues or microphone controls for the portable console."
     },
     {
       "path": "tests/test_early_reaction.py",
@@ -990,10 +1006,10 @@
     {
       "path": "tests/test_fast_voice.py",
       "source": "tests/test_fast_voice.py",
-      "source_sha256": "3d775c27541cd6ebf9563bc67675e1647e17b67543b4321a5052a50984575b40",
+      "source_sha256": "1d243abfe517e57ad30e5c7d62776dfdaf6641e3608c73d966b85c53a0580bd6",
       "kind": "adapted",
-      "note": "Source port with packaged paths and synthetic fixtures.",
-      "sha256": "b354aeaea99b9f294b8ac5c36d2442b0c45642205c0766a58dbcfa61f16e4941"
+      "note": "Port of listener reactions, public reply cues or microphone controls for the portable console.",
+      "sha256": "77b44f93a7c81d4de109d2994752f8e49ffb764044e50a2939ab907e8319cb4f"
     },
     {
       "path": "tests/test_gemini_memory.py",
@@ -1021,10 +1037,10 @@
     {
       "path": "tests/test_persona.py",
       "source": "tests/test_persona.py",
-      "source_sha256": "cd60e01e942a123a95089c98de634879454308f3f7d3f20b10b57a96b9143783",
-      "kind": "copied",
-      "note": "Exact source snapshot.",
-      "sha256": "cd60e01e942a123a95089c98de634879454308f3f7d3f20b10b57a96b9143783"
+      "source_sha256": "4edc28276943f15ac42e59e612b1d25d9580253196e73642ba6084455e980c7b",
+      "kind": "adapted",
+      "note": "Port of listener reactions, public reply cues or microphone controls for the portable console.",
+      "sha256": "abe1cd79203e22cca46643b583f39b0f1fe7a4aed5186d69f0de18a4abd00108"
     },
     {
       "path": "tests/test_phone_alignment.py",

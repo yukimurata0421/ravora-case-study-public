@@ -53,6 +53,11 @@ class MockVoiceClients:
         return 'I like coffee and jazz.',{'mock':True}
     async def generate(self,text,*,memories=(),**_):
         reply='You mentioned that you like coffee. What kind do you enjoy?' if memories else 'That sounds lovely. I enjoy hearing about your interests.'
+        from ravora.public_output import PUBLIC_PROTOCOL, public_fixture
+        if PUBLIC_PROTOCOL in _.get('prompt',''):
+            yield public_fixture(reply, expression='thinking' if '?' in text else 'joy',
+                                 motion='none' if '?' in text else 'nod')
+            return
         for value in (reply[:25],reply[25:]):
             yield value
             await asyncio.sleep(.03)
@@ -63,6 +68,9 @@ class MockVoiceClients:
             for part in range(5):
                 yield b''.join(struct.pack('<h',int(2500*math.sin(2*math.pi*220*i/24000))) for i in range(2400))
                 await asyncio.sleep(.025)
+
+
+MockVoiceClients.generate.ray_public_output = True
 
 
 class FastVoiceServer:
@@ -172,7 +180,7 @@ class FastVoiceServer:
         self.session=session;self.sessions.append(session)
         try:
             await send({'kind':'ready','config':{**session.public(),'default_input':self.default_input,
-                'dell_mic_available':self.dell_device is not None,'end_mode':self.default_end_mode,'handsfree':True,'avatar_available':self.demo_avatar is not None,
+                'dell_mic_available':self.dell_device is not None,'end_mode':self.default_end_mode,'handsfree':True,'mic_mute_supported':True,'avatar_available':self.demo_avatar is not None,
                 'evaluation_enabled':self.evaluation is not None}})
             async for raw in ws:
                 try:
@@ -188,7 +196,11 @@ class FastVoiceServer:
                         except (EvaluationError,OSError,ValueError) as exc:
                             await send({'kind':'evaluation_error','code':str(exc) if isinstance(exc,EvaluationError) else 'EVALUATION_WRITE_FAILED'})
                         continue
-                    if kind=='audio_start' and {'kind','input_id','language'} <= value.keys() <= {'kind','input_id','language','source','end_mode'}:
+                    if kind=='mic_mute' and set(value)=={'kind','muted'} and type(value['muted']) is bool:
+                        await session.set_mic_muted(value['muted'])
+                        await send({'kind':'mic_mute_ack','muted':session.mic_muted})
+                    elif kind=='audio_start' and {'kind','input_id','language'} <= value.keys() <= {'kind','input_id','language','source','end_mode'}:
+                        if session.mic_muted:continue
                         # Older clients and recorded fixtures always supply their own PCM.
                         source=value.get('source','windows')
                         if source not in ('windows','dell'):raise EdgeError('INVALID_MIC_SOURCE')

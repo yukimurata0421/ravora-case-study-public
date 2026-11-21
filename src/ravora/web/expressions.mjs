@@ -22,6 +22,10 @@ const EXPRESSION_PRESETS={
 // Reaction names that may arrive from the conversation JSON.
 const EXPRESSION_ALIASES={joy:'happy',glad:'happy',surprised:'surprise',soft_smile:'smile',smiling:'smile',thoughtful:'thinking',
   embarrassed:'shy',bashful:'shy',sorrow:'sad',worried:'concerned',troubled:'concerned',tired:'sleepy',drowsy:'sleepy'};
+// A neutral or absent speaking cue leaves Ray's listening reaction visible.
+export function conversationExpression(listening, speaking, action){
+  return speaking && action && action !== 'neutral' ? action : listening;
+}
 export function expressionName(name){
   const key=typeof name==='string'?name.trim().toLowerCase():'';
   const resolved=EXPRESSION_ALIASES[key]||key;

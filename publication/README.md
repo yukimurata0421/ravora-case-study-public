@@ -49,7 +49,7 @@ and [relationship-port validation](history/2026-11-17-relationship-port-validati
 record the earlier snapshot boundaries. The
 [two-stage and media timing validation](history/2026-11-18-reaction-and-media-timing-validation.json)
 records the initial public snapshot. The
-[reaction policy update](../docs/early-reactions.md#expression-selection) adds
+[reaction policy update](../docs/early-reactions.md#expression-selection) originally added
 speaker-grounded classification and an explicit rule for retaining a provisional
 expression. The original artwork and recordings are excluded from the package.
 
@@ -79,3 +79,7 @@ Only code, synthetic tests and documentation are included. No microphone recordi
 personal transcripts or local evaluation directories were copied.
 The [previous upper-lip validation](history/2026-11-21-upper-lip-validation.json)
 retains the earlier media results and their frame-spacing limitation.
+
+The current port adds listener-centered questions, validated persona cues at
+playback onset, and independent microphone mute. The installed console exercises
+the handoff with synthetic inputs. [Conversation controls](../docs/conversation-controls.md#listening-speaking-and-muting) · [Previous voice evaluation validation](history/2026-11-21-voice-evaluation-validation.json)

@@ -14,7 +14,7 @@
 .talk-stage[data-renderer="rig"] #talk-avatar{visibility:hidden}
 .talk-stage .reaction-portrait{position:absolute;inset:0;margin:auto;height:100%;width:60%;background:transparent}
 .talk-stage[data-renderer] .reaction-portrait{display:none}
-.stage-tools{position:absolute;inset:auto 12px 12px;display:flex;align-items:center;justify-content:space-between;gap:10px}
+.stage-tools{position:absolute;inset:auto 12px 12px;display:flex;flex-wrap:wrap;align-items:center;justify-content:space-between;gap:10px}
 .stage-tools span,.stage-tools button{color:#453c34;background:#fffcf5ed;padding:5px 13px;border-radius:8px;font-size:13px}
 .talk-console #messages{min-height:0;max-height:min(38vw,55vh);overflow:auto}
 .talk-stage:fullscreen{border-radius:0;width:100vw;height:100vh}
@@ -23,3 +23,5 @@
 @media(max-width:800px){.talk-console{display:flex;flex-direction:column}.talk-console #messages{max-height:22vh}.talk-stage{width:100%}}
 
 #evaluation{margin-top:24px;border-top:1px solid #d2d4cb;padding-top:16px}#evaluation p{font-size:13px;line-height:1.7;overflow-wrap:anywhere}#evaluation details{margin:14px 0}#evaluation summary{cursor:pointer;overflow-wrap:anywhere}.evaluation-form{display:grid;gap:12px;margin:12px 0}.evaluation-form label{display:block}.evaluation-form textarea{display:block;width:95%;margin-top:5px}.evaluation-form button{justify-self:start}#evaluation audio{display:block;max-width:100%;margin:12px 0}
+
+#mic-mute[aria-pressed="true"]{background:#802b3b;color:white;border-color:#802b3b}

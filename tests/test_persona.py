@@ -44,8 +44,11 @@ class LLM:
         self.requests.append(kwargs['request'])
 
         async def replies():
+            speech='Tell me what happened. We can figure it out.'
+            if getattr(kwargs['request'].generation_config,'response_mime_type',None)=='application/json':
+                speech=json.dumps({'public_output':{'speech':speech,'expression':'concerned','motion':'nod'}})
             yield NS(usage_metadata=None, candidates=[NS(index=0,
-                content=NS(parts=[NS(text='Tell me what happened. We can figure it out.', thought=False)]),
+                content=NS(parts=[NS(text=speech, thought=False)]),
                 finish_reason=NS(name='STOP'))])
         return replies()
 
@@ -182,6 +185,7 @@ class PersonaPathTests(unittest.IsolatedAsyncioTestCase):
                     await asyncio.wait_for(session.task,4)
                     self.assertEqual(session.phase,'generated')
                     self.assertEqual(len(client.llm.requests),1)
+                    self.assertEqual(client.llm.requests[0].generation_config.response_mime_type,'application/json')
                 with store.connect() as db:
                     rows=db.execute("""SELECT attempted,json_extract(summary,'$.reply_reserved_microusd')
                         FROM provider_calls WHERE provider='gemini' ORDER BY prepared""").fetchall()

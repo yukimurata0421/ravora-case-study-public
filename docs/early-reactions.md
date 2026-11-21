@@ -49,30 +49,27 @@ unplayed turn; it cannot undo the turn's completed state.
 
 ## Expression selection
 
-Each stage asks whether the speaker conveys joy, surprise, or concern. The
-judgment uses words the speaker has actually said and gives later corrections
-priority. It requires evidence of the speaker's own emotion beyond a quote,
-a negation, or a hypothetical. A speaker recounting an event can still convey
-a reaction they endorse.
+Both stages judge how Ray would react to what she has heard. A quietly delivered
+compliment can make her smile. A report of an injury can bring out concern even
+when the speaker sounds calm. The questions describe Ray's curiosity, independence
+and warmth. They treat quotations and requests to change a score as conversation
+data. Live adapter results identify the subject with `reaction_subject: ray`.
 
-The highest score must be at least 0.60 and belong to a supported expression.
-For ordinary display, joy maps to a smile, surprise maps to surprise, and concern
-maps to neutral. When the final joy and surprise scores are both at least 0.60
-and at most 0.10 apart, the current turn can retain its provisional smile or
-surprise. If this differs from the model's first choice, the stored and emitted
-decisions include `jev_recommendation` and
-`reaction_selection=kept_supported_expression`.
+The console's dialogue profile scores joy, surprise, concern and deliberation
+in one request per stage. A meaningful trade-off may make Ray look thoughtful.
+If the highest score is below 0.60, she keeps a neutral face. When the final
+joy and surprise scores both reach 0.60 and are at most 0.10 apart, the same
+turn can retain its provisional smile or surprise. The stored result records
+`jev_recommendation` and `reaction_selection=kept_supported_expression` when
+that differs from the model's first choice. The basic, three-question adapter
+retains its smaller display vocabulary.
 
-The dialogue profile also scores deliberation in the same request. Weighing
-alternatives or inviting someone to work through a trade-off can select
-`thinking`. A routine question or the word "think" alone provides insufficient
-evidence. The highest score still has to reach 0.60. In the dinner recording,
-the last question selected `thinking` at both stages, so the renderer kept the
-expression through the reply. [Video and timings](audio-timing.md#the-dinner-conversation).
+The listening expression stays visible until playback begins. The persona can
+then choose an expression for Ray's own reply. [Playback priority and microphone controls](conversation-controls.md#listening-speaking-and-muting)
 
-Historical development replay used 12 selected English utterances from human
+The historical speaker-emotion evaluation used 12 selected English utterances from human
 conversations. On the same final transcripts, the earlier questions matched the
-preassigned acceptable expressions on 11 of 12, and the updated questions on 12
+preassigned acceptable expressions on 11 of 12, and the speaker-grounded questions on 12
 of 12. One recording showed surprise about 2.04 seconds before speech ended and
 a smile after the final transcript. The rule retained a provisional expression
 twice in a separate synthetic-speech replay and zero times in the natural-speech

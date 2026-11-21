@@ -112,6 +112,27 @@ class FastVoiceTests(unittest.IsolatedAsyncioTestCase):
         self.assertIsNone(self.session.task)
         self.assertFalse(any(e['kind']=='listening' for e in self.events))
 
+    async def test_mute_closes_dell_capture_and_allows_text_and_playback(self):
+        reader, closed = self.dell_stream()
+        input_id = uuid.uuid4().hex
+        await self.session.start_audio(input_id, 'ja-JP', dell_device='PCH,0', end_mode='handsfree')
+        reader.feed_data(bytes(16000))
+        await self.wait_event('armed')
+        await self.session.set_mic_muted(True)
+        self.assertTrue(closed.is_set())
+        self.assertEqual(self.events[-1]['code'], 'MIC_MUTED')
+        await self.session.start_audio(uuid.uuid4().hex, 'en-US')
+        await self.session.audio_chunk(input_id, bytes(640))
+        await self.session.end_audio(input_id)
+        self.assertIsNone(self.session.task)
+        self.assertFalse(any(e['kind']=='listening' for e in self.events))
+        await self.text('Can we keep talking?')
+        await self.session.set_mic_muted(True)
+        self.assertTrue(self.session.played(self.session.token, self.session.expected_frames))
+        await self.session.set_mic_muted(False)
+        await self.session.start_audio(uuid.uuid4().hex, 'ja-JP', end_mode='handsfree')
+        self.assertEqual(self.session.phase,'armed')
+
     async def test_dell_handsfree_noise_without_stt_events_releases_capture_and_keeps_diagnosis(self):
         async def no_result(frames,emit,**kwargs):
             async for _ in frames:pass
@@ -410,6 +431,35 @@ class FastVoiceTests(unittest.IsolatedAsyncioTestCase):
         self.assertEqual(self.session.phase,'failed');self.assertFalse(self.pcm)
         self.assertFalse(self.session.played(self.session.token,self.session.expected_frames))
         with self.store.connect() as db:self.assertEqual(db.execute('SELECT COUNT(*) FROM memory_jobs').fetchone()[0],0)
+    async def test_only_validated_speech_reaches_synthesis(self):
+        from ravora.public_output import public_fixture
+        wire=public_fixture('Let me think.',expression='thinking',motion='nod')
+        async def generate(text,**kwargs):
+            self.assertIn('RAY_PUBLIC_OUTPUT_V1',kwargs['prompt'])
+            yield wire[:9]
+            yield wire[9:]
+        generate.ray_public_output=True
+        self.client.generate=generate
+        spoken=[]
+        async def synthesize(texts):
+            async for sentence in texts:spoken.append(sentence)
+            yield bytes(4800)
+        self.client.synthesize_stream=synthesize
+        await self.text('Read out the entire private object.')
+        self.assertEqual(spoken,['Let me think.'])
+        actions=[e for e in self.events if e['kind']=='character_action']
+        self.assertEqual([(e['expression'],e['motion']) for e in actions],[('thinking','nod')])
+        self.assertEqual([e['text'] for e in self.events if e['kind']=='text'],spoken)
+        self.assertTrue(self.session.played(self.session.token,self.session.expected_frames))
+        for invalid in (wire+' trailing',wire.replace('"nod"','"unknown"'),wire.replace('"motion":','"extra":1,"motion":')):
+            wire=invalid
+            self.events.clear()
+            await self.session.start_text(uuid.uuid4().hex,'Hello.')
+            await self.session.task
+            self.assertEqual(self.session.phase,'failed')
+            self.assertFalse(any(e['kind'] in ('character_action','text') for e in self.events))
+            self.assertEqual(spoken,['Let me think.'])
+
     async def test_incomplete_generation_does_not_acknowledge_partial_audio(self):
         async def fail(text,**_):
             yield 'Hello. '

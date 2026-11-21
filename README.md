@@ -124,10 +124,11 @@ python3 -m venv .venv
 ```
 
 Open the loopback URL printed by the command. Text works without microphone access.
-Microphone transcription is canned and reply audio is a test tone. This console
-exercises recording, streaming PCM, provisional and final reaction labels,
-local memory, playback acknowledgement, and cancellation. It does not perform real speech
-recognition, model inference, or avatar rendering.
+The offline console uses a canned transcript, scripted replies, and a test tone.
+Watch the synthetic face as Ray listens and then starts speaking. A specific
+persona expression takes over at playback onset; a neutral cue keeps the
+current listening reaction. **Mute microphone** stops capture while text input
+and reply playback remain available. [Conversation controls](docs/conversation-controls.md)
 The server expires after the requested interval and removes its temporary session
 database and reply audio. Evaluation starts automatically and retains input audio,
 transcripts and timing reports in a new local directory under `.runtime/`.

@@ -139,8 +139,12 @@ class EdgeClients:
         if context:parts.append(g.Part(text=context_text(context)))
         if relationship:parts.append(g.Part(text=relationship_text(relationship)))
         parts.append(g.Part(text=text));contents.append(g.Content(role='user',parts=parts))
+        from ravora.public_output import PUBLIC_PROTOCOL
+        structured=PUBLIC_PROTOCOL in prompt
+        config={'max_output_tokens':400,'temperature':.7}
+        if structured:config['response_mime_type']='application/json'
         request=g.GenerateContentRequest(model='models/'+model,system_instruction=g.Content(parts=[g.Part(text=prompt)]),
-            contents=contents,generation_config=g.GenerationConfig(max_output_tokens=400,temperature=.7))
+            contents=contents,generation_config=g.GenerationConfig(**config))
         self.llm_usage={};size=0;finish=None
         if before_send is not None:
             # Reserve the full text payload and every possible hedge before the first RPC.
@@ -223,7 +227,7 @@ class EdgeClients:
                     for part in candidate.content.parts:
                         if part.text and not part.thought:
                             size+=len(part.text)
-                            if size>1000:raise EdgeError('REPLY_CHARACTER_LIMIT')
+                            if size>1000+(2048 if structured else 0):raise EdgeError('REPLY_CHARACTER_LIMIT')
                             if timings is not None and 'first_text_ms' not in timings:
                                 timings['first_text_ms']=elapsed_ms()
                                 heartbeat.cancel()
@@ -271,3 +275,6 @@ class EdgeClients:
                     yield data
         finally:
             stream.cancel()
+
+
+EdgeClients.generate.ray_public_output = True

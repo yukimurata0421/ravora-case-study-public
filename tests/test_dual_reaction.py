@@ -40,6 +40,8 @@ class ReactionAdapterTests(unittest.TestCase):
                 result = JevReaction(ProviderSettings(), transport).classify('That was great.', dialogue=dialogue)
                 payload = transport.calls[0][2]
                 self.assertEqual(payload['model'], 'jev-1.14.0')
+                self.assertEqual(result['reaction_subject'],'ray')
+                self.assertTrue(all('naturally to Ray' in q['instructions'] for q in payload['questions'].values()))
                 self.assertEqual(set(payload['questions']), set(answers))
                 self.assertEqual(result['reaction'], expression)
                 self.assertEqual(result['continuity_reactions'], alternatives)

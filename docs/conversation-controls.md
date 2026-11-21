@@ -18,6 +18,30 @@ windows had a median change of 1.97 semitones and both versions lasted 2.22
 seconds. LiveShifter reported a 1,235-frame initial delay in that configuration.
 [Voice audition](media/voice-audition.m4a) · [Streaming adapter](../src/ravora/edge_grpc.py)
 
+## Listening, speaking and muting
+
+| When | What the viewer sees |
+| --- | --- |
+| Listening or waiting for playback | Ray's provisional listening reaction, updated when the final judgment arrives. |
+| The audio worklet starts playing this reply | A specific persona expression takes priority and its public motion starts. A neutral or absent expression lets the latest listening reaction show through. |
+| A final listening judgment arrives during speech | It updates the fallback face. An active, specific persona expression holds until playback ends. |
+| Playback ends or the input is cancelled | Ray returns to neutral. Messages for an earlier turn cannot set her face. |
+
+The persona uses the existing generation call. The streaming adapter requests a
+single public object containing speech, expression and motion. The controller
+validates the object before publishing the action and sending its speech field
+to synthesis. Malformed replies fail before audio starts. The offline mock
+supplies the same fields, so the handoff works with the built-in synthetic face.
+[Output validation](../src/ravora/public_output.py) · [Expression selection](early-reactions.md#expression-selection)
+
+**Mute microphone** is available on the stage, including in fullscreen. Muting
+ends an open recording or an armed hands-free input. A sealed turn can finish
+speaking and the text box remains usable. The browser stops its microphone
+tracks, and a configured host capture releases its device. While muted, the
+server ignores audio starts and microphone frames. Unmuting in hands-free mode
+rearms capture when the console is idle. The tab remembers mute across reloads.
+Audio received before mute follows the normal [evaluation retention policy](voice-evaluation.md).
+
 ## From a pause to the next turn
 
 The input controller uses provisional transcripts and speech-activity events.
@@ -30,8 +54,7 @@ rendered frame count commits the played reply. [Input controller](../src/ravora/
 
 The reply stream can start up to two additional requests at 1.3 and 2.6 seconds
 if no provider response has arrived. The controller selects one responding stream
-and cancels the others. Speech synthesis starts with the first usable reply
-text. These thresholds govern dispatch; the provider can still take longer.
+and cancels the others. Speech synthesis starts when validated reply text is available. These thresholds govern dispatch; the provider can still take longer.
 
 ## Recall across different wording
 
