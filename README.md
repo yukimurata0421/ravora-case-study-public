@@ -128,7 +128,11 @@ Microphone transcription is canned and reply audio is a test tone. This console
 exercises recording, streaming PCM, provisional and final reaction labels,
 local memory, playback acknowledgement, and cancellation. It does not perform real speech
 recognition, model inference, or avatar rendering.
-The server expires after the requested interval and removes session files at exit.
+The server expires after the requested interval and removes its temporary session
+database and reply audio. Evaluation starts automatically and retains input audio,
+transcripts and timing reports in a new local directory under `.runtime/`.
+Use `--evaluation-dir PATH` to choose a new directory or `--no-evaluation` to
+disable retention. See [automatic voice evaluation](docs/voice-evaluation.md).
 
 ![Offline console using a fictional conversation](docs/images/console.png)
 
@@ -144,6 +148,7 @@ The server expires after the requested interval and removes session files at exi
 8. [Live relationship, expression, and latency evaluation](docs/live-evaluation-20261117.md)
 9. [Speech articulation and audio-clock capture](docs/audio-timing.md)
 10. [What was ported](publication/README.md)
+11. [Automatic voice timing and human-reviewed transcription errors](docs/voice-evaluation.md)
 
 ## Scope
 

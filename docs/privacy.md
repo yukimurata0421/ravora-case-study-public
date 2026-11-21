@@ -52,7 +52,16 @@ a per-run token, and permits one active operator. The browser removes the token
 from its visible URL after reading it. The console is a local demonstration, not
 an internet-facing service.
 
-Microphone samples are kept in memory for the fake transcription path; the raw
-recording is not written to disk. Text and generated test audio live in a private
-temporary directory, which the entrypoint removes when it exits. Do not paste
-real secrets or personal material into a public demonstration.
+The console records accepted microphone PCM for local evaluation by default.
+Input WAVs, transcripts, replies and timing reports remain in a private evaluation
+directory after the server exits. The browser displays that retention policy.
+Use `--no-evaluation` to discard input audio instead. Evaluation files are not
+filtered for secrets, sent to a provider, shared as memory, or included in this
+repository; review them before any sharing. They are independent copies and are
+not removed by memory expiry or source deletion. There is no automatic age-based
+deletion. Remove your evaluation directory when it is no longer needed.
+
+The session database and generated test audio remain temporary and are removed
+when the entrypoint exits normally. Raw evaluation audio requires the same
+per-run authentication token as the console. The static local report can be
+opened after shutdown. [Evaluation controls and limits](voice-evaluation.md)

@@ -16,6 +16,8 @@ Included:
 - common character and concise-reply instruction policies;
 - reference provider interfaces and a mock-only portable entrypoint;
 - a packaged browser console, synthetic fixtures, and focused tests;
+- automatic local evaluation capture, condition-specific latency percentiles,
+  human review labels, transcription edit counts, and an installed review command;
 - aggregate historical observations with explicit measurement limits;
 - rendered [public conversations](../README.md#watch-ravora-in-conversation) with both voices, plus a same-audio comparison of jaw motion;
 - the prepared-audio adapter and the live renderer's default articulation, with [measurements](../docs/audio-timing.md#concept-02-default-motion).
@@ -70,3 +72,10 @@ The November 21 snapshot includes the registered upper-lip renderer, manifest
 validation, and two finished clips of the scripted dinner conversation.
 The current reference and the frame-spacing result are documented together.
 [Conversational smile](../docs/audio-timing.md#november-21-conversational-smile) · [Previous voice and conversation validation](history/2026-11-20-conversation-and-voice-validation.json)
+
+The voice-evaluation port adds the recorder, authenticated browser review,
+startup defaults and installed command described in [voice evaluation](../docs/voice-evaluation.md).
+Only code, synthetic tests and documentation are included. No microphone recordings,
+personal transcripts or local evaluation directories were copied.
+The [previous upper-lip validation](history/2026-11-21-upper-lip-validation.json)
+retains the earlier media results and their frame-spacing limitation.

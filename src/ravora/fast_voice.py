@@ -102,7 +102,7 @@ class SpeechOnset:
 
 
 class FastVoiceSession:
-    def __init__(self,settings,store,output,clients,send_json,send_pcm,*,mock=False,phone_aligner=None,dialogue_reactions=False,end_silence_ms=800):
+    def __init__(self,settings,store,output,clients,send_json,send_pcm,*,mock=False,phone_aligner=None,dialogue_reactions=False,end_silence_ms=800,evaluation=None):
         self.s=replace(settings,mode='offline' if mock else 'cloud',comment_source='developer')
         self.prompt=conversation_prompt(self.s.persona,self.s.persona_file,reply_style=self.s.reply_style)
         self.store=store;self.output=Path(output);self.clients=clients;self.send=send_json;self.send_pcm=send_pcm;self.mock=mock
@@ -117,6 +117,10 @@ class FastVoiceSession:
         self.capture_task=None;self.input_source=None;self.capture_pending=bytearray()
         self.end_silence_ms=end_silence_ms;self.endpoint=None;self.onset=None;self.end_reason=None
         self.wait_for_quiet=False
+        self.evaluation=evaluation
+    def evaluate(self,method,*args,**kwargs):
+        if self.evaluation is not None:
+            return self.evaluation.call(method,self.key,*args,**kwargs)
     def public(self):
         return {'profile':'fast_streaming','api_enabled':self.s.api_enabled,'stt_api_enabled':self.s.stt_api_enabled,
             'input_language':self.s.voice_input_language,'stt_region':self.s.voice_stt_region,'stt_model':self.s.voice_stt_model,
@@ -170,6 +174,7 @@ class FastVoiceSession:
         self.audio_size = self.power = 0
         self.hash = hashlib.sha256()
         self.input_source = 'windows' if dell_device is None else 'dell'
+        self.evaluate('start',input_id,self.inbox.session,source=self.input_source,end_mode=end_mode,language=language,settings=self.s)
         if dell_device is None:
             if self.onset:
                 self.phase = 'armed'
@@ -312,11 +317,13 @@ class FastVoiceSession:
         if self.endpoint:self.endpoint.observe_pcm(self.audio_size/32,power,len(samples))
         try:self.queue.put_nowait(data)
         except asyncio.QueueFull:raise EdgeError('INPUT_BACKPRESSURE_LIMIT') from None
+        self.evaluate('pcm',data)
     async def end_audio(self,input_id,*,reason='client_end'):
         if (self.input_source=='dell' or self.endpoint) and input_id==self.input_id and self.audio_end:return
         if input_id!=self.input_id or self.phase!='listening' or self.audio_end:raise EdgeError('STALE_MIC_END')
         if self.input_source=='dell':self.flush_capture(input_id)
         self.audio_end=True;self.end_reason=reason
+        self.evaluate('end',reason)
         rms=(self.power/max(1,self.audio_size//2))**.5/32768
         if self.audio_size<6400 or rms<self.s.stt_min_rms:
             if self.end_mode=='handsfree' and reason in ('duration_limit','client_end'):
@@ -337,6 +344,7 @@ class FastVoiceSession:
         async def emit(value):
             if self.input_current(key):
                 if value.get('kind')=='stt_activity':
+                    self.evaluate('event',{'kind':'stt_activity','type':value.get('type'),'offset_ms':value.get('offset_ms')})
                     if self.endpoint and not self.audio_end:self.endpoint.activity(value)
                     return
                 if value.get('kind')=='stt_partial':
@@ -350,12 +358,16 @@ class FastVoiceSession:
             diagnostics.update(input_source=self.input_source,end_mode=self.end_mode,end_reason=self.end_reason,
                 actual_audio_seconds=self.audio_size/32000,pcm_sha256=self.hash.hexdigest(),reserved_audio_seconds=self.s.stt_max_seconds)
             self.records.usage(key,{'local_diagnostics':diagnostics},(time.monotonic()-begin)*1000)
+            self.evaluate('update',transcript=clean(text,1000),stt_complete_server_ms=time.monotonic()*1000,stt_pcm_sha256=self.hash.hexdigest())
             with self.store.connect() as db:db.execute('UPDATE developer_inputs SET payload_sha256=? WHERE id=?',(self.hash.hexdigest(),key))
             if early is not None:early.seal(clean(text,1000))
             if not self.input_current(key):return
             await self.respond(clean(text,1000),language)
         except BaseException as exc:
             code=error_code(exc)
+            if self.key==key:
+                self.evaluate('end',self.end_reason or code)
+                self.evaluate('update',outcome='empty' if code=='STT_NO_FINAL_TRANSCRIPT' else 'failed',error=code)
             if self.input_current(key):
                 if self.end_mode=='handsfree' and (not self.audio_end or self.end_reason in ('duration_limit','client_end')):
                     self.wait_for_quiet=True  # The rejected input may still be audible.
@@ -395,6 +407,7 @@ class FastVoiceSession:
             if not self.inbox.bind(comment.receipt,turn):raise EdgeError('COMMENT_NO_LONGER_AVAILABLE')
             self.receipt=comment.receipt;self.viewer=viewer;self.phase='responding'
             self.records.state(key,'accepted',language=language,source=comment.receipt)
+            self.evaluate('update',turn_id=turn,transcript=text,outcome='responding')
             developer_speaker=self.store.start(turn,self.s.mode+':'+viewer,text,developer_id=self.s.developer_id)
             if self.early is None:self.early=self.make_reactions(key,input_id)
             self.early.bind(turn)
@@ -550,9 +563,11 @@ class FastVoiceSession:
             if not self.mock:metrics['provider_requests']+=self.early.sequence
             metrics.update(total_ms=elapsed(),pcm_frames=self.expected_frames)
             self.store.finish(turn,''.join(reply),'completed',metrics);self.inbox.finish(self.receipt,'generated');self.phase='generated'
+            self.evaluate('update',reply=''.join(reply),backend=metrics,outcome='generated')
             await emit({'kind':'complete','metrics':metrics})
         except BaseException as exc:
             code=error_code(exc)
+            if self.key==key:self.evaluate('update',outcome='failed',error=code)
             if token:
                 self.store.finish(token['turn_id'],''.join(reply),'cancelled' if self.cancelled.is_set() else 'failed',metrics)
                 if self.receipt:self.inbox.finish(self.receipt,'cancelled' if self.cancelled.is_set() else 'failed',code)
@@ -571,6 +586,7 @@ class FastVoiceSession:
             relationship_enabled=self.s.memory_enabled and self.s.relationship_enabled)
         if accepted:
             self.inbox.finish(self.receipt,'played');self.phase='played'
+            self.evaluate('update',outcome='played',played_server_ms=time.monotonic()*1000)
             if self.early is not None:self.early.stop()
             if self.s.memory_enabled:self.memory.wake()
         return accepted
@@ -586,6 +602,9 @@ class FastVoiceSession:
             if token:self.store.cancel_turn(token['turn_id'])
             if self.receipt:self.inbox.finish(self.receipt,'cancelled',reason)
         if self.task and not self.task.done():self.task.cancel();await asyncio.gather(self.task,return_exceptions=True)
+        self.evaluate('end',self.end_reason or reason)
+        if previous not in ('played','failed'):
+            self.evaluate('update',outcome='interrupted' if reason=='SESSION_CLOSED' else 'cancelled',error=reason)
         self.key=None;self.receipt=None;self.token=None
         await self.send({'kind':'reaction_reset','input_id':input_id})
         await self.send({'kind':'cancelled','code':reason,'input_id':input_id})

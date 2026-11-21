@@ -1,3 +1,4 @@
+import {evaluationUI} from '/evaluation-ui.js';
 const $=id=>document.getElementById(id),diagnostics=window.ravoraTalkDiagnostics={profile:'fast_streaming',recordings:0,liveMicTracks:0,playedAcks:0,pcmPackets:0,turns:[],socketErrors:0,reactions:[],expression:'neutral'};
 const tabKey='ravora-fast-talk-token';
 const fragmentKey=()=>new URLSearchParams(location.hash.slice(1)).get('token');
@@ -11,6 +12,8 @@ window.addEventListener('hashchange',()=>{if(fragmentKey())location.reload();});
 let ws,cfg,busy=false,epoch=0,held=false,listening=false,mic=null,ctx,node,meter,current=null,inputId=null,startAt=0,inputEnd=null,assistant=null,timer=null,preparing=false,reactionSeq=0,reactionLocked=false;
 let avatar,avatarLoading;
 let armedNotice='Waiting for speech…';
+let finalSttPerformanceMs;
+const evaluation=evaluationUI(send,key);
 const stage=$('reaction-preview');
 $('fullscreen').addEventListener('click',async()=>{
   try{
@@ -40,7 +43,7 @@ async function setupOutput(){
   if(ctx.sampleRate!==24000)throw Error('24 kHz playback is unavailable.');
   node=new AudioWorkletNode(ctx,'ravora-pcm-playout',{numberOfInputs:0,outputChannelCount:[1]});
   meter=new AudioWorkletNode(ctx,'ravora-latency-meter',{outputChannelCount:[1]});node.connect(ctx.destination);node.connect(meter);meter.connect(ctx.destination);
-  meter.port.onmessage=({data})=>{if(current?.token.turn_id===data.turn_id){current.first_audio_signal_ms=performance.now()-startAt;current.from_input_end_ms=inputEnd===null?null:performance.now()-inputEnd;}};
+  meter.port.onmessage=({data})=>{if(current?.token.turn_id===data.turn_id&&current.signalPerformanceMs===undefined){const now=performance.now();current.signalPerformanceMs=now;current.first_audio_signal_ms=now-startAt;current.from_input_end_ms=inputEnd===null?null:now-inputEnd;}};
   node.port.onmessage=({data})=>{
     if(data.kind==='error'){fail('Playback buffer limit reached.');return;}
     if(data.kind==='started'&&current?.token.turn_id===data.turn_id)avatar?.start(ctx,data.context_frame);
@@ -56,7 +59,7 @@ async function output(){
   await outputReady;
   await ctx.resume();
 }
-function ack(){if(current?.ended&&current?.complete&&!current.ackSent){current.ackSent=true;send({kind:'played',token:current.token,frames:current.frames});}}
+function ack(){if(current?.ended&&current?.complete&&!current.ackSent){current.ackSent=true;evaluation.timing(current);send({kind:'played',token:current.token,frames:current.frames});}}
 function discard(){current=null;avatar?.stop();node?.port.postMessage({kind:'reset'});meter?.port.postMessage({});assistant=null;}
 async function stopMic(flush=false){
   clearTimeout(timer);timer=null;listening=false;const recording=mic;mic=null;held=false;$('talk').classList.remove('recording');
@@ -70,10 +73,11 @@ async function stopMic(flush=false){
   }
 }
 function leaveHandsfree(){if(handsfree())$('end-mode').value='manual';}
-async function stop(){leaveHandsfree();epoch++;held=false;preparing=false;inputId=null;reactionSeq=0;reactionLocked=true;expression();discard();await stopMic();try{send({kind:'cancel'});}catch{}busy=false;controls();status('Stopped');}
+async function stop(){leaveHandsfree();epoch++;held=false;preparing=false;inputId=null;reactionSeq=0;reactionLocked=true;expression();try{evaluation.timing(current);}catch{}discard();await stopMic();try{send({kind:'cancel'});}catch{}busy=false;controls();status('Stopped');}
 async function fail(text){await stop();status(text);}
 function startInput(source){
   inputId=uuid();startAt=performance.now();inputEnd=null;diagnostics.recordings++;
+  finalSttPerformanceMs=undefined;evaluation.sync();
   send({kind:'audio_start',input_id:inputId,source,language:$('language').value,end_mode:$('end-mode').value});
   status('Connecting the microphone…');
 }
@@ -127,7 +131,7 @@ window.addEventListener('keydown',event=>{
   if(event.code==='Escape'&&handsfree()){stop();return;}
   if(autoEnd()||!cfg||event.isComposing||event.altKey||event.ctrlKey||event.metaKey||event.shiftKey)return;
   if(event.code!=='Space'&&!(event.code==='Enter'&&event.target===$('talk')))return;
-  if(event.target!==$('talk')&&(event.target.isContentEditable||event.target.closest?.('input,textarea,select,button,a,[role="textbox"]')))return;
+  if(event.target!==$('talk')&&(event.target.isContentEditable||event.target.closest?.('input,textarea,select,button,a,audio,video,summary,[role="textbox"]')))return;
   event.preventDefault();
   if(!event.repeat&&!busy&&!holdKey){holdKey=event.code;begin();}
 });
@@ -185,9 +189,11 @@ async function connect(){
       node.port.postMessage({kind:'pcm',samples},[samples.buffer]);diagnostics.pcmPackets++;return;
     }
     const value=JSON.parse(data);
+    if(evaluation.handle(value))return;
     if(value.kind==='ready'){
       clearTimeout(deadline);
       cfg=value.config;$('end-mode').value=cfg.end_mode;$('input-source').value=cfg.default_input;$('language').value=cfg.input_language;$('mode').textContent=cfg.mock?'Offline console':'Voice console';
+      evaluation.ready(Boolean(cfg.evaluation_enabled));
       $('end-mode').querySelector('[value="handsfree"]').disabled=!cfg.handsfree;
       $('input-source').querySelector('[value="dell"]').disabled=!cfg.dell_mic_available;
       if(!avatarLoading)avatarLoading=import('/talk-avatar.js').then(module=>module.startAvatar($('talk-avatar'),()=>diagnostics.expression,cfg.avatar_available)).then(view=>{avatar=view;}).catch(()=>{avatarLoading=null;});
@@ -195,6 +201,7 @@ async function connect(){
       $('limit').textContent=`Up to ${cfg.max_seconds} seconds per input. Stop ends recording and playback.`;busy=false;controls();status('Ready');return;
     }
     if(value.input_id&&value.input_id!==inputId)return;
+    if(value.kind==='stt_partial'&&value.segment_final){finalSttPerformanceMs=performance.now();return;}
     if(value.kind==='reaction_reset'){reactionLocked=true;expression();return;}
     if(value.kind==='reaction'){
       if(!busy||!inputId||reactionLocked)return;
@@ -220,6 +227,7 @@ async function connect(){
         if(!held||inputId!==value.input_id)return;
       }
       if(value.kind==='armed'){status(armedNotice);return;}
+      evaluation.sync();
       listening=true;controls();
       $('talk').classList.add('recording');status('Listening…');timer=setTimeout(end,cfg.max_seconds*1000-200);return;
     }
@@ -231,7 +239,7 @@ async function connect(){
       return;
     }
     if(value.kind==='turn'){
-      discard();avatar?.reset();current={token:value.token,input_id:inputId,complete:false,ended:false};message('user',value.text);assistant=message('assistant','');
+      discard();avatar?.reset();current={token:value.token,input_id:inputId,complete:false,ended:false,finalSttPerformanceMs};message('user',value.text);assistant=message('assistant','');
       node.port.postMessage({kind:'reset',turn_id:value.token.turn_id,jitter_ms:cfg.jitter_buffer_ms});meter.port.postMessage({turn_id:value.token.turn_id,not_before:ctx.currentTime});return;
     }
     if(value.kind==='text'&&current?.token.turn_id===value.token.turn_id){assistant.textContent+=value.text;$('messages').scrollTop=$('messages').scrollHeight;status('Replying…');}

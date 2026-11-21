@@ -12,6 +12,7 @@ import time
 from unittest.mock import patch
 import uuid
 import wave
+import signal
 
 from ravora.comments import Comment,CommentInbox
 from ravora.context_prompt import context_text
@@ -22,6 +23,7 @@ from ravora.providers import Transport
 from ravora.settings import ProviderSettings
 from ravora.relationship_demo import relationship_replay
 from ravora.media_timing import media_timing_replay
+from ravora.voice_evaluation import EvaluationConfig,VoiceEvaluation
 
 
 def offline_settings():
@@ -203,31 +205,50 @@ async def early_reaction_replay():
     return result
 
 
-async def console(port,seconds,*,route=None,avatar_binding=None):
+async def console(port,seconds,*,route=None,avatar_binding=None,evaluation_dir=None,no_evaluation=False):
     route=route or {}
+    config=EvaluationConfig.parse({**route.get('evaluation',{}),**({'enabled':False} if no_evaluation else {})})
+    evaluation=None
+    if config.enabled:
+        destination=Path(evaluation_dir) if evaluation_dir else Path.cwd()/'.runtime'/('voice-evaluation-'+uuid.uuid4().hex)
+        evaluation=VoiceEvaluation(destination,config,mode='mock')
     with tempfile.TemporaryDirectory(prefix='ravora-console-') as directory:
         root=Path(directory);store=MemoryStore(root/'conversation.sqlite3')
-        server=await FastVoiceServer(offline_settings(),store,root,mode='mock',port=port,
+        server=FastVoiceServer(offline_settings(),store,root,mode='mock',port=port,
             default_input=route.get('input_source','windows'),dell_device=route.get('dell_device'),
             default_end_mode=route.get('end_mode','manual'),end_silence_ms=route.get('end_silence_ms',800),
-            avatar_binding=avatar_binding).start()
-        print('Offline simulation: canned transcription, test tones, no cloud calls.',flush=True)
-        print('Open: '+server.origin+'/#token='+server.secret,flush=True)
-        print('Session expires in '+str(seconds)+' seconds; temporary text and audio are removed at exit.',flush=True)
-        try:await asyncio.sleep(seconds)
-        finally:await server.close()
+            avatar_binding=avatar_binding,evaluation=evaluation)
+        loop=asyncio.get_running_loop();stopping=asyncio.Event()
+        previous=signal.getsignal(signal.SIGTERM)
+        loop.add_signal_handler(signal.SIGTERM,stopping.set)
+        try:
+            await server.start()
+            print('Offline simulation: canned transcription, test tones, no cloud calls.',flush=True)
+            print('Open: '+server.origin+'/#token='+server.secret,flush=True)
+            print('Session expires in '+str(seconds)+' seconds; temporary session state is removed at exit.',flush=True)
+            if evaluation:print('Evaluation retained: '+str(evaluation.root.resolve()/'review.html'),flush=True)
+            try:await asyncio.wait_for(stopping.wait(),seconds)
+            except TimeoutError:pass
+        finally:
+            await server.close()
+            loop.remove_signal_handler(signal.SIGTERM);signal.signal(signal.SIGTERM,previous)
 
 
 def main():
     parser=argparse.ArgumentParser(description=__doc__);parser.add_argument('action',choices=('replay','early-reaction','relationships','media-timing','serve'),nargs='?',default='replay')
     parser.add_argument('--report',type=Path);parser.add_argument('--port',type=int);parser.add_argument('--seconds',type=int)
     parser.add_argument('--config',type=Path,help='Console TOML with optional developer_voice and pngtuber sections')
+    parser.add_argument('--evaluation-dir',type=Path,help='New private evaluation directory; default: a new directory under .runtime')
+    parser.add_argument('--no-evaluation',action='store_true',help='Do not retain input audio or evaluation data')
     args=parser.parse_args()
+    if args.action!='serve' and (args.evaluation_dir or args.no_evaluation):parser.error('Evaluation options are for the console')
     cfg={}
     if args.config:
         if args.action!='serve':parser.error('--config is for the console')
         with args.config.open('rb') as file:cfg=tomllib.load(file)
     route=cfg.get('developer_voice',{})
+    try:EvaluationConfig.parse(route.get('evaluation',{}))
+    except ValueError as exc:parser.error(str(exc))
     port=args.port if args.port is not None else route.get('port',8767)
     seconds=args.seconds if args.seconds is not None else route.get('session_seconds',7200)
     if type(port) is not int or not 1024<=port<=65534 or type(seconds) is not int or not 10<=seconds<=7200:
@@ -246,7 +267,7 @@ def main():
         binding=pngtuber_binding(args.config.resolve().parent,cfg)
     if args.action=='serve':
         if args.report:parser.error('--report is for replay commands only')
-        try:asyncio.run(console(port,seconds,route=route,avatar_binding=binding))
+        try:asyncio.run(console(port,seconds,route=route,avatar_binding=binding,evaluation_dir=args.evaluation_dir,no_evaluation=args.no_evaluation))
         except ModuleNotFoundError as exc:
             if exc.name=='websockets':parser.exit(2,'Install the optional console dependency: python3 -m pip install ".[console]"\n')
             raise

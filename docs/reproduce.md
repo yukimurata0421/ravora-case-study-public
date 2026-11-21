@@ -63,8 +63,12 @@ adapter modules retain explicit configuration gates for inspection and separate
 integration work. Installing the optional SDK group alone does not activate an API.
 
 The runtime expires after the requested period, or exits on Ctrl-C. Browser stop
-and disconnect cancel the current turn. Session files are temporary. A process
-crash or forced kill can leave a temporary directory; normal-exit cleanup should
+and disconnect cancel the current turn. The session database and reply WAVs are temporary.
+Evaluation input audio, transcripts, reviews and timings are retained separately;
+the printed `Evaluation retained:` path identifies the report.
+Use `--evaluation-dir PATH` for a new destination or `--no-evaluation` to disable
+recording and evaluation. [Measurement definitions and review](voice-evaluation.md)
+A process crash or forced kill can leave a temporary directory; normal-exit cleanup should
 not be presented as a guarantee after an uncatchable termination.
 
 ## Validation limits

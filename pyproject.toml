@@ -17,6 +17,7 @@ phone-alignment = ["pocketsphinx==5.1.1"]
 
 [project.scripts]
 ravora-case-study = "ravora.case_study:main"
+ravora-voice-evaluation = "ravora.voice_evaluation:main"
 
 [tool.setuptools.packages.find]
 where = ["src"]

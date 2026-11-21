@@ -1,0 +1,98 @@
+{
+  "status": "PASS_LOCAL_AVATAR_PORT",
+  "validated_at_jst": "2026-11-21T12:31:13+09:00",
+  "scope": "Portable package, registered avatar binding and offline rendering. The scripted recording has a separate frame-spacing result.",
+  "checks": {
+    "python": "3.14.4",
+    "checkout_python_tests": {
+      "tests": 249,
+      "failures": 0,
+      "errors": 0,
+      "skipped": 1
+    },
+    "installed_python_tests": {
+      "tests": 249,
+      "failures": 0,
+      "errors": 0,
+      "skipped": 1
+    },
+    "browser_module_tests": 13,
+    "checkout_replays_match_examples": 4,
+    "installed_replays_match_examples": 4,
+    "installed_console_served_registered_layers": 5,
+    "reference_avatar_sha256": "4eb8225a94eba484c269b7c7c89fcb1bf21b76e4eb91a8a049c18b626aa8dc14",
+    "offline_webgl_pixel_check": {
+      "method": "RGB channel difference sum above 24 before and after the upper-lip draw in the same framebuffer, using the installed WebGL module and locally supplied reference artwork.",
+      "openings": [
+        0.125,
+        0.375,
+        0.625,
+        0.875,
+        1
+      ],
+      "changed_pixels_at_smile_strength_0_63": [
+        545,
+        588,
+        572,
+        580,
+        601
+      ],
+      "changed_pixels_at_zero_expression_strength": 0,
+      "earlier_two_surface_probe": "timed out before producing a comparison"
+    },
+    "observed_nonfatal_warnings": [
+      "SQLite connection ResourceWarning in the local test suite"
+    ],
+    "secret_scan_findings": 0,
+    "public_payload": {
+      "status": "PASS_PUBLIC_PAYLOAD",
+      "files": 134,
+      "hashes_checked": 132,
+      "unexpected_files": 0,
+      "private_defaults_found": 0,
+      "broken_local_links": 0
+    },
+    "media": {
+      "ray-upper-lip-conversation.mp4": {
+        "sha256": "17de0bd4fd1a268f89026a59b31d67b672897aec5ba96809db91575b24eedff8",
+        "codecs": [
+          "h264",
+          "aac"
+        ],
+        "duration_s": 29.568,
+        "width": 1920,
+        "height": 1080
+      },
+      "ray-upper-lip-comparison.mp4": {
+        "sha256": "7505c396cc4265add50afbd40fe0a04ad9d5a8ee9b6978f94ba8a9e0a7449e00",
+        "codecs": [
+          "h264",
+          "aac"
+        ],
+        "duration_s": 2.5,
+        "width": 1092,
+        "height": 434
+      }
+    }
+  },
+  "recorded_session": {
+    "reply_onset_frame_spacing_check": "failed",
+    "maximum_draw_gap_at_each_reply_onset_ms": [
+      83.3,
+      33.4,
+      33.5
+    ]
+  },
+  "remote_ci": {
+    "configured": true,
+    "configured_python_versions": [
+      "3.11",
+      "3.13"
+    ]
+  },
+  "project_license_selected": false,
+  "open_source_release_ready": false,
+  "included_private_databases_or_recordings": false,
+  "new_inference_api_calls": 0,
+  "earlier_validation_preserved": "publication/history/2026-11-20-conversation-and-voice-validation.json"
+}

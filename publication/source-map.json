@@ -16,7 +16,7 @@
     "third-party renderer bundles",
     "host deployment and production controls"
   ],
-  "updated_at_jst": "2026-11-21T12:27:59+09:00",
+  "updated_at_jst": "2026-11-21T15:15:33+09:00",
   "files": [
     {
       "path": ".env.example",
@@ -27,7 +27,7 @@
     },
     {
       "path": ".github/workflows/ci.yml",
-      "sha256": "7d662765e5ceece7648fc5cd86581864531834a33738bdc66cee26025db341e8",
+      "sha256": "8f7aea75b33e4f3b07f4bbde8d8b0ece38305e2112d5a0c3a040cc4e28650e3c",
       "kind": "generated",
       "source": "case-study",
       "note": "Portable documentation, fixture, or package validation."
@@ -48,7 +48,7 @@
     },
     {
       "path": "README.md",
-      "sha256": "cfe7ad5fd2d863f6e3413ec981e379abc4162ca2224f2d1834db9a8536b00f54",
+      "sha256": "f765d37605957653b5e61be7d1759bdf6f43b9300866cf86fb7f6bcbab672dfa",
       "kind": "generated",
       "source": "case-study",
       "note": "Portable documentation, fixture, or publication validation."
@@ -205,7 +205,7 @@
     },
     {
       "path": "docs/privacy.md",
-      "sha256": "8b232f03c34634d1fca1028a80323deaeb752e61c2dc8c3c880faa8780086195",
+      "sha256": "61711ca036336715026de3c3f44711ce3abc905634a2a562b6e34d1f2c930ad9",
       "kind": "generated",
       "note": "Case-study documentation, replay, packaging, or local validation support."
     },
@@ -217,10 +217,17 @@
     },
     {
       "path": "docs/reproduce.md",
-      "sha256": "37586053c6fe0a86c30b0bdce3f893d919099835dfa413e0161d87e560aa6cc2",
+      "sha256": "da0d1e3d966e732066c121d20e08a1557f7874891390cdd8b269edd505a94697",
       "kind": "generated",
       "source": "case-study",
       "note": "Portable documentation, fixture, or publication validation."
+    },
+    {
+      "path": "docs/voice-evaluation.md",
+      "kind": "generated",
+      "source": "case-study",
+      "note": "Portable evaluation, documentation, or publication validation.",
+      "sha256": "9d62d45b8449512ae5e32068a6d7d34349dcf91dc9012171efd62f29cc2197de"
     },
     {
       "path": "examples/early-reaction-report.json",
@@ -251,8 +258,15 @@
       "note": "Portable documentation, fixture, or publication validation."
     },
     {
+      "path": "examples/voice-evaluation.toml",
+      "kind": "generated",
+      "source": "case-study",
+      "note": "Portable evaluation, documentation, or publication validation.",
+      "sha256": "f5669b75e0016977ba84a2cd2f93e73369a65b1f2e604114b8a4805d995ca6bb"
+    },
+    {
       "path": "publication/README.md",
-      "sha256": "0a79a4af57c98b9d55cca6f731a17bd3e084a3feb6eb2f53b874c8218a99bc5f",
+      "sha256": "bb59a843cbe98a83977f279c1ef4dff3fb6ecdd4d922c9ad012b7d95db2f0d6f",
       "kind": "generated",
       "source": "case-study",
       "note": "Portable documentation, fixture, or publication validation."
@@ -324,6 +338,13 @@
       "note": "Portable documentation, fixture, or publication validation."
     },
     {
+      "path": "publication/history/2026-11-21-upper-lip-validation.json",
+      "kind": "generated",
+      "source": "case-study",
+      "note": "Portable evaluation, documentation, or publication validation.",
+      "sha256": "1a9a8b237365e1e8befc632c76e482e3a9f384dc3bb2e87294f03d385e438d92"
+    },
+    {
       "path": "publication/measurement-summary.json",
       "source": "demos/concept02-v13-early-expression/report.json",
       "source_sha256": "f59c0cd41ec8af9f09fd05cb5e4ebb2d1250988c5aa7dadce3c4b5fa05a764bf",
@@ -340,7 +361,7 @@
     },
     {
       "path": "pyproject.toml",
-      "sha256": "05a4205afeb69bbfcf5083900e6fc41ff9b2fa0ea95b9ec2164ebc5d181bb0ce",
+      "sha256": "35c0454a0b8cf91bb72e2a7f444340a5375c882848c43c604bae1603d9f5df85",
       "kind": "generated",
       "source": "case-study",
       "note": "Portable documentation, fixture, or publication validation."
@@ -350,6 +371,13 @@
       "sha256": "7d05df02e58556a6f8ae396854d908cd76ff17c187c2a5d4c6e48141d06a7cb3",
       "kind": "generated",
       "note": "Case-study documentation, replay, packaging, or local validation support."
+    },
+    {
+      "path": "scripts/evaluate_voice.py",
+      "kind": "generated",
+      "source": "case-study",
+      "note": "Portable evaluation, documentation, or publication validation.",
+      "sha256": "f5496b1f3f7e1c594ad9bbb4e3714aa9a744d0435794bb3ed4a57d63b5fbe544"
     },
     {
       "path": "scripts/glance_frames.py",
@@ -369,7 +397,7 @@
     },
     {
       "path": "scripts/validate_public.py",
-      "sha256": "5d43c9046a165331d8d743b1b9fc6b5496fe1df6c95ffa71f60cc4a333bc26d4",
+      "sha256": "fbba44d7ef80dc02e6f4e710122daaeba7d268d07560cff9609760a25ed224db",
       "kind": "generated",
       "note": "Portable documentation, fixture, or publication validation.",
       "source": "case-study"
@@ -384,7 +412,7 @@
     },
     {
       "path": "src/ravora/case_study.py",
-      "sha256": "d2bcf1195c912c974912d869a06f30267db465d198f87285c9e29e94639fff12",
+      "sha256": "8359fd568ae9f90804dc0fa64ae5dc9030a96df92e7b7952addca8e4cffc4b43",
       "kind": "generated",
       "source": "case-study",
       "note": "Portable documentation, fixture, or publication validation."
@@ -463,19 +491,19 @@
     },
     {
       "path": "src/ravora/fast_voice.py",
-      "sha256": "0258214f6935dd6ecc57f2226aad8f68bcb65c6f1637e322581cf8d874de491c",
+      "sha256": "9cd841b995a351a021de7842b72d8bb4ad5fd093a1670a5febafad4db20f9092",
       "source": "src/ravora/fast_voice.py",
-      "source_sha256": "88ae72838456ff2a868d42d175e2bcaf00377f9559a76307b21d4f9479ff8a65",
+      "source_sha256": "ab443e549471e41c90931e09503940a78c5a01f7edd2afc2a65588e033799c16",
       "kind": "adapted",
-      "note": "Source port with packaged paths and synthetic fixtures."
+      "note": "Portable evaluation port with package-local assets, English review controls, and synthetic validation."
     },
     {
       "path": "src/ravora/fast_voice_server.py",
       "source": "src/ravora/fast_voice_server.py",
       "source_sha256": "779ccfe94076e8bae880522241208a3c8ce0530d5ae63c963199b57c502ff884",
       "kind": "adapted",
-      "note": "Package-local authenticated console with configurable capture and optional caller-supplied artwork.",
-      "sha256": "ba19500abb9f5ce0c668f3883d521955fd8413232c69c2c5be957f5f4a7e3369"
+      "note": "Portable evaluation port with package-local assets, English review controls, and synthetic validation.",
+      "sha256": "f6c080214d41155402ec71ca94b67420a2a42d9ba5fbc6ca20ed301050fb2a65"
     },
     {
       "path": "src/ravora/gemini_memory.py",
@@ -748,6 +776,14 @@
       "note": "Exact source snapshot."
     },
     {
+      "path": "src/ravora/voice_evaluation.py",
+      "kind": "adapted",
+      "source": "src/ravora/voice_evaluation.py",
+      "note": "Portable evaluation port with package-local assets, English review controls, and synthetic validation.",
+      "sha256": "dcb02d99d0b3368ee1e3b02d2a9db2dc7b2543388a1ea36f81caff9cd3361137",
+      "source_sha256": "2e5b3822f2ad2b569f2c9159f7efaf240b2189582494ad457d66d35bb3630a2a"
+    },
+    {
       "path": "src/ravora/web/articulation.mjs",
       "sha256": "a1112f5fa794b3befb06121e40ae72cd704b352b407552523a8165456dbefb38",
       "source": "renderer/developer/v13-articulation.js",
@@ -764,20 +800,28 @@
       "note": "Portable encoder with deferred replay of observed draws, extracted from the capture and presentation modules."
     },
     {
-      "path": "src/ravora/web/developer/fast-app.js",
-      "sha256": "e181162cb94bfd7d9dcf0bbcd1310fccc5e90169ef511a6a7661bce62e0a3448",
-      "source": "renderer/developer/fast-app.js",
-      "source_sha256": "fbca4b4353b1a94df7706364b4ec56190246489476b96054eaef7554feabf23c",
+      "path": "src/ravora/web/developer/evaluation-ui.js",
       "kind": "adapted",
-      "note": "Source port with packaged paths and synthetic fixtures."
+      "source": "renderer/developer/evaluation-ui.js",
+      "note": "Portable evaluation port with package-local assets, English review controls, and synthetic validation.",
+      "sha256": "acfa6bbaba99feca9b4e02e3dfb95dbc92a4fee597fbefc3d689e74bb402412a",
+      "source_sha256": "9d48c9b3cf32bc3e220e1fc77374fdd1ad878f43b38c3c7c2dba6f8e7107ecd3"
+    },
+    {
+      "path": "src/ravora/web/developer/fast-app.js",
+      "sha256": "e2eacff858210732e1772ceda18ddd3d70926864461af8aae283560641588318",
+      "source": "renderer/developer/fast-app.js",
+      "source_sha256": "539aa2de6d0d88fbef35bad659581a164a5392ed7eecc0928915d8ca7db653f5",
+      "kind": "adapted",
+      "note": "Portable evaluation port with package-local assets, English review controls, and synthetic validation."
     },
     {
       "path": "src/ravora/web/developer/fast-index.html",
       "source": "renderer/developer/fast-index.html",
-      "source_sha256": "15d81224f837c8d38ba4899ab648bbc0f69c0ae24b3169b6ec21e46c05beac9c",
+      "source_sha256": "e77f8e49fb959c45edfea78a10c1ad4993152b98f9e6db16d2d449b6d474276d",
       "kind": "adapted",
-      "note": "Source port with packaged paths and synthetic fixtures.",
-      "sha256": "7fecd4023b5260745c5e4837564db78213c76f21fb87ea877392b6d705a456ef"
+      "note": "Portable evaluation port with package-local assets, English review controls, and synthetic validation.",
+      "sha256": "e6c8c2c6f5c6896d05e60a06181d47088f56bce3f293af121a101472f4b6e1a6"
     },
     {
       "path": "src/ravora/web/developer/mic-stream.js",
@@ -790,10 +834,10 @@
     {
       "path": "src/ravora/web/developer/style.css",
       "source": "renderer/developer/style.css",
-      "source_sha256": "191a587984e3391b4d7596218d3ab7672501c94d580db964912524d6e80fead1",
-      "kind": "copied",
-      "note": "Exact source snapshot.",
-      "sha256": "191a587984e3391b4d7596218d3ab7672501c94d580db964912524d6e80fead1"
+      "source_sha256": "41ad03e9e4ff0a1b0391e46f342ff7a922a6292d37706b65f08269245c4d5a0b",
+      "kind": "adapted",
+      "note": "Portable evaluation port with package-local assets, English review controls, and synthetic validation.",
+      "sha256": "909d58fb62571d8c9f8533d24b363670a093a77e3f0df55795d47e096cac7acb"
     },
     {
       "path": "src/ravora/web/developer/talk-avatar.js",
@@ -1013,6 +1057,14 @@
       "kind": "adapted",
       "note": "Use the extracted input ledger; retain offline timing, cancellation, migration and durable single-call assertions.",
       "sha256": "7a5c4dad2cd2576fa5514b7dee8c94cdd2fd8f48b5e32abda2e33ecc3bc8c9c0"
+    },
+    {
+      "path": "tests/test_voice_evaluation.py",
+      "kind": "adapted",
+      "source": "tests/test_voice_evaluation.py",
+      "note": "Portable evaluation port with package-local assets, English review controls, and synthetic validation.",
+      "sha256": "ea980dd16732a18f4d68ce60c372bc04c0254dfd9e35ac5187d3f56f734e7838",
+      "source_sha256": "3895b649e86e9e68139e37f48d91324037fbbe9ba8a50b14fdb159ea6ceb468e"
     }
   ]
 }

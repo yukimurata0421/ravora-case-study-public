@@ -28,6 +28,7 @@ def payload_files():
                  and not name.startswith('.venv') and not name.endswith('.egg-info')]
         if any((Path(parent)/name).is_symlink() for name in dirs):raise ValueError('SYMLINK_DIRECTORY_IN_PAYLOAD')
         for name in files:
+            if Path(parent)==ROOT and name=='.git':continue
             if not name.endswith(('.pyc','.pyo')):yield Path(parent)/name
 
 

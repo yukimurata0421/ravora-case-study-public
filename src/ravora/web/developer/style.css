@@ -21,3 +21,5 @@
 .talk-stage:not(:fullscreen) #stage-status,.talk-stage:not(:fullscreen) #stage-stop{display:none}
 .talk-stage:fullscreen #reaction-caption{display:none}.talk-stage:fullscreen #stage-status{margin-right:auto}
 @media(max-width:800px){.talk-console{display:flex;flex-direction:column}.talk-console #messages{max-height:22vh}.talk-stage{width:100%}}
+
+#evaluation{margin-top:24px;border-top:1px solid #d2d4cb;padding-top:16px}#evaluation p{font-size:13px;line-height:1.7;overflow-wrap:anywhere}#evaluation details{margin:14px 0}#evaluation summary{cursor:pointer;overflow-wrap:anywhere}.evaluation-form{display:grid;gap:12px;margin:12px 0}.evaluation-form label{display:block}.evaluation-form textarea{display:block;width:95%;margin-top:5px}.evaluation-form button{justify-self:start}#evaluation audio{display:block;max-width:100%;margin:12px 0}

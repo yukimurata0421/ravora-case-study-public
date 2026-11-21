@@ -1,0 +1,7 @@
+# Optional settings for the offline console. No host paths or credentials.
+[developer_voice.evaluation]
+enabled = true
+min_turns = 30
+max_turns = 50
+max_inputs = 100
+max_audio_mib = 128
