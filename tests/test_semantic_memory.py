@@ -350,7 +350,8 @@ class SemanticVoiceTests(unittest.IsolatedAsyncioTestCase):
     async def asyncSetUp(self):
         self.tmp=tempfile.TemporaryDirectory();self.addCleanup(self.tmp.cleanup);self.root=Path(self.tmp.name)
         self.store=MemoryStore(self.root/'voice.sqlite3');self.events=[];self.prompts=[]
-        self.settings=ProviderSettings(semantic_memory_mode='jev',semantic_wait_ms=40,memory_extractor='local_rules')
+        # On-time judgments include real SQLite writes on the test runner.
+        self.settings=ProviderSettings(semantic_memory_mode='jev',semantic_wait_ms=500,memory_extractor='local_rules')
         async def send(value):self.events.append(value)
         async def pcm(*args):pass
         client=MockVoiceClients();original=client.generate
@@ -397,6 +398,7 @@ class SemanticVoiceTests(unittest.IsolatedAsyncioTestCase):
             self.assertTrue(self.session.played(self.session.token,self.session.expected_frames))
 
     async def test_slow_judgment_does_not_delay_generation_or_rewrite_prompt(self):
+        self.session.s=replace(self.session.s,semantic_wait_ms=40)
         gate=asyncio.Event()
         async def classify(early,text):
             await gate.wait()

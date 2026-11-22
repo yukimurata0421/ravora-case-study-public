@@ -16,7 +16,7 @@
     "third-party renderer bundles",
     "host deployment and production controls"
   ],
-  "updated_at_jst": "2026-11-22T09:20:23+09:00",
+  "updated_at_jst": "2026-11-22T09:25:36+09:00",
   "files": [
     {
       "path": ".env.example",
@@ -1341,7 +1341,7 @@
       "kind": "adapted",
       "source": "tests/test_semantic_memory.py",
       "source_sha256": "03b4942fee9c701a3cf6a9b41a82a77573e2a2bba72197d0f67a0ebcfccfc06c",
-      "sha256": "1e98c20d05c03c3e5035657a4da171a23b8bde94b584dd03715102d4b56c306b",
+      "sha256": "0ae943a83a7ed82f4b3dc74d9f940d14fd8923cae033fd051d1bc76ed4ecc681",
       "note": "Adapted to the public package, its asset bindings or its synthetic test fixtures."
     },
     {
