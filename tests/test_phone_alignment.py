@@ -33,3 +33,7 @@ class PhoneAlignmentTests(unittest.TestCase):
         expected = next(phone["start"] for phone in reference["phones"] if phone["phone"] == "iy")
         observed = next(phone["start"] for phone in result["phones"] if phone["phone"] == "iy")
         self.assertLess(abs(expected - observed), .10)
+        # Prosody enrichment differentiates stressed content vowels from function words / schwas.
+        amounts = {key["amount"] for key in result["plan"] if key["shape"] != "closed"}
+        self.assertGreater(max(amounts), .6)
+        self.assertLess(min(amounts), .4)

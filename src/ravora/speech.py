@@ -216,6 +216,34 @@ class LocalSpeech:
         finally:
             self.delete(utterance)
 
+    def prosody(self, text):
+        """Return per-phone lexical stress, accent, vowel flag, and word class for English text."""
+        if not self.voice or not isinstance(text, str) or not 0 < len(text) <= 1000 or '\0' in text:
+            return []
+        utterance = self.synth(text.encode('utf-8'), self.voice)
+        if not utterance:
+            return []
+        try:
+            relation = self.relation(utterance, b'Segment')
+            if not relation:
+                return []
+            item = self.head(relation)
+            out = []
+            while item:
+                phone = self.name(item, b'name').decode('ascii').lower()
+                if phone not in ('pau', 'sil'):
+                    info = {'phone': phone}
+                    for key, path in (('vc', b'ph_vc'), ('stress', b'R:SylStructure.parent.stress'),
+                                      ('accented', b'R:SylStructure.parent.accented'),
+                                      ('gpos', b'R:SylStructure.parent.parent.gpos')):
+                        value = self.feature(item, path)
+                        info[key] = value.decode('ascii', 'replace') if value else None
+                    out.append(info)
+                item = self.next(item)
+            return out
+        finally:
+            self.delete(utterance)
+
     def create(self, text, output: Path):
         if not self.voice or not isinstance(text, str) or not 0 < len(text) <= 1000 or '\0' in text:
             raise ValueError('INVALID_LOCAL_SPEECH_INPUT')

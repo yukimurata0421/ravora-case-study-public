@@ -1,0 +1,52 @@
+{
+  "status": "PASS_LOCAL_DIALOGUE_ROUTING_PORT",
+  "validated_at_jst": "2026-11-22T12:58:02+09:00",
+  "scope": "Bilingual conversational reactions, per-turn knowledge retrieval and playback-bound topic suggestions in the portable package.",
+  "checks": {
+    "checkout_python_tests": {
+      "tests": 342,
+      "errors": 0,
+      "failures": 0,
+      "skipped": 0
+    },
+    "installed_python_tests": {
+      "tests": 342,
+      "errors": 0,
+      "failures": 0,
+      "skipped": 0
+    },
+    "wheel_sha256": "018528f9d7f261cabaea559cba29c4cd28ae91c8d21bcbf054cc280bdd603edf",
+    "package_files_matched_to_checkout": 100,
+    "python": "3.14.4",
+    "checkout_replays_match_examples": 4,
+    "installed_replays_match_examples": 4,
+    "browser_module_tests": {
+      "tests": 14,
+      "passed": 14
+    },
+    "public_payload": {
+      "status": "PASS_PUBLIC_PAYLOAD",
+      "files": 186,
+      "hashes_checked": 184,
+      "unexpected_files": 0,
+      "private_defaults_found": 0,
+      "broken_local_links": 0
+    },
+    "secret_scan_findings": 0
+  },
+  "physical_microphone_verified": false,
+  "youtube_receiver_verified": false,
+  "real_oauth_grant_exercised": false,
+  "remote_ci": {
+    "configured": true,
+    "configured_python_versions": [
+      "3.11",
+      "3.13"
+    ]
+  },
+  "project_license_selected": false,
+  "open_source_release_ready": false,
+  "included_private_databases_or_recordings": false,
+  "new_inference_api_calls": 0,
+  "earlier_validation_preserved": "publication/history/2026-11-22-live-studio-validation.json"
+}

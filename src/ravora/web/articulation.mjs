@@ -59,9 +59,9 @@ function rawMouth(track, seconds, sampleRate) {
   const frame = clamp(position / track.hop_frames - .5, 0, track.db.length - 1);
   const i = Math.floor(frame);
   const db = track.db[i] + (track.db[Math.min(i + 1, track.db.length - 1)] - track.db[i]) * (frame - i);
-  const emphasis = clamp(1 + (db - track.reference_db) / 44, .40, 1.21);
+  const emphasis = clamp(1 + (db - track.reference_db) / 40, .42, 1.24);
   const audibility = clamp((db + 57) / 19, 0, 1);
-  const amount = clamp(key.amount * emphasis * audibility, 0, .88);
+  const amount = clamp(key.amount * emphasis * audibility, 0, .92);
   if (!key.vowels) return {open: 0, vowels: null, shape: key.shape, db};
   return {open: amount, vowels: {...key.vowels, amount}, shape: key.shape, db};
 }
@@ -71,11 +71,11 @@ function rawMouth(track, seconds, sampleRate) {
 // hops of the received samples and averaged around the playhead like the planned mouth. This
 // replaces the per-frame analyser of the played signal, which flapped open and shut at speech start.
 const HOP = 240;
-// Openings scaled to the planned mouth (measured on recorded replies: the PCM mouth averaged 0.45
-// against the plan's 0.35). The coarse band measure guesses rounded vowels poorly (22-37% agreement
-// with the phone plan) and a wrong pucker is the most visible error, so it only picks unrounded
-// shapes; rounding comes with the phone plan.
-const SHAPE_AMOUNT = {A: .48, E: .39, I: .33};
+// Visual anticipation lead (seconds): lips begin forming slightly ahead of acoustic onset.
+const PCM_LEAD = .035;
+// Openings calibrated to match stressed conversational speech (higher A/E contrast while keeping
+// conservative O detection only on strongly voiced low-centroid syllables to avoid false puckers).
+const SHAPE_AMOUNT = {A: .64, E: .50, I: .38, O: .54};
 function bandpass(sampleRate, low, high) {
   const f0 = Math.sqrt(low * high), q = f0 / (high - low), w = 2 * Math.PI * f0 / sampleRate;
   const alpha = Math.sin(w) / (2 * q), a0 = 1 + alpha;
@@ -107,18 +107,18 @@ export function createPcmMouth(sampleRate = 24000) {
   function close() {
     const db = 10 * Math.log10(acc[0] / count + 1e-12);
     const f1ratio = (acc[2] + 1e-12) / (acc[1] + 1e-12), front = Math.log10((acc[3] + 1e-12) / (acc[1] + acc[2] + 1e-12));
-    const shape = db < -54 ? null : f1ratio > 1.3 ? 'A' : front > .1 ? 'I' : front > -.45 ? 'E' : f1ratio < .45 ? 'E' : 'A';
+    const shape = db < -54 ? null : f1ratio > 1.25 ? 'A' : front > .12 ? 'I' : (db > -34 && front < -.72 && f1ratio < .62) ? 'O' : front > -.45 ? 'E' : f1ratio < .45 ? 'E' : 'A';
     if (db > -48) { voicedSum += db; voicedCount++; }
     hops.push({db, shape});
     acc = [0, 0, 0, 0]; count = 0;
   }
   function raw(seconds) {
-    const i = Math.floor(seconds * sampleRate / HOP);
+    const i = Math.floor((seconds + PCM_LEAD) * sampleRate / HOP);
     const h = hops[i];
     if (!h || !h.shape) return {open: 0, shape: null, db: h ? h.db : -100};
     const reference = voicedCount ? voicedSum / voicedCount : -30;
-    const emphasis = clamp(1 + (h.db - reference) / 44, .40, 1.21), audibility = clamp((h.db + 57) / 19, 0, 1);
-    return {open: clamp(SHAPE_AMOUNT[h.shape] * emphasis * audibility, 0, .88), shape: h.shape, db: h.db};
+    const emphasis = clamp(1 + (h.db - reference) / 36, .35, 1.28), audibility = clamp((h.db + 56) / 18, 0, 1);
+    return {open: clamp(SHAPE_AMOUNT[h.shape] * emphasis * audibility, 0, .90), shape: h.shape, db: h.db};
   }
   return {
     push(samples) {
@@ -129,7 +129,7 @@ export function createPcmMouth(sampleRate = 24000) {
     get seconds() { return frames / sampleRate; },
     // Same windows as alignedMouth, over what has arrived.
     sample(seconds) {
-      ensure(seconds + .11);
+      ensure(seconds + PCM_LEAD + .11);
       const db = raw(seconds).db;
       const m = smoothMouth(t => { const r = raw(t); return r.shape ? {open: r.open, vowels: {[r.shape]: 1}} : r; }, seconds);
       return m ? {...m, db, width: 1} : {open: 0, vowels: null, shape: 'closed', db, width: 1};

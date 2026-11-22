@@ -16,7 +16,7 @@
     "third-party renderer bundles",
     "host deployment and production controls"
   ],
-  "updated_at_jst": "2026-11-22T12:57:04+09:00",
+  "updated_at_jst": "2026-11-22T21:00:58+09:00",
   "files": [
     {
       "path": ".env.example",
@@ -36,8 +36,8 @@
       "path": ".gitignore",
       "kind": "generated",
       "source": "case-study",
-      "sha256": "a7d1d857620dd06d49042365643f20f4da54eb04cc36bddd5b6b8d5ca0aed5bc",
-      "note": "Public documentation, entrypoint, packaging, validation or synthetic replay."
+      "sha256": "b4e5b68901f8cdef3ed100d0b71672b348260ff2ccdae01eff90d7305413a711",
+      "note": "Public documentation, validation or media allowlist."
     },
     {
       "path": "NOTICE.md",
@@ -50,15 +50,15 @@
       "path": "README.md",
       "kind": "generated",
       "source": "case-study",
-      "sha256": "1d448e1c0f30480ac1e45c4bcce5cd3081caee0b511a85239bfb3d0376229021",
-      "note": "Public documentation, entrypoint, packaging, validation or synthetic replay."
+      "sha256": "74acac1ba1a38e62f01beb47e6099d9047cc375dac504aff7583ec7e263c63ab",
+      "note": "Public documentation, validation or media allowlist."
     },
     {
       "path": "docs/audio-timing.md",
-      "sha256": "524920939f868f1822555c83ecec3c4c039f3593b13630dd8fe911b5641cad4b",
-      "source": "case-study",
       "kind": "generated",
-      "note": "Portable documentation, fixture, or publication validation."
+      "source": "case-study",
+      "sha256": "f47734b954e0bd93af57b6f255b0466a24d94de4204355ede25ed1d2eb648d14",
+      "note": "Public documentation, validation or media allowlist."
     },
     {
       "path": "docs/case-study.md",
@@ -180,6 +180,22 @@
       "sha256": "2d91889add5aaa7ea632921aafe8d1b4d0ea1d9540128fc93bcca58d8cf6fdd3"
     },
     {
+      "path": "docs/media/ray-avatar-fixed-demo.mp4",
+      "kind": "copied",
+      "source": "demos/ray-mouth-fix-20261122/ray-avatar-fixed-demo.mp4",
+      "source_sha256": "0360f7ef397cf8f78fe70001dc6b6f1d29a2a72867b9dd875cb7848b3db86a9a",
+      "sha256": "0360f7ef397cf8f78fe70001dc6b6f1d29a2a72867b9dd875cb7848b3db86a9a",
+      "note": "Finished render of four scripted voice and expression examples."
+    },
+    {
+      "path": "docs/media/ray-mouth-before-after-comparison.mp4",
+      "kind": "copied",
+      "source": "demos/ray-mouth-fix-20261122/ray-mouth-before-after-comparison.mp4",
+      "source_sha256": "55f083e6e39e45bf83fe03bd53c7e0e22aaa1b707898257d3742e8859e71ae2f",
+      "sha256": "55f083e6e39e45bf83fe03bd53c7e0e22aaa1b707898257d3742e8859e71ae2f",
+      "note": "Finished render of four scripted voice and expression examples."
+    },
+    {
       "path": "docs/media/ray-upper-lip-comparison.mp4",
       "sha256": "7505c396cc4265add50afbd40fe0a04ad9d5a8ee9b6978f94ba8a9e0a7449e00",
       "source": "demos/concept02-thinking-live-20261121-upper-lip/smile-upper-lip-before-after.mp4",
@@ -234,8 +250,8 @@
       "path": "docs/youtube-live.md",
       "kind": "generated",
       "source": "case-study",
-      "sha256": "95a15486d9c9a5bd93c62033e3822b0e9f1ee75000703d121886d362ff34cc5a",
-      "note": "Public documentation, entrypoint, packaging, validation or synthetic replay."
+      "sha256": "8122155badd3069724e21b860ce1f169dacc83cb635bc4fbcda748c8ea6305de",
+      "note": "Public documentation, validation or media allowlist."
     },
     {
       "path": "examples/early-reaction-report.json",
@@ -266,6 +282,14 @@
       "note": "Public documentation, entrypoint, packaging, validation or synthetic replay."
     },
     {
+      "path": "examples/studio-nvenc.toml",
+      "kind": "adapted",
+      "source": "config.toml",
+      "source_sha256": "1631c0dbe756704ad316949763eb0ea3a0a8a8ef6e5548802ea942c2cff37bc5",
+      "sha256": "f33799ab8fe02d374ddd2f72e9962f8301af6412d4d6cfbbed5ee6c9fba7ac53",
+      "note": "Standalone hardware encoder profile without private source or device settings."
+    },
+    {
       "path": "examples/voice-evaluation.toml",
       "kind": "generated",
       "source": "case-study",
@@ -276,8 +300,8 @@
       "path": "publication/README.md",
       "kind": "generated",
       "source": "case-study",
-      "sha256": "ee991980dfd89026bd7a8cb868b103a6124149a4d95962817d24daf2e6447b24",
-      "note": "Public documentation, entrypoint, packaging, validation or synthetic replay."
+      "sha256": "cac45c010afbddbed21454ef4c3c3ec4667d4e627a844c896f3d4c463dae6724",
+      "note": "Public documentation, validation or media allowlist."
     },
     {
       "path": "publication/audio-timing-evaluation-20261118.json",
@@ -367,6 +391,13 @@
       "note": "Previous public validation record."
     },
     {
+      "path": "publication/history/2026-11-22-dialogue-routing-validation.json",
+      "kind": "generated",
+      "source": "case-study",
+      "sha256": "f9a52495296091d44cfeb855fd49aac8b7e252ba3140a9844abfef2eca1f786f",
+      "note": "Public documentation, validation or media allowlist."
+    },
+    {
       "path": "publication/history/2026-11-22-live-studio-validation.json",
       "kind": "generated",
       "source": "case-study",
@@ -426,10 +457,10 @@
     },
     {
       "path": "scripts/validate_public.py",
-      "sha256": "fbba44d7ef80dc02e6f4e710122daaeba7d268d07560cff9609760a25ed224db",
       "kind": "generated",
-      "note": "Portable documentation, fixture, or publication validation.",
-      "source": "case-study"
+      "source": "case-study",
+      "sha256": "93305b5ac37de5cacd3778182f5c947c8545f04be12a1ded34b16c7fe7709cae",
+      "note": "Public documentation, validation or media allowlist."
     },
     {
       "path": "scripts/youtube_live.py",
@@ -625,9 +656,9 @@
       "path": "src/ravora/live_media.py",
       "kind": "adapted",
       "source": "src/ravora/live_media.py",
-      "source_sha256": "38fa432fb19b8778fa0faa91ec06095af0697e03ad0bf64b4533caaf5f3b48a7",
-      "sha256": "b7c36d36c37d686e3687416e6e5d18e7200fda8ba289cf1b6ebfbb9f76dae020",
-      "note": "Adapted to the public package, its asset bindings or its synthetic test fixtures."
+      "source_sha256": "14efcc0f0cb6ff3f8c94c3765287b9284e1fd545bce7605f8a77ac582a8ea040",
+      "sha256": "81c4117e3edd91c1ab6c4f5053f2e436fa11b67d0bf426ea31a23de7336ccc84",
+      "note": "CPU and NVIDIA HEVC settings on the public studio output path."
     },
     {
       "path": "src/ravora/live_mic.py",
@@ -863,19 +894,19 @@
     },
     {
       "path": "src/ravora/phone_alignment.py",
-      "sha256": "e6607497c8073fcf817f29041b722a92a586e921cc54199c8c45d34a8780c6b8",
-      "source": "src/ravora/phone_alignment.py",
-      "source_sha256": "e6607497c8073fcf817f29041b722a92a586e921cc54199c8c45d34a8780c6b8",
       "kind": "copied",
-      "note": ""
+      "source": "src/ravora/phone_alignment.py",
+      "source_sha256": "6541a8a142b853f5897656d203be76419477ed7c365be5870d833e15537e232c",
+      "sha256": "6541a8a142b853f5897656d203be76419477ed7c365be5870d833e15537e232c",
+      "note": "Avatar binding, articulation or live encoder port and tests."
     },
     {
       "path": "src/ravora/pngtuber.py",
-      "sha256": "d3b366b467d60640d8a2d2ec7489a255058db2c0c8b96b29469d8216e4d852dd",
-      "source": "src/ravora/pngtuber.py",
-      "source_sha256": "d3b366b467d60640d8a2d2ec7489a255058db2c0c8b96b29469d8216e4d852dd",
       "kind": "copied",
-      "note": "Hash-checked artwork, face-relative lip geometry and registration for upper-lip layers."
+      "source": "src/ravora/pngtuber.py",
+      "source_sha256": "0cdf0a329669bcb66bbf4711e0168efc3e2441364fcb1e74e17614cd06875fda",
+      "sha256": "0cdf0a329669bcb66bbf4711e0168efc3e2441364fcb1e74e17614cd06875fda",
+      "note": "Avatar binding, articulation or live encoder port and tests."
     },
     {
       "path": "src/ravora/providers.py",
@@ -951,9 +982,9 @@
       "path": "src/ravora/speech.py",
       "kind": "copied",
       "source": "src/ravora/speech.py",
-      "source_sha256": "5a804e07b194c33948682c07526a338e85ac1e18bf94b8a2c2a60a005eb6f199",
-      "sha256": "5a804e07b194c33948682c07526a338e85ac1e18bf94b8a2c2a60a005eb6f199",
-      "note": "Exact source snapshot."
+      "source_sha256": "1cf196b56b4e6db8c4040b4bac998e66140d456b865365d974ce598ec53c3aac",
+      "sha256": "1cf196b56b4e6db8c4040b4bac998e66140d456b865365d974ce598ec53c3aac",
+      "note": "Avatar binding, articulation or live encoder port and tests."
     },
     {
       "path": "src/ravora/stream_pitch.py",
@@ -989,11 +1020,11 @@
     },
     {
       "path": "src/ravora/web/articulation.mjs",
-      "sha256": "a1112f5fa794b3befb06121e40ae72cd704b352b407552523a8165456dbefb38",
-      "source": "renderer/developer/v13-articulation.js",
-      "source_sha256": "c13cab63a937711cec3ddfd120265294d7232237c92848d3a17d018c6e7bcb85",
       "kind": "adapted",
-      "note": "Source port with packaged paths and synthetic fixtures."
+      "source": "renderer/developer/v13-articulation.js",
+      "source_sha256": "a84401e364740357efee40bd1a5f37bfe7d7fea79c85c72e67149f498f8b099e",
+      "sha256": "dc4b9aa87933bacf874a9738a44f710ae5713a72b5e3449a331f26dfb640d1a6",
+      "note": "Packaged mouth sampler for aligned phones and incoming PCM."
     },
     {
       "path": "src/ravora/web/audio-clock-capture.mjs",
@@ -1141,11 +1172,11 @@
     },
     {
       "path": "src/ravora/web/pngtuber-surface.mjs",
-      "source": "renderer/pngtuber-core.js",
       "kind": "copied",
-      "source_sha256": "15a507fe149a9fff3a4bd6a91adb6a8f75fd2cf32d72dc8beee34cab5822051f",
-      "sha256": "15a507fe149a9fff3a4bd6a91adb6a8f75fd2cf32d72dc8beee34cab5822051f",
-      "note": "Default WebGL surface with head-anchored teeth and opening-dependent upper-lip compositing."
+      "source": "renderer/pngtuber-core.js",
+      "source_sha256": "2d154d5e8f6513ffed47c75d502fa455fedd65fb6215f32eba746ba48bdedc7d",
+      "sha256": "2d154d5e8f6513ffed47c75d502fa455fedd65fb6215f32eba746ba48bdedc7d",
+      "note": "Registered vowel source coordinates, multi-vowel texturing, fixed teeth and tapered jaw rendering."
     },
     {
       "path": "src/ravora/web/presence.mjs",
@@ -1199,9 +1230,9 @@
       "path": "src/ravora/youtube_live.py",
       "kind": "adapted",
       "source": "scripts/youtube_live.py",
-      "source_sha256": "ebf6643596f98822c30e1a46a5acf49b260158f99254b6a2eff24389ea1fba7a",
-      "sha256": "c3d8478610c93910364d71f29724f5460f00b78a4bfe051f1cc47f9271c8bf30",
-      "note": "Adapted to the public package, its asset bindings or its synthetic test fixtures."
+      "source_sha256": "ed955e697dda36621a475818e532b017a9f7787be4919508e1419f07a2f9378b",
+      "sha256": "52d32b9d2ee317b58de5e35e2543a099e7da21010a5ab277401ac0bb95efa96d",
+      "note": "Portable encoder configuration, startup and session reporting."
     },
     {
       "path": "src/ravora/youtube_proto/__init__.py",
@@ -1252,10 +1283,11 @@
     },
     {
       "path": "tests/test_avatar_geometry.py",
-      "sha256": "4cec6e7042962f67b4fd65cbe431c54fc0174652ea55f2631fdb2f6dace2883d",
-      "source": "case-study",
-      "kind": "generated",
-      "note": "Portable documentation, fixture, or publication validation."
+      "kind": "adapted",
+      "source": "tests/test_pngtuber.py",
+      "source_sha256": "adf9998a0ea9cb03c2cf131614592b50f3e36753f496677e794414bd3eda087c",
+      "sha256": "bb14944bf43cb679bb4a47ac26768bab0cc53e90d8b4934107acaa459d1cd575",
+      "note": "Mesh and source-coordinate regression using a generated portrait."
     },
     {
       "path": "tests/test_case_study.py",
@@ -1353,11 +1385,11 @@
     },
     {
       "path": "tests/test_phone_alignment.py",
-      "sha256": "2c78b3c10a00d8c29f8612125a2f868911eb80c3e16c27fb4fac3735788cd604",
-      "source": "tests/test_phone_alignment.py",
-      "source_sha256": "2c78b3c10a00d8c29f8612125a2f868911eb80c3e16c27fb4fac3735788cd604",
       "kind": "copied",
-      "note": ""
+      "source": "tests/test_phone_alignment.py",
+      "source_sha256": "d4a8b8c93ba46418f1036f0ee5469fd37c2f98af3e122ba036fd2d59758020cf",
+      "sha256": "d4a8b8c93ba46418f1036f0ee5469fd37c2f98af3e122ba036fd2d59758020cf",
+      "note": "Avatar binding, articulation or live encoder port and tests."
     },
     {
       "path": "tests/test_ray_character.py",
@@ -1411,17 +1443,17 @@
       "path": "tests/test_youtube_live.py",
       "kind": "adapted",
       "source": "tests/test_youtube_live.py",
-      "source_sha256": "565aded493aa9b2b7b31dc22829e7cff83b1274844c01ef78d5e964c3ce96e9c",
-      "sha256": "e912f93442403e6d07e8c5815b688e04be20b65834439c1c2e121e360dafbc4b",
-      "note": "Adapted to the public package, its asset bindings or its synthetic test fixtures."
+      "source_sha256": "5cb9729b0f6221a3f2411ee9c2e2934e441846856ded9185343ebe0023fbf411",
+      "sha256": "3c3c29cbb769ceb7d0b143fd3b06ec36b396928dfafe0d627296b6bb6fab1d83",
+      "note": "Avatar binding, articulation or live encoder port and tests."
     },
     {
       "path": "tests/test_youtube_stream.py",
       "kind": "adapted",
       "source": "tests/test_youtube_stream.py",
-      "source_sha256": "67099f3800a256d3050ee4576358d6bb152509e35287782d4b9352d0c2fc812f",
-      "sha256": "4fd9f173daf5218b08ff292621d0a3c68c8a37625954403149ab330f28b5b6ad",
-      "note": "Adapted to the public package, its asset bindings or its synthetic test fixtures."
+      "source_sha256": "8c1a550450d7ba90c80f2ad4ecba9b7efb4fe7b02e91e1981507828c598cf0e1",
+      "sha256": "c4d5cf08feb137c92ea0da19f5be6064b7745676b2ab82a41f610f20553e40b4",
+      "note": "Avatar binding, articulation or live encoder port and tests."
     }
   ]
 }

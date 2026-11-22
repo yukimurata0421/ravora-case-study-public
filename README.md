@@ -12,6 +12,12 @@ database, and deployment environment are excluded.
 
 ## Watch RAVORA in conversation
 
+### November 22 mouth and jaw revision
+
+Watch the chin at **0:15–0:17** as Ray changes vowels. The jaw follows the facial midline and keeps its width. The renderer samples each vowel from its original position in the portrait. The comparison shows the same speech and expressions on both sides. [Watch the 19-second reference render](docs/media/ray-avatar-fixed-demo.mp4) · [Compare the two versions](docs/media/ray-mouth-before-after-comparison.mp4)
+
+The live studio can record or publish 1080p30 HEVC using NVIDIA NVENC. Choose the encoder in the studio TOML file. [GPU recording settings](docs/youtube-live.md#select-the-hevc-encoder)
+
 ### RAY’s conversational smile
 
 Watch RAY answer “That freezer find is pure magic” around **0:17–0:19**.

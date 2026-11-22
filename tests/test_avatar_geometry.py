@@ -1,14 +1,47 @@
 """Portable geometry checks with synthetic mouth grids."""
 import hashlib
+import json
 import tempfile
 import unittest
 from importlib.util import find_spec
 from pathlib import Path
 
-from ravora.pngtuber import _face_midline, _lip_thickness, _upper_lip_layers, lip_thickness_ratio
+from ravora.pngtuber import _face_midline, _lip_thickness, _upper_lip_layers, lip_thickness_ratio, pngtuber_binding
 
 
 class AvatarGeometryTests(unittest.TestCase):
+    @unittest.skipUnless(find_spec('PIL'), 'optional avatar artwork support')
+    def test_open_jaw_tapers_without_stretching_the_vowel_texture(self):
+        from PIL import Image
+
+        with tempfile.TemporaryDirectory() as tmp:
+            root = Path(tmp)
+            assets = root / 'assets/pngtuber'
+            assets.mkdir(parents=True)
+            image = assets / 'fixture.png'
+            Image.new('RGBA', (200, 200), 'white').save(image)
+            entry = dict(path=str(image.relative_to(root)), sha256=hashlib.sha256(image.read_bytes()).hexdigest())
+            cols = 9
+            rest = [v for row in range(7) for col in range(cols) for v in (20+20*col, 20+20*row)]
+            target = rest.copy()
+            for col in range(1, cols-1):
+                i = 2*(5*cols+col)
+                target[i] += col - 4
+                target[i+1] += 10
+            feature = dict(kind='mouth', image='vowel_A', columns=cols, rows=7, source=rest,
+                           target=target, interior_rows=[2,3], region=[100,80,80,60])
+            manifest = assets / 'manifest.json'
+            manifest.write_text(json.dumps(dict(images=dict(idle=entry, talking=entry),
+                face_midline=dict(nose=[100,40], upper_lip=[100,60], lower_lip=[100,80], chin=[100,120]),
+                vowels={'A':dict(entry, offset=[0,0])}, rig=dict(version=1,features=[feature]))))
+            _, avatar = pngtuber_binding(root, {'pngtuber':dict(manifest=str(manifest.relative_to(root)),
+                open_threshold_db=-40, close_threshold_db=-46, hold_ms=90, blink_interval_ms=4300, blink_duration_ms=140)})
+            self.assertEqual(avatar['mouthTextureCoords']['vowels']['A'], target)
+            jaw = avatar['rig']['features'][0]['target'][5*cols*2:6*cols*2]
+            self.assertEqual(jaw[::2], rest[5*cols*2:6*cols*2:2])
+            self.assertGreater(jaw[2*4+1], jaw[2*1+1])
+            self.assertGreater(jaw[2*4+1], rest[2*(5*cols+4)+1])
+
     @unittest.skipUnless(find_spec('PIL'), 'optional avatar artwork support')
     def test_upper_lip_openings_bind_to_the_same_inner_edge(self):
         from PIL import Image

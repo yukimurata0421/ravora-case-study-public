@@ -1,0 +1,3 @@
+# NVIDIA HEVC for local recording and live publishing. For CPU encoding, use "libx265".
+[youtube_live]
+video_encoder = "hevc_nvenc"

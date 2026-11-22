@@ -162,10 +162,11 @@ class StreamListTests(unittest.TestCase):
         env.chmod(0o600)
         media = self.root/'program.flv'
         class LocalOutput(ProgramWriter):
-            def __init__(writer, target, scene, *, publish):
+            def __init__(writer, target, scene, *, publish, video_encoder):
                 self.assertTrue(publish)
                 self.assertEqual(target, 'rtmps://a.rtmps.youtube.com/live2/fake-test-key')
-                super().__init__(media, scene)
+                self.assertEqual(video_encoder, 'libx265')
+                super().__init__(media, scene, video_encoder=video_encoder)
             def write(writer, stage, pcm):
                 super().write(stage, pcm)
                 api.receiving = True
@@ -184,6 +185,7 @@ class StreamListTests(unittest.TestCase):
             launcher.main()
         result = json.loads(next((self.root/'.runtime').glob('youtube-live-*/summary.json')).read_text())
         self.assertTrue(result['live_confirmed'])
+        self.assertEqual(result['video_encoder'], 'libx265')
         self.assertEqual(result['live_chat_id'], 'test-chat')
         self.assertEqual(api.rows[BROADCAST][result['video_id']]['status']['lifeCycleStatus'], 'complete')
         self.assertEqual([(chat, md.get('authorization'), md.get('x-goog-api-key')) for chat, md in received],

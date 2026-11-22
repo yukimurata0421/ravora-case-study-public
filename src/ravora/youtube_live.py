@@ -5,6 +5,7 @@ from concurrent.futures import ThreadPoolExecutor
 from contextlib import ExitStack
 from dataclasses import replace
 import errno
+import io
 import json
 import os
 from pathlib import Path
@@ -33,13 +34,18 @@ def run(args):
     if args.authorize_youtube:
         authorize(directory)
         return
-    from ravora.live_media import DEFAULT_INGEST, FPS, ProgramWriter, Scene, SILENCE, Stage, av, publish_target
+    from ravora.live_media import DEFAULT_INGEST, FPS, ProgramWriter, Scene, SILENCE, Stage, av, publish_target, validate_video_encoder
     from ravora.youtube_broadcast import Broadcast
     from ravora.live_program import LiveProgram
     s = load_settings(args.env, mode=args.mode)
     publishing = args.publish or args.auto_broadcast
     if args.host_only and publishing:
         raise SettingsError('HOST_ONLY_CANNOT_PUBLISH')
+    config = tomllib.loads(args.config.read_text()) if args.config else {}
+    video_config = config.get('youtube_live', {})
+    if not isinstance(video_config, dict):
+        raise SettingsError('INVALID_PROGRAM_VIDEO_ENCODER')
+    video_encoder = validate_video_encoder(video_config.get('video_encoder', 'libx265'))
     configured_target = bool(s.youtube_chat_id or s.youtube_video_id)
     managed = args.auto_broadcast or (args.publish and not configured_target)
     if (args.privacy or args.title) and not managed:
@@ -56,7 +62,7 @@ def run(args):
         print(json.dumps({'conversation_api_enabled': s.api_enabled, 'missing_conversation_keys': s.missing(),
                           'youtube_read_enabled': s.youtube_read_enabled, 'youtube_api_key_set': bool(s.youtube_key),
                           'chat_target_set': bool(s.youtube_chat_id or s.youtube_video_id),
-                          'stream_key_set': bool(stream_key),
+                          'stream_key_set': bool(stream_key), 'video_encoder': video_encoder,
                           'oauth_client_file': (directory/'client.json').is_file(),
                           'oauth_token_file': (directory/'token.json').is_file()}))
         return
@@ -93,6 +99,14 @@ def run(args):
     with ExitStack() as stack:
         broadcast = None
         if managed:
+            # The managed ingest destination exists only after prepare(). Check the GPU
+            # with the actual stream settings before creating or binding a remote event.
+            if video_encoder == 'hevc_nvenc':
+                try:
+                    with io.BytesIO() as probe:
+                        ProgramWriter(probe, None, video_encoder=video_encoder).close()
+                except Exception:
+                    raise SettingsError(f'PROGRAM_ENCODER_OPEN_FAILED ({video_encoder})') from None
             stack.enter_context(publisher_lock(directory))
             api, channel = ChannelAPI.connect(directory)
             stack.callback(api.http.close)
@@ -114,7 +128,6 @@ def run(args):
             providers = text, JevReaction(s), speech
         bridge = ConversationBridge(s, store, audio, TurnFence(), threading.RLock(), providers=providers)
         pipeline = InputPipeline(s, store, bridge, [])
-        config = tomllib.loads(args.config.read_text()) if args.config else {}
         voice = config.get('developer_voice', {})
         from ravora.settings import validate_handsfree_onset_dbfs
         onset = validate_handsfree_onset_dbfs(voice.get('handsfree_onset_dbfs', s.handsfree_onset_dbfs))
@@ -157,6 +170,8 @@ def run(args):
             scene.avatar = ProgramAvatar(server.server_port, run_dir)
             stack.callback(scene.avatar.close)
             print('Conversation avatar:', scene.avatar.renderer, flush=True)
+            if server.avatar_manifest:
+                print('Avatar model:', server.avatar_manifest['name'], flush=True)
         if broadcast:
             url = broadcast.prepare()
             video_id = broadcast.state['broadcast']
@@ -164,10 +179,12 @@ def run(args):
         if stop.is_set():
             return
         try:
-            writer = ProgramWriter(url or run_dir / 'program.flv', scene, publish=publishing)
+            writer = ProgramWriter(url or run_dir / 'program.flv', scene, publish=publishing, video_encoder=video_encoder)
         except Exception:
-            raise RuntimeError('PROGRAM_ENCODER_OPEN_FAILED') from None
+            raise SettingsError(f'PROGRAM_ENCODER_OPEN_FAILED ({video_encoder})') from None
         stack.callback(writer.close)
+        active_encoder = writer.video.codec_context.name
+        print('Video encoder:', active_encoder, flush=True)
         operator_url = run_dir / 'operator.url'
         console_url = f'http://127.0.0.1:{server.server_port}/#{secret}'
         operator_url.write_text(console_url + '\n')
@@ -232,7 +249,11 @@ def run(args):
         summary['average_fps'] = round(writer.frames / max(summary['elapsed_seconds'], .001), 2)
         summary['max_encoder_lag_ms'] = round(max_lag * 1000)
         summary['publish'] = publishing
+        summary['video_encoder'] = active_encoder
         summary['avatar_renderer'] = scene.avatar.renderer if scene.avatar else 'custom_scene'
+        if scene.avatar and server.avatar_manifest:
+            summary['avatar_name'] = server.avatar_manifest['name']
+            summary['avatar_sha256'] = server.avatar_manifest['sha256']
         summary['avatar_frames_rendered'] = scene.avatar.rendered if scene.avatar else 0
         summary['reply_voice'] = getattr(bridge.controller.speech, 'voice', bridge.controller.s.voice) if s.mode == 'cloud' else 'flite-slt'
         if broadcast:
@@ -246,7 +267,7 @@ def run(args):
 def main():
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument('--mode', choices=('offline', 'cloud'), default='offline')
-    parser.add_argument('--config', type=Path, help='TOML microphone and optional portrait configuration')
+    parser.add_argument('--config', type=Path, help='TOML video encoder, microphone and optional portrait configuration')
     parser.add_argument('--env', type=Path, default=ROOT / '.env')
     parser.add_argument('--seconds', type=int, default=180)
     parser.add_argument('--port', type=int, default=8790)

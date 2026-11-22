@@ -230,6 +230,10 @@ the mouth region as its center and radii in pixels. It prints proposed landmark
 coordinates and residuals for review before adding them to the manifest.
 Install NumPy and Pillow for this script. [Measurement script](../scripts/measure_face_midline.py)
 
+## November 22 mouth and jaw
+
+The 19-second reference render shows four voiced examples. At 15–17 seconds, watch the chin descend along the portrait's midline as the mouth opens. The live mesh tapers this movement toward the cheeks and retains the original texture coordinates for each vowel. Rounded vowels reduce the smile overlay, and the optional English phone aligner uses lexical stress to vary the opening. [720p reference render with sound](media/ray-avatar-fixed-demo.mp4) · [Side-by-side 1080p comparison](media/ray-mouth-before-after-comparison.mp4)
+
 ## November 21 conversational smile
 
 The upper lip used to stretch horizontally when the avatar smiled during speech.

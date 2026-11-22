@@ -71,6 +71,16 @@ def pngtuber_binding(root: Path, config: dict):
     paths.update(expression_paths)
     expression_vowels,ev_paths=_expression_vowels(root,owned,document.get('expression_vowels'),rig,vowels,public['idle']['width'],public['idle']['height'])
     paths.update(ev_paths)
+    # Preserve raw measured PNG coordinates before face-axis / symmetry / tilt / thickness
+    # geometry adjustments shift target landmarks, so shaders sample the exact lips and teeth
+    # in the cropped PNGs without up-to-14px sampling drift.
+    raw_mouth_uvs = None
+    if rig:
+        raw_vowels = {f['image'][6:]: list(f['target']) for f in rig['features'] if f['kind'] == 'mouth' and f['image'].startswith('vowel_')}
+        raw_expr_mouths = {f['image'][10:]: list(f['target']) for f in rig['features'] if f['kind'] == 'mouth' and f['image'].startswith('exprmouth_')}
+        raw_ev = {n: {v: list(it['target2']) for v, it in items.items()} for n, items in (expression_vowels or {}).items()}
+        if raw_vowels or raw_expr_mouths or raw_ev:
+            raw_mouth_uvs = {'vowels': raw_vowels, 'exprMouths': raw_expr_mouths, 'expressionVowels': raw_ev}
     midline=_face_midline(document.get('face_midline'),public['idle']['width'],public['idle']['height'])
     if midline and not rig:
         raise ValueError('PNGTUBER_FACE_MIDLINE_NEEDS_RIG')
@@ -85,6 +95,7 @@ def pngtuber_binding(root: Path, config: dict):
             rig,expression_vowels=_symmetric_mouths(rig,expression_vowels,public['idle']['width'],public['idle']['height'],line)
             rig,expression_vowels=_level_mouths(rig,expression_vowels,public['idle']['width'],public['idle']['height'],line)
             rig,expression_vowels=_lip_thickness_mouths(rig,expression_vowels,public['idle']['width'],public['idle']['height'])
+        rig,expression_vowels=_rigid_chin_mouths(rig,expression_vowels,public['idle']['width'],public['idle']['height'],line)
 
     upper_lips,upper_lip_paths=_upper_lip_layers(root,owned,document.get('upper_lip_layers'),public['idle']['width'],public['idle']['height'])
     if upper_lips and not expression_vowels:
@@ -111,10 +122,11 @@ def pngtuber_binding(root: Path, config: dict):
     if glance:identity={**identity,"idle_glance":glance}
     if midline:identity={**identity,"face_midline":document['face_midline']}
     if upper_lips:identity={**identity,"upper_lip_layers":upper_lips}
+    if raw_mouth_uvs:identity={**identity,"mouthTextureCoords":raw_mouth_uvs}
     digest=hashlib.sha256(json.dumps(identity,sort_keys=True).encode()).hexdigest()
     return paths,{"type":"pngtuber","name":str(document.get('name','PNG avatar'))[:100],"sha256":digest,"regions":regions,"rig":rig,
         "demo":bool(document.get('demo',False)),"images":public,"vowels":vowels,"expressions":expressions,"motion":motion,"expressionVowels":expression_vowels,"upperLipLayers":upper_lips,"idleGlance":glance,"mouthReach":float(reach),"controls":controls,
-        "faceMidline":face_midline,"blink_artwork_provided":all(key in images for key in ('blink','talking_blink'))}
+        "faceMidline":face_midline,"mouthTextureCoords":raw_mouth_uvs,"blink_artwork_provided":all(key in images for key in ('blink','talking_blink'))}
 
 
 def _ellipse(value,width,height):
@@ -592,6 +604,66 @@ def _lip_thickness_mouths(rig,expression_vowels,width,height):
     if expression_vowels:
         neutral={f['image'][6:]:f for f in features if f['image'].startswith('vowel_')}
         expression_vowels={name:{v:{**item,'target2':_lip_thickness(neutral[v],item['target2'],v,width,height)
+                                     if neutral[v]['rows']==7 else item['target2']}
+                                  for v,item in items.items()} for name,items in expression_vowels.items()}
+    return rig,expression_vowels
+
+
+def _rigid_chin(feature,target,line,width,height):
+    """Keep the chin/jawline (row 5) rigid horizontally and smoothly tapered vertically.
+
+    Expression vowel meshes widened row 5 along with the smiling mouth corners (up to +37.5 px in
+    happy E/A and +26 px in happy O) and dropped the side jaw columns almost flatly with the chin
+    tip, turning the oval V-shaped chin into a wide flat-bottomed trapezoid when opening wide.
+    A real mandible pivots downward along the face midline without expanding sideways, tapering
+    smoothly towards the cheeks."""
+    cols,rows,src=feature['columns'],feature['rows'],feature['source']
+    if rows!=7 or cols<5:return target
+    a,b=line
+    r=5
+    x0,x1=src[2*(r*cols)],src[2*(r*cols+cols-1)]
+    y_mid_src=src[2*(r*cols+cols//2)+1]
+    x_mid=a+b*y_mid_src
+    # Measure chin-tip drop at the midline column.
+    u_mid=_midline_column(src,r,cols,line)
+    if u_mid is None:u_mid=cols/2
+    c0=int(u_mid);frac=u_mid-c0
+    dy_center=(target[2*(r*cols+c0)+1]-src[2*(r*cols+c0)+1])*(1-frac)+(target[2*(r*cols+c0+1)+1]-src[2*(r*cols+c0+1)+1])*frac
+    neck_y=src[2*(6*cols+cols//2)+1]
+    out=list(target)
+    for c in range(1,cols-1):
+        i=2*(r*cols+c);sx,sy=src[i],src[i+1]
+        span=(x_mid-x0) if sx<x_mid else (x1-x_mid)
+        u=min(1.,abs(sx-x_mid)/max(1.,span))
+        # Smooth anatomical jaw-drop arch: 1.0 at chin tip, ~0.72 at jaw sides, 0.0 at fixed borders.
+        taper=math.cos(u*math.pi*.5)**1.35
+        dy=dy_center*taper
+        # Keep chin comfortably below lower lip bottom (row 4) and above fixed neck row (row 6).
+        lip_bot=target[2*(4*cols+c)+1]
+        rest_clear=max(6.,sy-src[2*(4*cols+c)+1])
+        min_y=lip_bot+max(6.,rest_clear*.55)
+        max_y=neck_y-8.
+        ny=min(max_y,max(min_y,sy+dy))
+        actual_dy=ny-sy
+        # Shift horizontally purely along the face midline (zero lateral jaw widening/pinching).
+        nx=sx+b*actual_dy
+        out[i]=round(nx,2);out[i+1]=round(ny,2)
+    for strength in (1.,.75,.5,.25):
+        cand=[round(t+(o-t)*strength,2) if (k//2)//cols==r and 0<(k//2)%cols<cols-1 else t for k,(t,o) in enumerate(zip(target,out))]
+        try:
+            _rig({'version':1,'features':[{**feature,'target':cand}]},width,height);return cand
+        except ValueError:continue
+    return target
+
+
+def _rigid_chin_mouths(rig,expression_vowels,width,height,line):
+    if not rig or not line:return rig,expression_vowels
+    features=[{**f,'target':_rigid_chin(f,f['target'],line,width,height)}
+              if f['kind']=='mouth' and f['rows']==7 and f['columns']>=5 else f for f in rig['features']]
+    rig=_rig({**rig,'features':features},width,height)
+    if expression_vowels:
+        neutral={f['image'][6:]:f for f in features if f['image'].startswith('vowel_')}
+        expression_vowels={name:{v:{**item,'target2':_rigid_chin(neutral[v],item['target2'],line,width,height)
                                      if neutral[v]['rows']==7 else item['target2']}
                                   for v,item in items.items()} for name,items in expression_vowels.items()}
     return rig,expression_vowels

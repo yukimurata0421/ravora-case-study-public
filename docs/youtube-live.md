@@ -18,6 +18,24 @@ cd "$studio"
 
 Open the printed host console URL while the command is running. A redirected terminal writes the URL to `operator.url` in the run directory. The operator token expires on exit. The studio records to `.runtime/youtube-live-*/program.flv`. Offline mode uses synthetic chat and fixed English speech. It needs no provider credentials. The public canvas draws a synthetic face by default. To animate your own registered portrait, pass the same `--config PATH` and `[pngtuber]` manifest as the [conversation console](reproduce.md). Alternatively pass `--scene-dir PATH` with a 1920 by 1080 `neutral.png` and optional `joy.png`, `surprise.png`, `thinking.png` and `concerned.png`.
 
+## Select the HEVC encoder
+
+For NVIDIA hardware with HEVC encoding support, copy the [NVENC example](../examples/studio-nvenc.toml) to your working directory as `studio.toml`, or add its section to your existing microphone and portrait configuration.
+
+```toml
+[youtube_live]
+video_encoder = "hevc_nvenc"
+```
+
+```bash
+.venv/bin/ravora-youtube-live --config studio.toml --check
+.venv/bin/ravora-youtube-live --config studio.toml --mode offline --seconds 30
+```
+
+`--check` validates the configured name. The recording opens the encoder and reports `Video encoder: hevc_nvenc` when it succeeds. The same setting applies to `--publish` and `--auto-broadcast`. A missing driver or encoder stops GPU startup. To run on CPU, set `video_encoder = "libx265"`. Omitting the setting also selects the CPU encoder. Both produce 1080p30 HEVC with AAC audio. The run summary records the encoder actually opened.
+
+The WebGL renderer applies the November 22 mouth and jaw revision to compatible registered portraits. With a portrait loaded, the launcher prints its manifest name and records its binding digest in `summary.json`. The public example can also run with the built-in synthetic face. [Reference render and comparison](audio-timing.md#november-22-mouth-and-jaw)
+
 ## Talk to Ray
 
 In the private working directory, install the four files for the pinned multilingual recognizer. The studio checks their SHA-256 digests at worker startup. Microphone audio is transcribed locally by faster-whisper on CPU using its built-in speech filter. Model download is an explicit preparation step.

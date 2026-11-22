@@ -14,6 +14,73 @@ from ravora.speech import LocalSpeech, plan_mouth
 SAMPLE_RATE = 24000
 HOP = 240
 WORDS = re.compile(r"[a-z]+(?:'[a-z]+)*")
+FUNCTION_WORDS = frozenset({
+    "a", "an", "the", "and", "or", "but", "if", "in", "on", "at", "to", "for",
+    "of", "with", "by", "from", "as", "is", "am", "are", "was", "were", "be",
+    "been", "it", "its", "it's", "that", "this", "i", "i'd", "i'm", "i'll",
+    "you", "we", "they", "he", "she", "me", "my", "your", "our", "of", "so",
+})
+VOWEL_PHONES = frozenset({
+    "aa", "ae", "ah", "ax", "iy", "ih", "uw", "uh", "eh", "ao", "er",
+    "ey", "ay", "aw", "oy", "ow",
+})
+
+
+def enrich_phone_prosody(text, phones, words=None):
+    """Attach lexical stress, pitch accent, and content/function word class to aligned phones.
+
+    Pocketsphinx phone alignment emits bare phone names without stress/accent/gpos, which caused
+    plan_mouth() to give every vowel a flat 0.48 opening regardless of emphasis. Annotate aligned
+    phones from local Flite prosody (falling back to word-class heuristics if unavailable).
+    """
+    prosody = []
+    try:
+        with LocalSpeech() as local:
+            prosody = local.prosody(text)
+    except (RuntimeError, ValueError, OSError):
+        prosody = []
+
+    def norm(name):
+        b = name.lower().rstrip("012")
+        return "ah" if b == "ax" else b
+
+    word_spans = words or []
+    enriched = []
+    pi = 0
+    for ph in phones:
+        entry = dict(ph)
+        base = ph["phone"].lower().rstrip("012")
+        if base in ("sil", "sp", "pau"):
+            enriched.append(entry)
+            continue
+        matched = None
+        # Match aligned phone sequentially against Flite prosody stream (small lookahead window).
+        for look in range(pi, min(len(prosody), pi + 5)):
+            if norm(prosody[look]["phone"]) == norm(base):
+                matched = prosody[look]
+                pi = look + 1
+                break
+        if matched is not None:
+            for key in ("vc", "stress", "accented", "gpos"):
+                if matched.get(key) is not None:
+                    entry[key] = matched[key]
+            # Preserve Flite's schwa distinction ('ax') when Pocketsphinx collapses it to 'ah'.
+            if matched["phone"].rstrip("012") == "ax" and base == "ah":
+                entry["phone"] = "ax"
+        elif base in VOWEL_PHONES:
+            mid = (ph["start"] + ph["end"]) * 0.5
+            word = next((w["word"] for w in word_spans if w["start"] <= mid <= w["end"]), "")
+            entry["vc"] = "+"
+            if word in FUNCTION_WORDS:
+                entry["gpos"] = "aux"
+                entry["stress"] = "0"
+                entry["accented"] = "0"
+            else:
+                entry["gpos"] = "content"
+                entry["stress"] = "1"
+                entry["accented"] = "1" if (ph["end"] - ph["start"]) >= 0.085 else "0"
+        enriched.append(entry)
+    return enriched
 
 
 class PhoneAligner:
@@ -83,7 +150,10 @@ class PhoneAligner:
             except (RuntimeError, ValueError, OSError):
                 return {"status": "phone_alignment_incomplete"}
 
-        plan = plan_mouth(phones, lead=.015, minimum_key=.045)
+        word_list = [{"word": word, "start": start, "end": min(end, length)}
+                     for word, start, end in anchors if 0 <= start < min(end, length)]
+        phones = enrich_phone_prosody(text, phones, word_list)
+        plan = plan_mouth(phones, lead=.035, minimum_key=.045)
         if not plan or not any(p["shape"] != "closed" for p in plan):
             return {"status": "phone_alignment_incomplete"}
         samples = array("h", pcm)
@@ -98,8 +168,7 @@ class PhoneAligner:
             return {"status": "alignment_no_voice"}
         return {
             "status": "aligned", "method": method, "plan": plan,
-            "words": [{"word": word, "start": start, "end": min(end, length)}
-                      for word, start, end in anchors if 0 <= start < min(end, length)],
+            "words": word_list,
             "phones": phones, "frames": len(samples), "hop_frames": HOP, "db": db,
             "reference_db": median(voiced), "elapsed_ms": round((time.monotonic() - started) * 1000, 1),
         }

@@ -39,6 +39,41 @@ def microphone_wav():
 
 @unittest.skipUnless(av, 'youtube-live extra required')
 class LiveTests(unittest.TestCase):
+    def test_encoder_profile_check_and_failed_managed_gpu_start(self):
+        import contextlib
+        import json
+        from ravora import youtube_live as launcher
+
+        with tempfile.TemporaryDirectory() as tmp:
+            root = Path(tmp)
+            example = Path(__file__).resolve().parents[1]/'examples/studio-nvenc.toml'
+            config = root/'studio.toml'
+            with (patch.object(launcher, 'ROOT', root), patch('ravora.live_media.ProgramWriter') as writer,
+                  patch.object(launcher.ChannelAPI, 'connect') as connect):
+                for contents, expected in [('', 'libx265'), (example.read_text(), 'hevc_nvenc')]:
+                    config.write_text(contents)
+                    with (patch.object(sys,'argv',['studio','--config',str(config),'--check']),
+                          contextlib.redirect_stdout(io.StringIO()) as output):
+                        launcher.main()
+                    self.assertEqual(json.loads(output.getvalue())['video_encoder'], expected)
+                writer.assert_not_called()
+                for malformed in ('youtube_live="gpu"', '[youtube_live]\nvideo_encoder="typo"'):
+                    config.write_text(malformed)
+                    with (patch.object(sys,'argv',['studio','--config',str(config),'--check']),
+                          self.assertRaisesRegex(SystemExit,'INVALID_PROGRAM_VIDEO_ENCODER')):
+                        launcher.main()
+                config.write_text(example.read_text())
+                env = root/'.env'
+                env.write_text('RAVORA_API_ENABLED=true\nYOUTUBE_READ_ENABLED=true\nGEMINI_API_KEY=a\nJEV_API_KEY=b\nGOOGLE_TTS_API_KEY=c\n')
+                env.chmod(0o600)
+                writer.side_effect = RuntimeError('GPU unavailable')
+                with (patch.object(sys,'argv',['studio','--env',str(env),'--config',str(config),'--mode','cloud','--auto-broadcast']),
+                      patch.object(launcher.signal,'signal'), contextlib.redirect_stdout(io.StringIO()),
+                      self.assertRaisesRegex(SystemExit,'PROGRAM_ENCODER_OPEN_FAILED .*hevc_nvenc')):
+                    launcher.main()
+                writer.assert_called_once()
+                connect.assert_not_called()
+
     def test_program_voice_uses_conversation_stream_and_playable_pcm(self):
         from ravora.edge_grpc import EdgeClients
         from ravora.live_voice import LiveChirpSpeech

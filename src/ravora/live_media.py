@@ -21,6 +21,12 @@ SILENCE = bytes(SAMPLES * 2)
 DEFAULT_INGEST = 'rtmps://a.rtmps.youtube.com:443/live2'
 
 
+def validate_video_encoder(name):
+    if name not in ('libx265', 'hevc_nvenc'):
+        raise ValueError('INVALID_PROGRAM_VIDEO_ENCODER')
+    return name
+
+
 def publish_target(base, stream_key):
     base = base.rstrip('/')
     if not re.fullmatch(r'rtmps://[ab]\.rtmps\.youtube\.com(?::443)?/live2', base):
@@ -170,24 +176,36 @@ class Scene:
 
 
 class ProgramWriter:
-    def __init__(self, target, scene, *, publish=False):
+    def __init__(self, target, scene, *, publish=False, video_encoder='libx265'):
+        validate_video_encoder(video_encoder)
         self.scene = scene
         self.frames = 0
         options = {'flvflags': 'no_duration_filesize'} if publish else {}
         if publish:
             options.update(tls_verify='1', ca_file=ssl.get_default_verify_paths().cafile, rw_timeout='5000000', rtmp_enhanced_codecs='hvc1')
-        self.output = av.open(str(target), 'w', format='flv', options=options, timeout=(6, 5))
+        self.output = av.open(target, 'w', format='flv', options=options, timeout=(6, 5))
         try:
-            self.video = self.output.add_stream('libx265', rate=FPS)
+            self.video = self.output.add_stream(video_encoder, rate=FPS)
             self.video.width, self.video.height = SIZE
             self.video.pix_fmt = 'yuv420p'
-            self.video.codec_context.thread_count = 3
             self.video.bit_rate = 6_000_000
-            self.video.options = {
-                'preset': 'ultrafast',
-                'x265-params': 'pools=3:frame-threads=3:rc-lookahead=0:qpmin=22:ctu=64:min-cu-size=32:me=dia:merange=8:rd=1:subme=0:max-merge=1:sao=0:deblock=0:keyint=60:min-keyint=60:scenecut=0:bframes=0:'
-                               'vbv-maxrate=6000:vbv-bufsize=12000:strict-cbr=1:colorprim=bt709:transfer=bt709:colormatrix=bt709:repeat-headers=1:log-level=error',
-            }
+            codec = self.video.codec_context
+            if video_encoder == 'hevc_nvenc':
+                codec.gop_size = 2 * FPS
+                codec.max_b_frames = 0
+                codec.color_primaries = codec.color_trc = codec.colorspace = 1  # BT.709
+                self.video.options = {
+                    'preset': 'p4', 'tune': 'll', 'rc': 'cbr', 'cbr_padding': '1',
+                    'maxrate': '6000000', 'bufsize': '12000000', 'rc-lookahead': '0',
+                    'no-scenecut': '1', 'strict_gop': '1', 'zerolatency': '1', 'delay': '0',
+                }
+            else:
+                codec.thread_count = 3
+                self.video.options = {
+                    'preset': 'ultrafast',
+                    'x265-params': 'pools=3:frame-threads=3:rc-lookahead=0:qpmin=22:ctu=64:min-cu-size=32:me=dia:merange=8:rd=1:subme=0:max-merge=1:sao=0:deblock=0:keyint=60:min-keyint=60:scenecut=0:bframes=0:'
+                                   'vbv-maxrate=6000:vbv-bufsize=12000:strict-cbr=1:colorprim=bt709:transfer=bt709:colormatrix=bt709:repeat-headers=1:log-level=error',
+                }
             self.audio = self.output.add_stream('aac', rate=RATE)
             self.audio.layout = 'stereo'
             self.audio.bit_rate = 128000
