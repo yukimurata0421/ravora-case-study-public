@@ -2,11 +2,62 @@
 import datetime as dt
 import hashlib
 import json
+import logging
 import re
+import sqlite3
 import time
 
 from ravora.gemini_memory import source_block_reason
 from ravora.ray_character import TOPICS, TRAITS, owner_hash, topics_in
+from ravora.dialogue_router import HOOKS, mentions_hook
+
+
+def character_source_allowed(text):
+    return bool(text and not source_block_reason(text) and not re.search(
+        r'(?i)\b(private|off[ -]?stream|between us|keep (?:this|it) to yourself)\b|非公開|内緒|配信に出さない', text))
+
+
+def claim_hook(store, scope, viewer, turn, text, preferred=()):
+    """Give ordinary worker commits a short window; skip a busy notebook."""
+    if not character_source_allowed(text):
+        return ''
+    now = time.time()
+    first = preferred[0] if preferred else ''
+    second = preferred[1] if len(preferred) > 1 else ''
+    try:
+        with store.connect() as db:
+            db.execute('PRAGMA busy_timeout=30')
+            row = db.execute("""UPDATE dialogue_hooks SET claimed_turn=?, claim_until=?
+                WHERE rowid=(SELECT h.rowid FROM dialogue_hooks h JOIN source_events s ON s.id=h.source_id
+                    WHERE h.scope=? AND h.owner_hash=? AND h.status='unspoken' AND s.is_deleted=0
+                    AND s.raw_purged_at IS NULL AND s.expires_at>?
+                    AND (h.claimed_turn=? OR h.claim_until IS NULL OR h.claim_until<=? OR NOT EXISTS(
+                        SELECT 1 FROM conversation_turns t WHERE t.turn_id=h.claimed_turn
+                        AND t.status IN ('running','completed') AND t.played=0))
+                    ORDER BY (h.claimed_turn IS ?) DESC,(h.hook=?) DESC,(h.hook=?) DESC,h.created_at,h.rowid LIMIT 1)
+                AND EXISTS(SELECT 1 FROM conversation_turns WHERE turn_id=? AND viewer=? AND status='running')
+                RETURNING hook""", (turn, now+300, scope, owner_hash(scope,viewer), now, turn, now, turn,
+                                    first, second, turn, scope+':'+viewer)).fetchone()
+        return row[0] if row and row[0] in HOOKS else ''
+    except (sqlite3.Error, OSError):
+        logging.getLogger(__name__).info('dialogue_hook_lookup_unavailable')
+        return ''
+
+
+def played_hooks(db, turn, source, scope, viewer, text, reply, hooks, now):
+    """Part of the existing first-playback transaction. Store only curated subjects."""
+    row = db.execute('SELECT hook FROM dialogue_hooks WHERE claimed_turn=?', (turn,)).fetchone()
+    if row:
+        status = 'used' if mentions_hook(reply, row[0]) else 'unspoken'
+        db.execute('UPDATE dialogue_hooks SET status=?,claimed_turn=NULL,claim_until=NULL WHERE claimed_turn=?', (status, turn))
+    if not source or not hooks or not character_source_allowed(text):
+        return
+    owner = owner_hash(scope, viewer)
+    for hook in hooks[:2]:
+        if hook in HOOKS and not mentions_hook(reply, hook):
+            db.execute("""INSERT OR IGNORE INTO dialogue_hooks(scope,owner_hash,hook,source_id,created_at)
+                SELECT ?,?,?,id,? FROM source_events WHERE id=? AND viewer_key=? AND platform!='ray-initiative'
+                AND is_deleted=0 AND raw_purged_at IS NULL AND expires_at>?""", (scope,owner,hook,now,source,viewer,now))
 
 
 class CharacterMemory:
@@ -37,9 +88,7 @@ class CharacterMemory:
                 WHERE t.turn_id=? AND t.played=1 AND t.status='completed' AND s.is_deleted=0
                     AND s.raw_purged_at IS NULL AND s.expires_at>? AND t.viewer=?||':'||s.viewer_key""",
                              (turn_id, now, self.scope)).fetchone()
-            def eligible(text):
-                return not source_block_reason(text) and not re.search(r'(?i)\b(private|off[ -]?stream|between us|keep (?:this|it) to yourself)\b|非公開|内緒|配信に出さない',text)
-            if not row or row[4] == 'ray-initiative' or not eligible(row[2]): return 0
+            if not row or row[4] == 'ray-initiative' or not character_source_allowed(row[2]): return 0
             event, viewer, text, reply, _ = row
             topics = topics_in(text)
             if not topics: return 0
@@ -49,7 +98,7 @@ class CharacterMemory:
                     AND s.raw_purged_at IS NULL AND s.expires_at>? ORDER BY t.created_at DESC LIMIT 24""",
                                   (self.scope + ':' + viewer, now)).fetchall()
             for topic in topics[:2]:
-                repeated = sum(topic in topics_in(p[0]) and eligible(p[0]) for p in previous) >= 3
+                repeated = sum(topic in topics_in(p[0]) and character_source_allowed(p[0]) for p in previous) >= 3
                 future = (re.search(r'(?i)\b(later|next time|another time)\b|今度|後で|次回', text)
                           and re.search(r'(?i)\b(later|next time|remember|continue)\b|今度|後で|続き', reply))
                 preference = (re.search(r'(?i)\b(do you (?:like|prefer)|your (?:favorite|opinion))\b|どっちが好き|好み', text)
@@ -94,6 +143,7 @@ class CharacterMemory:
         # Tombstones retain provenance and block replay-based resurrection.
         with self.store.connect() as db:
             db.execute("UPDATE character_memories SET status='deleted' WHERE scope=?", (self.scope,))
+            db.execute('DELETE FROM dialogue_hooks WHERE scope=?', (self.scope,))
 
     def set_preference(self, topic, strength, *, kind='preference'):
         if topic not in TOPICS or kind not in ('preference','value','interest') or type(strength) not in (int,float) or not 0<=strength<=1:

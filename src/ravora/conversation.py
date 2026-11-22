@@ -1,12 +1,14 @@
 """Sentence-at-a-time speech controller, bounded queues, and local SQLite memory."""
 import datetime as dt
 import json
+import logging
 from pathlib import Path
 import queue
 import re
 import threading
 import time
 import uuid
+import sqlite3
 
 from ravora.speech import utterance_word_starts
 from ravora.providers import ProviderError, GeminiText, JevReaction, adapters
@@ -20,6 +22,8 @@ from ravora.persona import JAPANESE_QUESTION_WINDOW, asked_listener_in_japanese,
 from ravora.relationships import Relationships,relationship_text
 from ravora.semantic_memory import SemanticMemory, speech_background
 from ravora.ray_character import CharacterRuntime,CharacterError,PublicDecoder,PublicOutput
+from ravora.dialogue_router import DialogueRoute
+from ravora.ray_memory import claim_hook, played_hooks
 
 
 class SentenceBuffer:
@@ -117,12 +121,22 @@ class MemoryStore(Relationships,ConversationContext,SemanticMemory,MemoryReposit
             metrics=? WHERE id=?""",(reply,status,status,status,time.time(),status,json.dumps(metrics),turn_id))
 
     def played(self,turn_id,*,scope='offline',memory_enabled=True,memory_ttl_days=30,memory_capacity=16,
-               memory_policy=None,memory_model=None,memory_min_confidence=.7,relationship_enabled=True,developer_id=None):
+               memory_policy=None,memory_model=None,memory_min_confidence=.7,relationship_enabled=True,developer_id=None,
+               unspoken_hooks=None):
         now=time.time()
         with self.connect() as db:
             db.execute('BEGIN IMMEDIATE')
-            row=db.execute("UPDATE conversation_turns SET played=1,state='COMPLETED',closed_at=COALESCE(closed_at,?) WHERE id=? AND status='completed' AND played=0 RETURNING source_event_id,viewer,comment",(now,turn_id)).fetchone()
+            row=db.execute("UPDATE conversation_turns SET played=1,state='COMPLETED',closed_at=COALESCE(closed_at,?) WHERE id=? AND status='completed' AND played=0 RETURNING source_event_id,viewer,comment,reply",(now,turn_id)).fetchone()
             if row:
+                if unspoken_hooks is not None:
+                    db.execute('SAVEPOINT played_dialogue_hooks')
+                    try:
+                        played_hooks(db,turn_id,row[0],scope,row[1].partition(':')[2],row[2],row[3],unspoken_hooks,now)
+                    except sqlite3.Error:
+                        db.execute('ROLLBACK TO played_dialogue_hooks')
+                        logging.getLogger(__name__).warning('dialogue_hook_save_unavailable')
+                    finally:
+                        db.execute('RELEASE played_dialogue_hooks')
                 source=db.execute('SELECT platform FROM source_events WHERE id=?',(row[0],)).fetchone()
                 if source and source[0]=='ray-initiative':memory_enabled=False;relationship_enabled=False
                 if relationship_enabled:self.record_relationship_played(db,turn_id,scope,now)
@@ -313,17 +327,21 @@ class SpeechController:
         memory_viewer=self.s.mode+':'+viewer
         developer_speaker=self.store.start(turn_id,memory_viewer,comment,developer_id=self.s.developer_id)
         if self.character:self.memory_worker.wake()
+        history=self.store.history(memory_viewer,self.s.memory_turns,turn_id=turn_id)
+        recent_for_route = history if self.s.memory_turns >= 4 or not self.character else self.store.history(memory_viewer,4,turn_id=turn_id)
+        route = self.character.route(character_epoch, comment, recent_for_route,
+                                     initiative=initiative) if self.character else DialogueRoute()
+        rag = route.allow_retrieval(metrics)
         memory_wait=self.clock()
-        semantic_enabled=self.s.memory_enabled and self.s.semantic_memory_mode!='off'
+        semantic_enabled=rag and self.s.memory_enabled and self.s.semantic_memory_mode!='off'
         if semantic_enabled:self.memory_worker.wake()
-        if not semantic_enabled and not self.memory_worker.wait_for(viewer,cancel=cancel):
+        if rag and not semantic_enabled and not self.memory_worker.wait_for(viewer,cancel=cancel):
             metrics['total_ms']=round((self.clock()-start)*1000,2)
             self.store.finish(turn_id,'','failed',metrics)
             if not cancel.is_set():emit({'kind':'error','status':'failed','code':'MEMORY_WORKER_NOT_READY','metrics':metrics})
             return metrics
         metrics['memory_wait_ms']=round((self.clock()-memory_wait)*1000,2)
-        history=self.store.history(memory_viewer,self.s.memory_turns,turn_id=turn_id)
-        memories,strategy=self.store.conversation_memories(viewer,comment,self.s)
+        memories,strategy=self.store.conversation_memories(viewer,comment,self.s) if rag else ([], 'dialogue_gate')
         candidates=self.store.episode_candidates(viewer,comment,scope=self.s.mode,
             limit=self.s.semantic_candidate_limit,max_chars=self.s.semantic_max_chars) if semantic_enabled else []
         semantic_done=threading.Event();semantic_result={};generation_decision={}
@@ -333,8 +351,8 @@ class SpeechController:
             nonlocal generation_history
             # Refresh before dispatch: a removed source cannot survive in the
             # adapter's context from an earlier turn.
-            notes,method=self.store.conversation_memories(viewer,comment,self.s,judgment=generation_decision.get('value'))
-            if developer_speaker and isinstance(self.text,GeminiText):
+            notes,method=self.store.conversation_memories(viewer,comment,self.s,judgment=generation_decision.get('value')) if rag else ([], 'dialogue_gate')
+            if rag and developer_speaker and isinstance(self.text,GeminiText):
                 notes+=self.store.developer_banter_memory(viewer,self.s)
             if isinstance(self.text,GeminiText):
                 self.text.set_retrieval_strategy(method,reaction=generation_decision.get('reaction'))
@@ -345,7 +363,7 @@ class SpeechController:
             if semantic_enabled:
                 self.store.record_semantic_retrieval(turn_id,comment,candidates,generation_decision.get('value'),used=generation_decision.get('value') is not None)
             context=self.store.recall_context(viewer,comment,scope=self.s.mode,developer_id=self.s.developer_id,
-                limit=self.s.context_max_items,max_chars=self.s.context_max_chars,turn_id=turn_id) if self.s.memory_enabled and self.s.context_enabled else []
+                limit=self.s.context_max_items,max_chars=self.s.context_max_chars,turn_id=turn_id) if rag and self.s.memory_enabled and self.s.context_enabled else []
             pace_questions=self.s.language=='ja-JP' and not initiative
             recent=self.store.history(memory_viewer,self.s.memory_turns,turn_id=turn_id)
             if pace_questions:
@@ -368,9 +386,11 @@ class SpeechController:
             metrics['memory_ids']=[m['memory_id'] for m in notes];metrics['memory_context_prepared']=supported
             metrics['memory_strategy']=method
             character_begin=time.monotonic()
-            memories=self.memory_worker.character_memories(viewer) if self.character else ()
+            memories=self.memory_worker.character_memories(viewer) if self.character and rag else ()
             if not current():raise ProviderError('TURN_CANCELLED')
-            plan=self.character.plan(comment,memories,background,initiative=initiative,epoch=character_epoch) if self.character else None
+            hook=claim_hook(self.store,self.s.mode,viewer,turn_id,comment,route.unspoken_hooks) if route.dialogue_policy=='SHIFT_TO_HOOK' else ''
+            plan=self.character.plan(comment,memories,background,initiative=initiative,epoch=character_epoch,
+                                     host_speaking=live_host or developer_speaker,hook=hook) if self.character else None
             if hasattr(self.text,'set_character_plan'):self.text.set_character_plan(plan)
             generation_decision['character_plan']=plan
             self.memory_worker.character_referenced(memories)
@@ -612,7 +632,8 @@ class ConversationBridge:
             accepted=self.controller.store.played(token['turn_id'],scope=s.mode,memory_enabled=s.memory_enabled,
                 memory_ttl_days=s.memory_ttl_days,memory_capacity=s.memory_queue_size,
                 memory_policy=self.controller.memory_worker.policy,memory_model=self.controller.memory_worker.model,
-                memory_min_confidence=s.memory_min_confidence,relationship_enabled=s.memory_enabled and s.relationship_enabled,developer_id=s.developer_id)
+                memory_min_confidence=s.memory_min_confidence,relationship_enabled=s.memory_enabled and s.relationship_enabled,developer_id=s.developer_id,
+                unspoken_hooks=self.controller.character.hooks_for(token['turn_id']) if self.controller.character else None)
             if accepted and s.memory_enabled and self.controller.store.memory_pending(self.viewer,s.mode):
                 self.controller.memory_worker.wake()
             if accepted and self.controller.character:

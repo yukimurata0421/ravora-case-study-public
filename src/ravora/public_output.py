@@ -26,6 +26,7 @@ class PublicOutput:
         if (not isinstance(speech, str) or not speech.strip() or len(speech) > limit
                 or any(ord(c) < 32 for c in speech) or any(c in speech for c in '{}[]`')
                 or re.search(r'(?i)(inner[_ -]?state|private[_ -]?thought|system[_ -]?prompt|public_output|'
+                             r'topic_saturation|need_knowledge_rag|dialogue_policy|unspoken_hooks?|'
                              r'\bdesire\s*:|\bconflict\s*:|(?:内面状態|内心|欲求|葛藤|システムプロンプト)\s*[:：]|'
                              r'-----BEGIN|api[_ -]?key\s*[:=]|bearer\s+)', speech)):
             raise CharacterError('PUBLIC_SPEECH_REJECTED')

@@ -1,7 +1,7 @@
 {
   "status": "PASS_CASE_STUDY_REPLAY",
   "synthetic_data": true,
-  "schema_version": 14,
+  "schema_version": 16,
   "tier_order": [
     1,
     1,
@@ -15,7 +15,7 @@
   "sharing_revocation_verified": true,
   "pcm_before_text_complete": true,
   "stale_audio_fenced_after_cancel": true,
-  "context_rows_prepared": 18,
+  "context_rows_prepared": 7,
   "external_api_calls": 0,
   "playback_acknowledgement": "simulated",
   "physical_audio_or_avatar_verified": false,

@@ -42,6 +42,33 @@ server ignores audio starts and microphone frames. Unmuting in hands-free mode
 rearms capture when the console is idle. The tab remembers mute across reloads.
 Audio received before mute follows the normal [evaluation retention policy](voice-evaluation.md).
 
+## Topic changes and recall
+
+Ray can offer a brief impression of a co-host's news or take the first step in
+a challenge. The live studio and streaming console use the same local dialogue
+router. It considers the speaker's current words and acknowledged turns from
+the same session. A direct question or request to continue keeps the conversation
+on its subject. A backchannel can give Ray room to introduce a related idea.
+
+Each immediately preceding exchange on the same subject adds 0.35 to the
+saturation score, up to 1.0. At 0.70 the router skips knowledge retrieval.
+For example, after two exchanges about jazz, another observation about rhythm
+can lead to footsteps on different surfaces. A question about jazz chords
+still gets a direct answer using the current conversation. The router can
+also skip retrieval during a listening turn or when Ray volunteers an interest.
+The turn metric `knowledge_rag` records `allowed`, `skipped_saturation`, or
+`skipped_dialogue_policy`. Routing adds no model request.
+
+Schema 15 adds optimism and a willingness to try challenges to Ray's profile.
+Schema 16 keeps up to two new, curated topic suggestions per acknowledged turn.
+Each suggestion belongs to one speaker and scope and is linked to its source.
+A turn can reserve one suggestion. It becomes used after acknowledged playback
+when the spoken reply contains a recognized English or Japanese expression for
+that subject. Cancellation or an unrecognized paraphrase leaves it available.
+Source removal, source expiry cleanup and character-memory reset remove the
+associated suggestions. Momentary feelings and unselected suggestions stay out of
+the speech prompt. [Router](../src/ravora/dialogue_router.py) · [Playback and routing tests](../tests/test_dialogue_router.py)
+
 ## From a pause to the next turn
 
 The input controller uses provisional transcripts and speech-activity events.

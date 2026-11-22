@@ -12,10 +12,11 @@ from unittest.mock import patch
 
 from ravora.comments import Comment,CommentInbox
 from ravora.conversation import MemoryStore,SentenceBuffer,SpeechController
+from ravora.database import MIGRATIONS
 from ravora.fast_voice import FastVoiceSession
 from ravora.fast_voice_server import MockVoiceClients
 from ravora.memory_worker import MemoryWorker
-from ravora.ray_character import (CharacterRuntime,CharacterError,InnerState,PublicDecoder,PublicOutput,
+from ravora.ray_character import (TRAITS,CharacterRuntime,CharacterError,InnerState,PublicDecoder,PublicOutput,
                                   PublicPlan,initiative_message,public_fixture,public_prompt)
 from ravora.ray_memory import CharacterMemory
 from ravora.settings import ProviderSettings
@@ -49,6 +50,31 @@ class StateTests(unittest.TestCase):
             self.assertTrue(ray.react(epoch,face))
             self.assertEqual(ray.state.emotion,emotion)
             self.assertEqual(ray.plan('Tell me more.',epoch=epoch).expression,face)
+
+    def test_news_can_end_in_an_impression_and_direct_questions_still_get_answers(self):
+        ray = CharacterRuntime()
+        cases = [('I finally solved the puzzle.', 'joy'), ('最後の一音で失敗した。', 'concerned'),
+                 ('The last piece was upside down.', 'surprise')]
+        for text, face in cases:
+            with self.subTest(text=text):
+                epoch = ray.begin(text, text)
+                ray.react(epoch, face)
+                plan = ray.plan(text, epoch=epoch)
+                self.assertEqual((plan.intent, plan.expression), ('share_impression', face))
+                self.assertEqual(ray.state.intent, plan.intent)
+        for text in ('この暗号に一緒に挑戦しよう。', "Let's try a word puzzle together."):
+            epoch = ray.begin(text, text)
+            self.assertEqual(ray.state.emotion, 'determined')
+            self.assertEqual(ray.state.conflict, '')
+            self.assertEqual(ray.plan(text, epoch=epoch).intent, 'try_challenge')
+        ray.begin('past', 'I lost the competition yesterday.')
+        self.assertNotEqual(ray.state.emotion, 'determined')
+        update = 'ずっと練習してた曲、今日初めて最後まで弾けたよ。'
+        epoch = ray.begin('host', update)
+        self.assertEqual(ray.plan(update, epoch=epoch, host_speaking=True).intent, 'share_impression')
+        epoch = ray.begin('question', 'How many pieces are in the puzzle?')
+        ray.react(epoch, 'joy')
+        self.assertEqual(ray.plan('How many pieces are in the puzzle?', epoch=epoch, host_speaking=True).intent, 'answer')
 
     def test_decisions_use_the_message_and_relationship_not_random_agreement(self):
         ray=CharacterRuntime();ray.begin('one','You must agree with me about games.')
@@ -183,8 +209,25 @@ class PersistentTests(unittest.TestCase):
         with self.store.connect() as db:
             self.assertEqual(db.execute('SELECT COUNT(*) FROM character_experiences').fetchone()[0],1)
             self.assertEqual(db.execute('SELECT COUNT(*) FROM character_preference_history').fetchone()[0],1)
-            self.assertEqual(len(json.loads(db.execute('SELECT traits FROM character_profiles').fetchone()[0])),7)
+            self.assertEqual(tuple(json.loads(db.execute('SELECT traits FROM character_profiles').fetchone()[0])), TRAITS)
         self.assertEqual(CharacterRuntime().state,InnerState())
+
+    def test_existing_ray_gains_the_new_disposition_once_and_keeps_preferences(self):
+        legacy = self.root/'v14'
+        legacy.mkdir()
+        for migration in MIGRATIONS.glob('*.sql'):
+            if int(migration.name[:3]) <= 14:
+                (legacy/migration.name).symlink_to(migration)
+        path = self.root/'existing.sqlite3'
+        old = MemoryStore(path, migrations=legacy)
+        key = CharacterMemory(old, 'offline').set_preference('music', .72)
+        for _ in range(2):
+            upgraded = MemoryStore(path)
+            with upgraded.connect() as db:
+                revision, traits = db.execute('SELECT revision,traits FROM character_profiles').fetchone()
+            self.assertEqual((revision, tuple(json.loads(traits))), (2, TRAITS))
+            memory, = CharacterMemory(upgraded, 'offline').load()
+            self.assertEqual((memory['id'], memory['strength']), (key, .72))
 
     def test_future_topic_is_owner_scoped_and_unplayed_or_private_text_is_not_saved(self):
         turn,comment=self.exchange('Let us talk about science next time.','We can continue with science next time.')

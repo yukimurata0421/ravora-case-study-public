@@ -6,7 +6,7 @@ extracted source files with hashes. Generated case-study files are also listed.
 
 Included:
 
-- source-backed SQLite memory and its fourteen schema migrations;
+- source-backed SQLite memory and its sixteen schema migrations;
 - three-tier retrieval, explicit summary sharing, and revocation;
 - deterministic viewer contact state, daily caps, and qualitative request background;
 - streaming orchestration, input ledgers, and session-bound playback fences;
@@ -85,3 +85,5 @@ playback onset, and independent microphone mute. The installed console exercises
 the handoff with synthetic inputs. [Conversation controls](../docs/conversation-controls.md#listening-speaking-and-muting) · [Previous voice evaluation validation](history/2026-11-21-voice-evaluation-validation.json)
 
 The [live studio guide](../docs/youtube-live.md) covers channel authorization, chat streaming, microphone mixing and bilingual playout. The package ships the character runtime, a local STT adapter and a model digest manifest. Operators supply their own weights, credentials and optional avatar artwork. [Previous validation](history/2026-11-21-listener-and-mute-validation.json)
+
+The dialogue router adds topic saturation, per-turn retrieval control and source-linked topic suggestions. The installed package contains the two migrations and synthetic tests. [Routing behavior](../docs/conversation-controls.md#topic-changes-and-recall) · [Previous live studio validation](history/2026-11-22-live-studio-validation.json)

@@ -1,16 +1,19 @@
 """Ray's bounded fictional state and the only permitted public output boundary."""
 from collections import deque
-from dataclasses import dataclass
+from dataclasses import dataclass, replace
 import re
 import threading
 import time
 
+from ravora.dialogue_router import DIRECTIONS, HOOKS, DialogueRoute, is_backchannel, route_turn
 from ravora.public_output import (CharacterError, EXPRESSIONS, MOTIONS, PUBLIC_PROTOCOL,
                                   PublicOutput, decode_reply, public_fixture)
 
 
 TRAITS = ('curiosity', 'independent_opinion', 'friendly_competition', 'admits_mistakes',
-          'initiative', 'learns_from_relationships', 'knows_it_is_ai')
+          'initiative', 'learns_from_relationships', 'knows_it_is_ai', 'embraces_challenges', 'optimism')
+CHALLENGE_OUTLOOK = ('Ray enjoys trying unfamiliar things and sees room to learn even when success is uncertain. '
+                     'She shares in a win and takes disappointment seriously.')
 TOPICS = {
     'music': ('music', 'jazz', 'piano', '音楽', 'ピアノ'),
     'games': ('game', 'gaming', 'competition', 'ゲーム', '勝負'),
@@ -22,7 +25,8 @@ TOPICS = {
     'honesty': ('honest', 'truth', '正直', '誠実'),
     'fairness': ('fair', 'fairness', '公平', '対等'),
 }
-INTENTS = frozenset(('answer', 'state_opinion', 'disagree', 'ask_question', 'share_interest', 'resume_topic', 'change_topic', 'wait'))
+INTENTS = frozenset(('answer', 'state_opinion', 'disagree', 'ask_question', 'share_impression', 'try_challenge',
+                     'share_interest', 'resume_topic', 'change_topic', 'wait'))
 PUBLIC_OUTPUT_SCHEMA = {
     'type': 'object', 'additionalProperties': False, 'required': ['public_output'],
     'properties': {'public_output': {
@@ -57,7 +61,7 @@ def owner_hash(scope, viewer):
 
 
 @dataclass(frozen=True, slots=True, repr=False)
-class InnerState:
+class InnerState(DialogueRoute):
     emotion: str = 'curious'
     intensity: float = .35
     desire: str = 'understand_the_speaker'
@@ -74,15 +78,22 @@ class PublicPlan:
     familiarity: str = 'unknown'
     preferences: tuple = ()
     motion: str = 'none'
+    dialogue_policy: str = 'DEEP_DIVE'
+    hook: str = ''
 
     def instruction(self):
         # This projection is intentionally constructed, never asdict(InnerState).
         behavior = {
-            'answer': ('For a shared observation, take one detail a step further: say what you personally want to figure out or try. '
+            'answer': ('When the speaker shares news, volunteer your own brief impression of what happened. '
                        'For a factual question, correction or personal difficulty, address it directly and stop.'),
             'state_opinion': 'Offer your own modest, reasoned preference; do not simply mirror the speaker.',
             'disagree': 'Respectfully explain a different view without inventing facts or attacking the speaker.',
-            'ask_question': 'Give your own angle on the detail that caught your attention. Ask a focused question if the speaker holds the missing piece.',
+            'ask_question': 'Give your own reaction to the detail that caught your attention. Ask only if a missing detail matters.',
+            'share_impression': ('If this is news, respond with a short statement of how it strikes you, and end there. '
+                                 'An exclamation can stand alone. With a setback, acknowledge what was hard. '
+                                 'If asked a question or given a task instead, answer or do it directly.'),
+            'try_challenge': ('If the invitation appeals to you, take a first step you can actually carry out here. '
+                              'For anything beyond this conversation, say what you would try.'),
             'share_interest': 'Pick one specific thing you would like to understand, compare or try. Say what pulls you toward it in your own words. A statement is enough.',
             'resume_topic': 'Revisit one detail of the unfinished public topic you would like to explore. Leave the speaker free to move on.',
             'change_topic': 'Choose a fresh subject yourself and open with the particular thing about it you find intriguing.',
@@ -90,12 +101,14 @@ class PublicPlan:
         }[self.intent]
         preferences = ', '.join(f'{topic}: interest {strength:.2f}' for topic, strength in self.preferences[:4])
         return ('\nRay character direction: You are an AI character who is curious about human thought and feelings. '
-                'Be curious, independent, a little competitive, and willing to admit errors. '
+                'Be curious, independent, a little competitive, and willing to admit errors. ' + CHALLENGE_OUTLOOK + ' '
                 'When there is room in the exchange, volunteer what catches your attention, even before anyone asks. '
                 'Any subject can spark a new curiosity. Build on a concrete detail, and treat it as a present interest unless your history supports more. '
                 'Vary how you express it; a simple answer or a listening turn can stand on its own. '
                 'Do not pretend to have human consciousness or hidden access. '
-                + behavior + (' Public topic: ' + self.topic + '.' if self.topic else '')
+                + behavior + ' ' + DIRECTIONS[self.dialogue_policy]
+                + (' Bring up this idea in the conversation language: ' + self.hook + '.' if self.hook in HOOKS else '')
+                + (' Public topic: ' + self.topic + '.' if self.topic else '')
                 + (' Public character interests: ' + preferences + '.' if preferences else '')
                 + (' Familiarity from acknowledged contact: ' + self.familiarity + '.' if self.familiarity != 'unknown' else '')
                 + ' Suggested visible expression: ' + self.expression + '; motion: ' + self.motion + '.')
@@ -173,7 +186,9 @@ class CharacterRuntime:
                 emotion, desire, conflict, hint = 'pleased', 'acknowledge_warmly', 'pleased_but_reserved', 'joy'
             elif re.search(r'\b(wrong|mistake|incorrect|correction)\b|間違|訂正', lower):
                 emotion, desire, hint = 'reflective', 'correct_the_mistake', 'thinking'
-            elif re.search(r'\b(win|challenge|beat|competition)\b|勝負|負け', lower):
+            elif re.search(r"\b(let['’]s try|up for a challenge)\b|一緒に挑戦|挑戦してみよう|挑戦しよう|やってみよう", lower):
+                emotion, desire = 'determined', 'try_a_new_approach'
+            elif re.search(r"\b(challenge you|race me|can you beat me|let['’]s compete)\b|勝負しよう|対戦しよう", lower):
                 emotion, desire, conflict = 'determined', 'try_fairly', 'competitive_but_fair'
             self.state = InnerState(emotion, intensity, desire, conflict, 'answer', hint)
             self.counts['state_updates'] += 1
@@ -184,12 +199,26 @@ class CharacterRuntime:
             if epoch != self.epoch or reaction not in EXPRESSIONS: return False
             old = self.state
             emotions = {'joy': 'pleased', 'surprise': 'curious', 'concerned': 'concerned', 'thinking': 'reflective'}
-            self.state = InnerState(emotions.get(reaction, old.emotion),
-                                    min(.85, old.intensity + .05), old.desire, old.conflict, old.intent, reaction)
+            self.state = replace(old, emotion=emotions.get(reaction, old.emotion),
+                                 intensity=min(.85, old.intensity + .05), expression_hint=reaction)
             self.counts['state_updates'] += 1
             return True
 
-    def plan(self, text, memories=(), relationship=None, *, initiative=False, epoch=None):
+    def route(self, epoch, text, history, *, initiative=False):
+        route = DialogueRoute.from_payload(route_turn(text, history, topics_in, initiative=initiative))
+        with self.lock:
+            if epoch != self.epoch:raise CharacterError('CHARACTER_STALE_EVENT')
+            self.state = replace(self.state, topic_saturation=route.topic_saturation, need_knowledge_rag=route.need_knowledge_rag,
+                                 dialogue_policy=route.dialogue_policy, unspoken_hooks=route.unspoken_hooks)
+        return route
+
+    def hooks_for(self, event):
+        with self.lock:
+            if self.event == event and (self.state.unspoken_hooks or self.state.dialogue_policy == 'SHIFT_TO_HOOK'):
+                return self.state.unspoken_hooks
+            return None
+
+    def plan(self, text, memories=(), relationship=None, *, initiative=False, epoch=None, host_speaking=False, hook=''):
         with self.lock:
             if epoch is not None and epoch!=self.epoch:raise CharacterError('CHARACTER_STALE_EVENT')
             lower = text.casefold(); topics = topics_in(text)
@@ -206,7 +235,12 @@ class CharacterRuntime:
                 intent = 'share_interest'
             elif goals and re.search(r'\b(last time|continue|pick up|remember)\b|続き|この前', lower): intent = 'resume_topic'
             elif not re.search(r'[?？]',text) and not re.search(r'\b(thank|sorry|yes|okay|sad|tired|exhausted)\b|ありがとう|疲れ', lower):
-                if topics and self.state.emotion == 'curious':
+                if self.state.desire in ('try_a_new_approach', 'try_fairly') and self.state.emotion != 'concerned':
+                    intent = 'try_challenge'
+                elif (host_speaking and self.state.desire != 'correct_the_mistake'
+                      or self.state.emotion in ('pleased', 'concerned') or self.state.expression_hint == 'surprise'):
+                    intent = 'share_impression'
+                elif topics and self.state.emotion == 'curious':
                     intent = 'share_interest' if any(topic in topics for topic, _ in preferences) else 'ask_question'
             familiar = 'unknown'
             if isinstance(relationship, dict):
@@ -216,10 +250,22 @@ class CharacterRuntime:
             topic = topics[0] if topics else ''
             if intent == 'resume_topic' and topic not in goals: topic = goals[0]
             old = self.state
-            self.state = InnerState(old.emotion, old.intensity, old.desire, old.conflict, intent, old.expression_hint)
+            policy = old.dialogue_policy
+            if policy == 'SHIFT_TO_HOOK':
+                # An empty notebook should not force a subject change on an ordinary acknowledgment.
+                if hook not in HOOKS and old.topic_saturation < .7 and is_backchannel(text):
+                    policy = 'EMPATHY'
+                else:
+                    intent, topic, preferences = 'change_topic', '', ()
+            if policy == 'EMPATHY':
+                intent = 'share_impression'
+            elif policy == 'SELF_DISCLOSURE' and intent != 'resume_topic':
+                intent = 'share_interest'
+            self.state = replace(old, intent=intent)
             self.counts['memory_references'] += len(preferences) + len(goals)
             return PublicPlan(intent, old.expression_hint, topic, familiar, preferences,
-                              'look_away' if old.emotion == 'pleased' else 'nod' if old.emotion == 'reflective' else 'none')
+                              'look_away' if old.emotion == 'pleased' else 'nod' if old.emotion == 'reflective' else 'none',
+                              policy, hook if policy == 'SHIFT_TO_HOOK' and hook in HOOKS else '')
 
     def cancel(self):
         with self.lock: self.epoch += 1; self.event = None; self.state = InnerState(); self.last_activity = self.clock()

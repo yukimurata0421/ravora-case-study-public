@@ -27,6 +27,8 @@ from ravora.settings import CONVERSATION_LANGUAGES, streaming_voice
 from ravora.semantic_memory import load_speech_background
 from ravora.conversation import SentenceBuffer
 from ravora.ray_character import CharacterError,CharacterRuntime,PublicDecoder,PublicOutput,initiative_message,public_prompt
+from ravora.dialogue_router import DialogueRoute
+from ravora.ray_memory import claim_hook
 
 
 def error_code(exc):
@@ -458,7 +460,12 @@ class FastVoiceSession:
             if self.early is None:self.early=self.make_reactions(key,input_id)
             self.early.bind(turn)
             await self.send({'kind':'turn','input_id':input_id,'token':token,'text':text})
-            semantic_enabled=self.s.memory_enabled and self.s.semantic_memory_mode!='off'
+            route = DialogueRoute()
+            if self.character:
+                route_history = await asyncio.to_thread(self.store.history,self.s.mode+':'+viewer,4,turn_id=turn)
+                route = self.character.route(self.character_epoch,text,route_history,initiative=self.initiative)
+            rag = route.allow_retrieval(metrics)
+            semantic_enabled=rag and self.s.memory_enabled and self.s.semantic_memory_mode!='off'
             if semantic_enabled:
                 # Extraction remains asynchronous; this path never blocks speech on a remote job.
                 self.memory.wake()
@@ -471,7 +478,7 @@ class FastVoiceSession:
                 if self.s.semantic_memory_mode=='jev':self.early.candidates=candidates
                 self.early.previous_message=self.store.semantic_previous_message(viewer,scope=self.s.mode,turn_id=turn) if candidates else ''
             self.early.finalize(text)
-            if not semantic_enabled:
+            if rag and not semantic_enabled:
                 ready=await asyncio.to_thread(self.memory.wait_for,viewer,cancel=self.cancelled)
                 if not ready:raise EdgeError('MEMORY_WORKER_NOT_READY')
             decision_deadline=time.monotonic()+self.s.semantic_wait_ms/1000
@@ -507,15 +514,15 @@ class FastVoiceSession:
                     arrived=self.early.semantic_ready_at
                     semantic_decision=self.early.semantic if arrived is not None and arrived<=decision_deadline else None
                     call=prepare('gemini','stream_generate',self.s.gemini_model)
-                    notes,strategy=self.store.conversation_memories(viewer,text,self.s,judgment=semantic_decision)
-                    if developer_speaker:notes+=self.store.developer_banter_memory(viewer,self.s)
+                    notes,strategy=self.store.conversation_memories(viewer,text,self.s,judgment=semantic_decision) if rag else ([], 'dialogue_gate')
+                    if rag and developer_speaker:notes+=self.store.developer_banter_memory(viewer,self.s)
                     metrics['memory_strategy']=strategy
                     if semantic_enabled:
                         self.store.record_semantic_retrieval(turn,text,candidates,semantic_decision,used=semantic_decision is not None)
                     self.store.record_retrievals(turn,notes,context_prepared=True,strategy=strategy,call_id=call)
                     metrics['memory_ids']=[x['memory_id'] for x in notes]
                     def read_context():
-                        if not (self.s.memory_enabled and self.s.context_enabled):return []
+                        if not (rag and self.s.memory_enabled and self.s.context_enabled):return []
                         return self.store.recall_context(viewer,text,scope=self.s.mode,developer_id=self.s.developer_id,
                             limit=self.s.context_max_items,max_chars=self.s.context_max_chars,turn_id=turn)
                     history,context=load_speech_background(self.s,text,bool(self.early.candidates),semantic_decision,
@@ -529,8 +536,11 @@ class FastVoiceSession:
                     prompt=self.prompts[language]+listener_instruction(strategy,reaction)
                     if developer_speaker:prompt+=DEVELOPER_SPEAKER
                     character_begin=time.monotonic()
-                    character_memories=self.memory.character_memories(viewer) if self.character else ()
-                    plan=self.character.plan(text,character_memories,background,initiative=self.initiative,epoch=self.character_epoch) if self.character else None
+                    character_memories=self.memory.character_memories(viewer) if self.character and rag else ()
+                    hook=await asyncio.to_thread(claim_hook,self.store,self.s.mode,viewer,turn,text,
+                                                 route.unspoken_hooks) if route.dialogue_policy=='SHIFT_TO_HOOK' else ''
+                    plan=self.character.plan(text,character_memories,background,initiative=self.initiative,epoch=self.character_epoch,
+                                             host_speaking=developer_speaker,hook=hook) if self.character else None
                     structured=bool(plan and getattr(self.clients.generate,'ray_public_output',False))
                     decoder=PublicDecoder(structured=structured,buffer=SentenceBuffer(self.s.sentence_chars),plan=plan,limit=self.s.max_reply_chars) if plan else None
                     if plan:
@@ -682,7 +692,8 @@ class FastVoiceSession:
         self.store.chunk_claimed(token['turn_id'],0)
         accepted=self.store.played(token['turn_id'],scope=self.s.mode,memory_enabled=self.s.memory_enabled,memory_ttl_days=self.s.memory_ttl_days,
             memory_capacity=self.s.memory_queue_size,memory_policy=self.memory.policy,memory_model=self.memory.model,memory_min_confidence=self.s.memory_min_confidence,
-            relationship_enabled=self.s.memory_enabled and self.s.relationship_enabled,developer_id=self.s.developer_id)
+            relationship_enabled=self.s.memory_enabled and self.s.relationship_enabled,developer_id=self.s.developer_id,
+            unspoken_hooks=self.character.hooks_for(self.key) if self.character else None)
         if accepted:
             if not self.initiative:
                 if self.generated_asked is None:self.recent_questions.clear()

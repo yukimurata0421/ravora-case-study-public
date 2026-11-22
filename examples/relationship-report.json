@@ -1,7 +1,7 @@
 {
   "status": "PASS_RELATIONSHIP_REPLAY",
   "synthetic_data": true,
-  "schema_version": 14,
+  "schema_version": 16,
   "backgrounds": {
     "new": {
       "contact_history": "limited_history",
