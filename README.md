@@ -115,6 +115,10 @@ positions to produce mouth cues and video timestamps. It includes a missing
 frame so that the later frames can be checked against their original audio clock.
 See the [timing result](examples/media-timing-report.json).
 
+## Run the live studio
+
+Record Ray and a host microphone with synchronized subtitles, or create an unlisted YouTube broadcast with channel OAuth. The studio supports Japanese and English conversation tabs, hands-free input, microphone mute and automatic gain matching. Chat arrives through gRPC `streamList`. Start with the local HEVC/AAC preview in the [live studio guide](docs/youtube-live.md).
+
 ## Try the console
 
 ```bash
@@ -155,7 +159,7 @@ disable retention. See [automatic voice evaluation](docs/voice-evaluation.md).
 
 The portable slice retains the schema, turn fencing, provider boundaries, mock
 streaming, up to one reservation per reaction stage, character and reply-length policies,
-sharing approvals, and retrieval provenance. Its thirteen schema migrations retain
+sharing approvals, and retrieval provenance. Its fourteen schema migrations retain
 earlier reaction attempts and add source-bound contact accounting. The reference API adapters
 are available for inspection. The replay commands and console use mock providers
 and ignore dotenv files and inherited API credentials.

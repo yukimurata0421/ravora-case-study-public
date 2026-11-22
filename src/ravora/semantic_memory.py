@@ -8,6 +8,7 @@ import time
 import uuid
 
 from ravora.developer_identity import memory_source_filter
+from ravora.memory_extraction import acknowledgment, reply_cue, session_recap
 
 EPISODE_POLICY = 'gemini-episodes-v1'
 STATES = ('unknown', 'ongoing', 'waiting', 'resolved', 'ended')
@@ -182,6 +183,20 @@ def speech_background(settings, query, had_candidates, judgment, history, contex
 
 def load_speech_background(settings, query, had_candidates, judgment, read_history, read_context, *, selected=()):
     """Apply the same reference decision to the alternate paths into the speech prompt."""
+    cue = reply_cue(query)
+    # A correction can identify an older event. Keep normal retrieval when the
+    # reference is resolved, or when this session uses lexical retrieval alone.
+    local_correction = (cue == 'correct' and had_candidates and settings.semantic_memory_mode == 'jev'
+                        and (judgment or {}).get('memory_relation') not in ('same_event','correction'))
+    if cue in ('explain','play_along') or local_correction:
+        history = read_history()
+        if history and history[-1][0] == 'model':
+            if cue == 'explain' and len(history) >= 4 and history[-2][0] == 'user' and reply_cue(history[-2][1]) == 'explain':
+                return history[-4:], []
+            return history[-2:], []
+        return [], []
+    if session_recap(query) or acknowledgment(query):
+        return read_history(), []
     if not had_candidates or settings.semantic_memory_mode != 'jev':
         return read_history(), read_context()
     # Requests to repeat/explain the last reply have an explicit spoken referent.
@@ -200,18 +215,22 @@ def load_speech_background(settings, query, had_candidates, judgment, read_histo
 
 
 class SemanticMemory:
-    def semantic_previous_message(self, viewer, *, scope):
+    def semantic_previous_message(self, viewer, *, scope, turn_id=None):
         from ravora.gemini_memory import source_block_reason
         with self.connect() as db:
             row=db.execute('''SELECT s.text FROM conversation_turns t JOIN source_events s ON s.id=t.source_event_id
                 WHERE t.viewer=? AND s.viewer_key=? AND t.played=1 AND t.status='completed'
                 AND s.is_deleted=0 AND s.raw_purged_at IS NULL AND s.expires_at>?
-                ORDER BY t.rowid DESC LIMIT 1''',(scope+':'+viewer,viewer,time.time())).fetchone()
+                AND (? IS NULL OR s.stream_id=(SELECT active.stream_id FROM source_events active
+                    JOIN conversation_turns cur ON cur.source_event_id=active.id
+                    WHERE cur.turn_id=? AND cur.viewer=t.viewer))
+                ORDER BY t.rowid DESC LIMIT 1''',(scope+':'+viewer,viewer,time.time(),turn_id,turn_id)).fetchone()
         return row[0] if row and row[0] and not source_block_reason(row[0]) else ''
 
     def episode_candidates(self, viewer, query, *, scope, limit=8, max_chars=4800):
         if scope not in ('offline', 'cloud') or type(limit) is not int or not 1 <= limit <= 12 or not 800 <= max_chars <= 8000:
             raise ValueError('INVALID_EPISODE_LIMITS')
+        if session_recap(query) or acknowledgment(query):return []
         now = time.time()
         where = """m.viewer_key=? AND m.scope=? AND m.review_state='approved'
             AND m.sensitivity='non_sensitive' AND m.deleted_at IS NULL AND m.expires_at>?
@@ -254,6 +273,9 @@ class SemanticMemory:
 
     def conversation_memories(self, viewer, query, settings, *, judgment=None):
         if not settings.memory_enabled:return [], 'disabled'
+        if reply_cue(query) in ('explain','play_along'):return [], 'session_reply'
+        if session_recap(query):return [], 'session_recap'
+        if acknowledgment(query):return [], 'session_acknowledgment'
         if settings.semantic_memory_mode == 'off':return self.recall_memory(viewer, query, scope=settings.mode)
         old,method=self.recall_memory(viewer, query, scope=settings.mode)
         with self.connect() as db:

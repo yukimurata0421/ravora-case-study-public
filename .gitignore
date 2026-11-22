@@ -25,3 +25,11 @@ dist/
 !docs/media/concept02-lip-comparison.mp4
 !docs/media/ray-upper-lip-conversation.mp4
 !docs/media/ray-upper-lip-comparison.mp4
+
+state/
+assets/stt/
+assets/pngtuber/
+*.flv
+client_secret*.json
+client.json
+token.json

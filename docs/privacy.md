@@ -65,3 +65,5 @@ The session database and generated test audio remain temporary and are removed
 when the entrypoint exits normally. Raw evaluation audio requires the same
 per-run authentication token as the console. The static local report can be
 opened after shutdown. [Evaluation controls and limits](voice-evaluation.md)
+
+The optional [live studio](youtube-live.md) retains its mixed program recording. Cloud conversation uses a persistent database and keeps the authorized channel credentials under the private studio working directory. The host can mute recording independently of Ray's reply playback.

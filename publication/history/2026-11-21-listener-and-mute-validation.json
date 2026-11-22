@@ -1,0 +1,80 @@
+{
+  "status": "PASS_LOCAL_LISTENER_EXPRESSION_AND_MICROPHONE_MUTE_PORT",
+  "validated_at_jst": "2026-11-21T18:39:51+09:00",
+  "scope": "Portable listener reaction prompts, validated speech and action routing, playback priority and capture-only mute. Browser checks use synthetic inputs and a simulated public action race.",
+  "checks": {
+    "python": "3.14.4",
+    "checkout_python_tests": {
+      "tests": 266,
+      "failures": 0,
+      "errors": 0,
+      "skipped": 1
+    },
+    "checkout_replays_match_examples": 4,
+    "installed_python_tests": {
+      "tests": 266,
+      "failures": 0,
+      "errors": 0,
+      "skipped": 1
+    },
+    "installed_replays_match_examples": 4,
+    "installed_console": {
+      "browser_exceptions": [],
+      "reload_preserved_inputs": 3,
+      "unauthenticated_audio_status": 401,
+      "authenticated_audio_status": 200,
+      "validated_public_actions": 3,
+      "reaction_before_pcm": true,
+      "face_priority": {
+        "waiting": "joy",
+        "started": "thinking",
+        "afterLate": "thinking",
+        "fallback": "concerned",
+        "afterStale": "concerned"
+      },
+      "drawn_faces": {
+        "joy": true,
+        "thinking": true,
+        "concerned": true
+      },
+      "mute_released_browser_mic": true,
+      "text_played_while_muted": true,
+      "human_microphone_verified": false,
+      "external_api_calls": 0,
+      "status": "PASS_INSTALLED_PUBLIC_CONSOLE_EVALUATION",
+      "played": 3,
+      "cohorts": 2,
+      "pcm_identical_to_stt": true,
+      "installed_implementation_hashes_match": true
+    },
+    "wheel_sha256": "10f8853c365cca63245995ba3cf590f6a23d5dbc4d79c85dd14cb69d9c8f1ff2",
+    "browser_module_tests": {
+      "node": "22.20.0",
+      "tests": 14,
+      "passed": 14
+    },
+    "secret_scan_findings": 0,
+    "public_payload": {
+      "status": "PASS_PUBLIC_PAYLOAD",
+      "files": 143,
+      "hashes_checked": 141,
+      "unexpected_files": 0,
+      "private_defaults_found": 0,
+      "broken_local_links": 0
+    }
+  },
+  "real_microphone_30_to_50_turn_quality": "NOT_COLLECTED_OR_REVIEWED",
+  "physical_speaker_latency_verified": false,
+  "remote_ci": {
+    "configured": true,
+    "configured_python_versions": [
+      "3.11",
+      "3.13"
+    ]
+  },
+  "project_license_selected": false,
+  "open_source_release_ready": false,
+  "included_private_databases_or_recordings": false,
+  "new_inference_api_calls": 0,
+  "earlier_validation_preserved": "publication/history/2026-11-21-voice-evaluation-validation.json"
+}

@@ -17,9 +17,11 @@ from ravora.conversation_context import developer_keys
 from ravora.edge_grpc import EdgeClients
 from ravora.fast_voice import FastVoiceSession
 from ravora.fast_voice_server import MockVoiceClients
-from ravora.persona import CONVERSATION_RULES, MAX_PERSONA_BYTES, REPLY_RULES, conversation_prompt, listener_instruction, load_persona
+from ravora.persona import (CONVERSATION_RULES, MAX_PERSONA_BYTES, REPLY_RULES, conversation_prompt,
+                            japanese_question_direction, listener_instruction, load_persona, reply_style_context)
 from ravora.providers import GeminiText, ProviderError
 from ravora.settings import ProviderSettings, SettingsError, load_settings
+from ravora.ray_character import EXPRESSIONS, MOTIONS, PublicPlan, public_fixture
 
 
 class HTTP:
@@ -28,8 +30,10 @@ class HTTP:
 
     def open(self, url, headers, payload):
         self.requests.append(payload)
+        text='Tell me what happened. We can figure it out.'
+        if payload['generationConfig'].get('responseMimeType')=='application/json':text=public_fixture(text)
         return io.BytesIO(('data: ' + json.dumps({'candidates': [{'finishReason': 'STOP',
-            'content': {'parts': [{'text': 'Tell me what happened. We can figure it out.'}]}}]}) + '\n\n').encode())
+            'content': {'parts': [{'text': text}]}}]}) + '\n\n').encode())
 
 
 class GRPC:
@@ -44,11 +48,10 @@ class LLM:
         self.requests.append(kwargs['request'])
 
         async def replies():
-            speech='Tell me what happened. We can figure it out.'
-            if getattr(kwargs['request'].generation_config,'response_mime_type',None)=='application/json':
-                speech=json.dumps({'public_output':{'speech':speech,'expression':'concerned','motion':'nod'}})
+            text='Tell me what happened. We can figure it out.'
+            if getattr(kwargs['request'].generation_config,'response_mime_type',None)=='application/json':text=public_fixture(text)
             yield NS(usage_metadata=None, candidates=[NS(index=0,
-                content=NS(parts=[NS(text=speech, thought=False)]),
+                content=NS(parts=[NS(text=text, thought=False)]),
                 finish_reason=NS(name='STOP'))])
         return replies()
 
@@ -63,6 +66,7 @@ class WireVoiceClients(MockVoiceClients):
     async def generate(self, text, **kwargs):
         async for delta in self.edge.generate(text, **kwargs):
             yield delta
+    generate.ray_public_output=True
 
 
 class PersonaSettingsTests(unittest.TestCase):
@@ -107,6 +111,36 @@ class PersonaSettingsTests(unittest.TestCase):
         self.assertNotIn(REPLY_RULES['normal'],prompt)
         self.assertIn(REPLY_RULES['normal'],conversation_prompt(reply_style='normal'))
 
+    def test_japanese_legacy_reply_uses_the_voice_locale_even_with_english_history(self):
+        settings = replace(ProviderSettings(), language='ja-JP', voice='ja-JP-Wavenet-B').validate()
+        http = HTTP()
+        adapter = GeminiText(settings, http)
+        list(adapter.stream('どういう意味？', [('model','That is curious.')]))
+        prompt = http.requests[0]['systemInstruction']['parts'][0]['text']
+        self.assertIn('自然な日本語', prompt)
+        self.assertIn('literal Japanese', prompt)
+        self.assertNotIn('English words', prompt)
+        with self.assertRaises(SettingsError):
+            replace(settings, voice='en-US-Wavenet-H').validate()
+
+    def test_japanese_direct_questions_take_precedence_over_conversation_pacing(self):
+        for recent in ([], [True], [False], [False, False], [False, False, False]):
+            with self.subTest(recent=recent):
+                for question in ('今の時刻を確認できる？', 'それで何を試してみたい？', 'どう思いますか。'):
+                    direction = japanese_question_direction(recent, question)
+                    self.assertIn('相手の質問に答える番', direction)
+                    self.assertNotEqual(direction, japanese_question_direction(recent))
+                self.assertEqual(japanese_question_direction(recent, '「何が欲しい？」って昨日聞かれたよ。'),
+                                 japanese_question_direction(recent))
+
+    def test_japanese_question_about_rays_day_distinguishes_missing_and_available_history(self):
+        question = '今日はどんな日だった？'
+        hint = '以前の発言列が付いていない'
+        self.assertIn(hint, reply_style_context(question, [], [], language='ja-JP')[0])
+        history = [('user', 'ギターについて話そう。'), ('model', '弦の数が気になるな。')]
+        self.assertNotIn(hint, reply_style_context(question, history, [], language='ja-JP')[0])
+        self.assertNotIn(hint, reply_style_context('どんな曲が好き？', [], [], language='ja-JP')[0])
+
     def test_custom_file_is_relative_to_env_not_working_directory(self):
         (self.root / 'character.txt').write_text('Be a witty space explorer.', encoding='utf-8')
         path = self.env('RAVORA_PERSONA=custom\nRAVORA_PERSONA_FILE=character.txt\n')
@@ -149,6 +183,16 @@ class PersonaSettingsTests(unittest.TestCase):
             self.assertNotEqual(plain,interested)
         self.assertEqual(listener_instruction('episodes_jev','joy'),'')
 
+    def test_name_origin_instruction_uses_the_speakers_topic(self):
+        from ravora.persona import name_question_instruction
+        question=[('user','Why did you pick your name?'),('model','Perhaps it was an acronym.')]
+        self.assertIn('current name',name_question_instruction("What's your name?",question))
+        self.assertIn('who suggested the name',name_question_instruction('Okay, tell me.',question))
+        self.assertEqual(name_question_instruction('Sure.',[('model','Who chose my name?')]),'')
+        self.assertEqual(name_question_instruction('I want to talk about hiking.',question),'')
+        self.assertEqual(name_question_instruction('How did you name the cat?',[]),'')
+        self.assertEqual(name_question_instruction('Sure.',question+[('user','I started hiking.')]),'')
+
     def test_preset_styles_are_distinct_with_shared_memory_rules(self):
         cheeky = conversation_prompt('cheeky')
         calm = conversation_prompt('calm')
@@ -164,6 +208,38 @@ class PersonaSettingsTests(unittest.TestCase):
 
 
 class PersonaPathTests(unittest.IsolatedAsyncioTestCase):
+    async def test_japanese_followup_keeps_the_human_offer_and_rays_choice_on_both_wires(self):
+        history = [('user', '来月、レイに録音を分類する機能を用意できるよ。'),
+                   ('model', '使えるようになったら風鈴の音を比べてみたいな。')]
+        followup = 'ほかには何を試したい？'
+        http = HTTP()
+        rest = GeminiText(replace(ProviderSettings(), language='ja-JP'), http)
+        list(rest.stream(followup, history))
+        clients = WireVoiceClients()
+        async for _ in clients.generate(followup, history=history, language='ja-JP'):
+            pass
+        rest_request, = http.requests
+        grpc_request, = clients.edge.llm.requests
+        system = rest_request['systemInstruction']['parts'][0]['text']
+        self.assertEqual(system, grpc_request.system_instruction.parts[0].text)
+        self.assertIn('話し手はAIのレイ、話し相手は人間', system)
+        self.assertIn('予定の機能は届く予定の情報だけ', system)
+        self.assertNotIn('The current speaker is your developer', system)
+        expected = history + [('user', followup)]
+        self.assertEqual([(m['role'], m['parts'][0]['text']) for m in rest_request['contents']], expected)
+        self.assertEqual([(m.role, m.parts[0].text) for m in grpc_request.contents], expected)
+
+    def test_structured_rest_reply_requires_completed_generation(self):
+        http=HTTP()
+        adapter=GeminiText(ProviderSettings(),http)
+        adapter.set_character_plan(PublicPlan('answer','neutral'))
+        event={'candidates':[{'finishReason':'MAX_TOKENS',
+                              'content':{'parts':[{'text':public_fixture('返答です。')}]}}]}
+        body=io.BytesIO(('data: '+json.dumps(event)+'\n\n').encode())
+        with patch.object(http,'open',return_value=body):
+            with self.assertRaisesRegex(ProviderError,'INCOMPLETE_GENERATION'):
+                next(adapter.stream('こんにちは。',[]))
+
     async def test_budgeted_fast_reply_checks_all_hedges_before_first_request(self):
         with tempfile.TemporaryDirectory() as directory:
             root=Path(directory)
@@ -185,13 +261,13 @@ class PersonaPathTests(unittest.IsolatedAsyncioTestCase):
                     await asyncio.wait_for(session.task,4)
                     self.assertEqual(session.phase,'generated')
                     self.assertEqual(len(client.llm.requests),1)
-                    self.assertEqual(client.llm.requests[0].generation_config.response_mime_type,'application/json')
                 with store.connect() as db:
                     rows=db.execute("""SELECT attempted,json_extract(summary,'$.reply_reserved_microusd')
                         FROM provider_calls WHERE provider='gemini' ORDER BY prepared""").fetchall()
                     self.assertEqual(rows[0],(0,None))
                     self.assertEqual(rows[1][0],1)
                     self.assertGreater(rows[1][1],3000)
+                    self.assertEqual(client.llm.requests[0].generation_config.response_mime_type,'application/json')
             finally:await session.close()
 
     async def test_env_selection_reaches_both_wire_requests_with_memory_contract(self):
@@ -242,19 +318,38 @@ class PersonaPathTests(unittest.IsolatedAsyncioTestCase):
                         pass
 
                     session = FastVoiceSession(settings, store, root, clients, send, pcm, mock=True)
+                    plans=[];original_plan=session.character.plan
+                    def record_plan(*args,**kwargs):
+                        plan=original_plan(*args,**kwargs);plans.append(plan);return plan
                     try:
                         with patch.object(store, 'history', return_value=history), \
+                             patch.object(session.character,'plan',side_effect=record_plan), \
                              patch('socket.socket.connect', side_effect=AssertionError('network forbidden')):
                             await session.start_text(uuid.uuid4().hex, text)
                             await asyncio.wait_for(session.task, 4)
                         self.assertEqual(session.phase, 'generated', events)
                         self.assertEqual(session.public()['persona'], persona)
+                        self.assertEqual(session.public()['avatar_name'],'RAY')
                         request = clients.edge.llm.requests[0]
-                        rest_prompt = http.requests[0]['systemInstruction']['parts'][0]['text']
+                        rest.set_character_plan(plans[-1])
+                        list(rest.stream(text, history, developer_speaker=True))
+                        rest_prompt = http.requests[-1]['systemInstruction']['parts'][0]['text']
                         grpc_prompt = request.system_instruction.parts[0].text
                         self.assertEqual(rest_prompt, grpc_prompt)
                         self.assertIn(load_persona(settings.persona, settings.persona_file), grpc_prompt)
-                        self.assertIn(CONVERSATION_RULES, grpc_prompt)
+                        self.assertIn(CONVERSATION_RULES.replace('Speak in plain text without stage directions.',
+                            'The speech field contains only spoken words without stage directions.'),grpc_prompt)
+                        self.assertEqual(request.generation_config.response_mime_type,'application/json')
+                        schema=request.generation_config.response_json_schema
+                        self.assertEqual(schema,http.requests[-1]['generationConfig']['responseJsonSchema'])
+                        self.assertNotIn('responseJsonSchema',http.requests[0]['generationConfig'])
+                        self.assertEqual(schema['required'],['public_output'])
+                        self.assertFalse(schema['additionalProperties'])
+                        body=schema['properties']['public_output']
+                        self.assertEqual(set(body['required']),{'speech','expression','motion'})
+                        self.assertFalse(body['additionalProperties'])
+                        self.assertEqual(set(body['properties']['expression']['enum']),EXPRESSIONS)
+                        self.assertEqual(set(body['properties']['motion']['enum']),MOTIONS)
                         self.assertIn(REPLY_RULES[reply_style],grpc_prompt)
                         self.assertEqual(session.public()['reply_style'],reply_style)
                         self.assertIn(CONTEXT_RULES, grpc_prompt)
@@ -267,6 +362,23 @@ class PersonaPathTests(unittest.IsolatedAsyncioTestCase):
                         await session.close()
             with store.connect() as db:
                 self.assertEqual(db.execute('SELECT COUNT(*),SUM(attempted) FROM provider_calls').fetchone(), (9, 0))
+
+    async def test_current_name_and_speaker_role_on_both_wires(self):
+        from ravora.persona import AVATAR_NAME, DEVELOPER_SPEAKER
+        history=[('user', "What's your name?"), ('model', 'Ravora.')]
+        self.assertEqual(AVATAR_NAME, 'RAY')
+        question='Why did you suggest Ray?'
+        for developer in (False, True):
+            http=HTTP()
+            list(GeminiText(ProviderSettings(),http).stream(question,history,developer_speaker=developer))
+            clients=WireVoiceClients()
+            prompt=conversation_prompt()+(DEVELOPER_SPEAKER if developer else '')
+            self.assertTrue(''.join([d async for d in clients.generate(question,history=history,prompt=prompt)]))
+            grpc=clients.edge.llm.requests[0].system_instruction.parts[0].text
+            self.assertEqual(grpc,http.requests[0]['systemInstruction']['parts'][0]['text'])
+            self.assertIn('Your current name is RAY',grpc)
+            self.assertIn('who suggested the name',grpc)
+            self.assertEqual('The current speaker is your developer' in grpc,developer)
 
     async def test_direct_grpc_default_matches_rest_without_retrieved_context(self):
         clients = WireVoiceClients()

@@ -63,6 +63,7 @@ def normalize_youtube(item,chat_id,source='youtube'):
 class CommentInbox:
     def __init__(self,store:MemoryStore,*,capacity=5,ttl=45,session=None,clock=time.time,scope='offline',relationships_enabled=True):
         if scope not in ('offline','cloud'):raise ValueError('INVALID_RELATIONSHIP_SCOPE')
+        self.display_revision=0
         self.scope=scope;self.relationships_enabled=relationships_enabled
         self.store=store;self.capacity=capacity;self.ttl=ttl;self.session=session or uuid.uuid4().hex;self.clock=clock
         with store.connect() as db:
@@ -79,22 +80,29 @@ class CommentInbox:
         if comment.published_at>now+30:status,reason='dropped','future_timestamp'
         elif now-comment.published_at>self.ttl:status,reason='expired','comment_too_old'
         elif warm_start is not None and comment.published_at<warm_start:status,reason='dropped','startup_history'
-        elif db.execute("SELECT COUNT(*) FROM comment_inbox WHERE session=? AND status='queued'",(self.session,)).fetchone()[0]>=self.capacity:status,reason='dropped','queue_full'
+        elif db.execute("SELECT COUNT(*) FROM comment_inbox WHERE session=? AND status='queued'",(self.session,)).fetchone()[0]>=self.capacity + (comment.source=='live-host'):status,reason='dropped','queue_full'
         elif db.execute("SELECT 1 FROM comment_inbox WHERE session=? AND viewer=? AND status IN ('queued','claimed','processing')",(self.session,comment.viewer)).fetchone():status,reason='dropped','viewer_already_pending'
         row=db.execute('INSERT OR IGNORE INTO comment_inbox VALUES(?,?,?,?,?,?,?,?,?,?,?,?,?,?)',
             (comment.receipt,self.session,comment.source,comment.stream_id,comment.message_id,comment.viewer,comment.display_name,comment.text,comment.published_at,now,min(now+self.ttl,comment.published_at+self.ttl),status,reason,None))
         if row.rowcount:
             self.store.record_source(db,comment,now)
-            if self.relationships_enabled:self.store.record_relationship_comment(db,comment,now,scope=self.scope,reason=reason,evidence=relationship_evidence)
+            if self.relationships_enabled and comment.source!='ray-initiative':self.store.record_relationship_comment(db,comment,now,scope=self.scope,reason=reason,evidence=relationship_evidence)
         return status if row.rowcount else 'duplicate'
 
     def put(self,comment,*,relationship_evidence=None):
         with self.store.connect() as db:
-            db.execute('BEGIN IMMEDIATE');return self._put(db,comment,relationship_evidence=relationship_evidence)
+            db.execute('BEGIN IMMEDIATE')
+            status=self._put(db,comment,relationship_evidence=relationship_evidence)
+        if comment.source in ('youtube','youtube-fixture') and status!='duplicate':
+            self.display_revision+=1
+        return status
 
-    def accept_page(self,chat_id,page,*,source='youtube',warm_start=None):
+    def accept_page(self,chat_id,page,*,source='youtube',warm_start=None,streaming=False):
         token=page.get('nextPageToken');interval=page.get('pollingIntervalMillis')
-        if not isinstance(token,str) or not 0<len(token)<=4096 or type(interval) is not int or not 0<interval<=3600000:raise ValueError('INVALID_YOUTUBE_PAGE')
+        if not (streaming and token is None) and (not isinstance(token,str) or not 0<len(token)<=4096):
+            raise ValueError('INVALID_YOUTUBE_PAGE')
+        if not streaming and (type(interval) is not int or not 0<interval<=3600000):
+            raise ValueError('INVALID_YOUTUBE_PAGE')
         items=page.get('items',[])
         if not isinstance(items,list) or len(items)>2000:raise ValueError('INVALID_YOUTUBE_ITEMS')
         counts={};ended=bool(page.get('offlineAt'))
@@ -121,12 +129,20 @@ class CommentInbox:
                     else:state=self._put(db,comment,warm_start=warm_start)
                 counts[state]=counts.get(state,0)+1
             # Checkpoint and accepted messages commit together; failed transactions do not skip a page.
-            db.execute('INSERT INTO youtube_cursors VALUES(?,?,?) ON CONFLICT(chat_id) DO UPDATE SET token=excluded.token,updated=excluded.updated',(chat_id,token,self.clock()))
-        return {'counts':counts,'poll_after_seconds':interval/1000,'ended':ended}
+            if token is not None:
+                db.execute('INSERT INTO youtube_cursors VALUES(?,?,?) ON CONFLICT(chat_id) DO UPDATE SET token=excluded.token,updated=excluded.updated',(self.cursor_key(chat_id,streaming),token,self.clock()))
+        if items:
+            self.display_revision+=1
+        return {'counts':counts,'poll_after_seconds':None if streaming else interval/1000,'ended':ended}
 
-    def cursor(self,chat_id):
+    @staticmethod
+    def cursor_key(chat_id, streaming):
+        # Resume tokens belong to their issuing method. Preserve older list checkpoints.
+        return 'streamList\0'+chat_id if streaming else chat_id
+
+    def cursor(self,chat_id,*,streaming=False):
         with self.store.connect() as db:
-            row=db.execute('SELECT token FROM youtube_cursors WHERE chat_id=?',(chat_id,)).fetchone()
+            row=db.execute('SELECT token FROM youtube_cursors WHERE chat_id=?',(self.cursor_key(chat_id,streaming),)).fetchone()
         return row[0] if row else None
 
     def _remove(self,db,source,stream_id,message_id):
@@ -136,15 +152,26 @@ class CommentInbox:
         db.execute("UPDATE comment_inbox SET status='removed',reason='source_deleted',text='',display_name='' WHERE source=? AND stream_id=? AND message_id=?",(source,stream_id,message_id))
         if row and row[0]:db.execute("UPDATE conversation_turns SET comment='',reply='',played=0,status='source_removed' WHERE id=?",(row[0],))
 
-    def take(self):
+    def take(self, *, prefer_source=None):
         now=self.clock()
         with self.store.connect() as db:
             db.execute('BEGIN IMMEDIATE')
             db.execute("UPDATE comment_inbox SET status='expired',reason='queue_expired' WHERE session=? AND status='queued' AND expires<=?",(self.session,now))
-            row=db.execute("SELECT receipt,source,display_name,text,viewer FROM comment_inbox WHERE session=? AND status='queued' ORDER BY received,rowid LIMIT 1",(self.session,)).fetchone()
+            row=db.execute("SELECT receipt,source,display_name,text,viewer FROM comment_inbox WHERE session=? AND status='queued' ORDER BY (source=?) DESC,received,rowid LIMIT 1",(self.session,prefer_source)).fetchone()
             if not row:return None
             db.execute("UPDATE comment_inbox SET status='claimed' WHERE receipt=?",(row[0],))
         return dict(zip(('receipt','source','display_name','comment','viewer'),row))
+
+    def display_comments(self, selected):
+        # Keep the active comment visible when six newer messages arrive.
+        with self.store.connect() as db:
+            return db.execute("""SELECT receipt,display_name,text FROM (
+                SELECT receipt,display_name,text,rowid AS seq FROM comment_inbox
+                WHERE session=? AND source IN ('youtube','youtube-fixture')
+                  AND status!='removed' AND text!=''
+                  AND (reason IS NULL OR reason IN ('queue_full','viewer_already_pending','queue_expired'))
+                ORDER BY (receipt=?) DESC,rowid DESC LIMIT 6) ORDER BY seq""",
+                (self.session,selected)).fetchall()
 
     def claimed(self,receipt):
         with self.store.connect() as db:

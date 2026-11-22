@@ -31,7 +31,7 @@ function spritePatch(bitmap, offset, regions, blink, speaking) {
   return patch;
 }
 
-export async function startAvatar(canvas, reaction, hasArtwork) {
+export async function startAvatar(canvas, reaction, hasArtwork, {programClock=false}={}) {
   const stage=canvas.parentElement, g=canvas.getContext('2d');
   if (!g) throw new Error('CANVAS_2D_UNAVAILABLE');
   const asset=hasArtwork?await (await fetch('/demo-avatar')).json():null;
@@ -48,11 +48,13 @@ export async function startAvatar(canvas, reaction, hasArtwork) {
   let gesture='none',gestureAt=0;
   const idle={open:0,width:1,shape:'closed',db:-100,vowels:null};
   stage.dataset.renderer='sprites';
-  function draw(now){
-    requestAnimationFrame(draw);
-    if(document.hidden||now-last<1000/30-1)return;
+  function draw(now, programElapsed=null){
+    if(!programClock){
+      requestAnimationFrame(draw);
+      if(document.hidden||now-last<1000/30-1)return;
+    }
     const dt=Math.min(.1,(now-last)/1000);last=now;
-    const t=now/1000, elapsed=clock?clock.currentTime-origin:null;
+    const t=now/1000, elapsed=programClock?programElapsed:(clock?clock.currentTime-origin:null);
     const playing=elapsed!==null&&elapsed>=0&&Boolean(mouth);
     const lip=playing?mouth.sample(elapsed):{...idle};
     const movement=samplePresence(t%180,plan,.75,Math.max(0,Math.min(1,(lip.db+40)/25)));
@@ -114,7 +116,7 @@ export async function startAvatar(canvas, reaction, hasArtwork) {
     const mouthState=lip.open>.1?'open':'closed';
     if(stage.dataset.mouth!==mouthState)stage.dataset.mouth=mouthState;
   }
-  requestAnimationFrame(draw);
+  if(!programClock)requestAnimationFrame(draw);
   const probe=asset&&document.createElement('canvas').getContext('webgl2');
   let accelerated=false;
   if(probe){
@@ -124,9 +126,9 @@ export async function startAvatar(canvas, reaction, hasArtwork) {
     probe.getExtension('WEBGL_lose_context')?.loseContext();
   }
   if(accelerated){
-    loadPngtuberImages(asset,images).then(()=>{
+    const ready=loadPngtuberImages(asset,images).then(()=>{
       const rig=createPngtuberSurface(images,asset);
-      rig.resize(1080);
+      rig.resize(programClock?canvas.height:1080);
       acting=createExpressionMotion(.4,rig.expressionNames,20261116,false);
       // Display WebGL directly so presenting a frame needs no GPU-to-2D readback.
       rig.canvas.className='avatar-rig';rig.canvas.setAttribute('aria-hidden','true');
@@ -136,10 +138,12 @@ export async function startAvatar(canvas, reaction, hasArtwork) {
       },{once:true});
       surface=rig;stage.dataset.renderer='rig';
     }).catch(()=>{}); // Keep the animated poses when the GPU or textures are unavailable.
+    if(programClock)await ready;
   }
   return {
+    frame(seconds, elapsed){draw(seconds*1000, elapsed);return surface?.canvas||canvas;},
     reset(){mouth=createPcmMouth(24000);clock=null;gesture='none';},
-    motion(name){if(['none','look_away','nod'].includes(name)){gesture=name;gestureAt=performance.now();}},
+    motion(name,now=performance.now()){if(['none','look_away','nod'].includes(name)){gesture=name;gestureAt=now;}},
     pcm(samples){mouth?.push(samples);},
     start(context,frame){clock=context;origin=frame/context.sampleRate;},
     finish(){mouth?.finish();},

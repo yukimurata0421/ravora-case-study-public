@@ -294,6 +294,8 @@ class RelationshipTests(unittest.TestCase):
 
     @staticmethod
     def wire(text):
+        from ravora.ray_character import public_fixture
+        text=public_fixture(text)
         return ('data: '+json.dumps({'candidates':[{'finishReason':'STOP','content':{'parts':[{'text':text}]}}]})+'\n\n').encode()
 
     def run_controller(self,c,s,adapter):
@@ -309,7 +311,8 @@ class RelationshipTests(unittest.TestCase):
         c=self.post('Want to hear my news?');s=ProviderSettings();http=HTTP(stream=self.wire('Go on, impress me.'))
         metrics=self.run_controller(c,s,GeminiText(s,http));payload=http.calls[0][2]
         prompt=payload['systemInstruction']['parts'][0]['text']
-        self.assertTrue(prompt.startswith(conversation_prompt(s.persona,s.persona_file,reply_style=s.reply_style)))
+        base=conversation_prompt(s.persona,s.persona_file,reply_style=s.reply_style).replace('Speak in plain text without stage directions.','The speech field contains only spoken words without stage directions.')
+        self.assertTrue(prompt.startswith(base))
         self.assertIn(RELATIONSHIP_RULES,prompt);self.assertEqual(payload['contents'][-1]['parts'][-1]['text'],c.text)
         self.assertIn('Viewer relationship background',json.dumps(payload))
         background=json.loads(next(part['text'] for part in payload['contents'][-1]['parts'] if part['text'].startswith('Viewer relationship')).split('\n',1)[1])

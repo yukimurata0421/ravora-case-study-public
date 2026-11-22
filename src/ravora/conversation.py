@@ -8,14 +8,18 @@ import threading
 import time
 import uuid
 
+from ravora.speech import utterance_word_starts
 from ravora.providers import ProviderError, GeminiText, JevReaction, adapters
 from ravora.database import Connection as closing_connection
 from ravora.developer_identity import DEVELOPER_PLATFORMS, viewer_key
 from ravora.memory import MemoryRepository
 from ravora.memory_worker import MemoryWorker
-from ravora.conversation_context import ConversationContext
+from ravora.conversation_context import ConversationContext, sensitive
+from ravora.memory_extraction import acknowledgment, banter_preference
+from ravora.persona import JAPANESE_QUESTION_WINDOW, asked_listener_in_japanese, japanese_question_direction
 from ravora.relationships import Relationships,relationship_text
 from ravora.semantic_memory import SemanticMemory, speech_background
+from ravora.ray_character import CharacterRuntime,CharacterError,PublicDecoder,PublicOutput
 
 
 class SentenceBuffer:
@@ -25,7 +29,7 @@ class SentenceBuffer:
         self.text+=delta;out=[]
         while self.text:
             cut=None
-            for match in re.finditer(r'[.!?]+["\u201d\u2019\']*(?=\s)',self.text):
+            for match in re.finditer(r'[。！？]+[」』”]*|[.!?]+["\u201d\u2019\']*(?=\s)',self.text):
                 prefix=self.text[:match.end()]
                 if re.search(r'\b(?:Mr|Mrs|Ms|Dr|Prof|St|vs|etc)\.$',prefix,re.I) or re.search(r'\b(?:[A-Za-z]\.){1,3}$',prefix):continue
                 if match.end()<=self.limit:cut=match.end()
@@ -66,7 +70,7 @@ class MemoryStore(Relationships,ConversationContext,SemanticMemory,MemoryReposit
         if status!='running':raise ProviderError('COMMENT_NO_LONGER_AVAILABLE')
         return developer_speaker
 
-    def history(self,viewer,count=4):
+    def history(self,viewer,count=4,*,turn_id=None):
         if not count:return []
         owner=viewer.partition(':')[2]
         where="t.viewer=? AND t.played=1 AND t.status='completed'"
@@ -76,10 +80,33 @@ class MemoryStore(Relationships,ConversationContext,SemanticMemory,MemoryReposit
                 WHERE d.event_id=t.source_event_id AND d.owner_key=? AND s.viewer_key=d.owner_key
                   AND s.is_deleted=0 AND s.raw_purged_at IS NULL AND s.expires_at>?)'''
             args.extend((owner,time.time()))
+        if turn_id is not None:
+            # Bind to the persisted source, including the owner and stream. A reconnect starts
+            # a new conversation; explicitly relevant older reports go through retrieval.
+            where+=''' AND EXISTS(SELECT 1 FROM source_events prior JOIN source_events current
+                ON current.stream_id=prior.stream_id AND current.viewer_key=prior.viewer_key
+                JOIN conversation_turns active ON active.source_event_id=current.id
+                WHERE prior.id=t.source_event_id AND active.turn_id=? AND active.viewer=t.viewer
+                AND prior.is_deleted=0 AND prior.raw_purged_at IS NULL AND prior.expires_at>?)'''
+            args.extend((turn_id,time.time()))
         with self.connect() as db:
             rows=db.execute('SELECT t.comment,t.reply FROM conversation_turns t WHERE '+where+
-                            ' ORDER BY t.rowid DESC LIMIT ?',(*args,count)).fetchall()
-        return [(role,text) for comment,reply in reversed(rows) for role,text in [('user',comment),('model',reply)]]
+                            ' ORDER BY t.rowid DESC LIMIT ?',(*args,count*4 if turn_id else count)).fetchall()
+        if turn_id is not None:
+            rows=[(q, '' if sensitive(a) else a) for q,a in rows if not sensitive(q)]
+            # Keep the latest exchange and reserve space for content-bearing input.
+            # A run of backchannels should not evict the speaker's last real question.
+            rows=rows[:1]+[pair for pair in rows[1:] if not acknowledgment(pair[0])]
+            # Preserve who said what while avoiding repeated assistant lines as style examples.
+            seen = set()
+            unique = []
+            for question, reply in rows[:count]:
+                key = ' '.join(reply.casefold().split())
+                unique.append((question, '' if key in seen else reply))
+                seen.add(key)
+            rows = unique
+        return [(role,text) for comment,reply in reversed(rows[:count])
+                for role,text in [('user',comment),('model',reply)] if text]
 
     def finish(self,turn_id,reply,status,metrics):
         with self.connect() as db:db.execute("""UPDATE conversation_turns SET
@@ -90,14 +117,20 @@ class MemoryStore(Relationships,ConversationContext,SemanticMemory,MemoryReposit
             metrics=? WHERE id=?""",(reply,status,status,status,time.time(),status,json.dumps(metrics),turn_id))
 
     def played(self,turn_id,*,scope='offline',memory_enabled=True,memory_ttl_days=30,memory_capacity=16,
-               memory_policy=None,memory_model=None,memory_min_confidence=.7,relationship_enabled=True):
+               memory_policy=None,memory_model=None,memory_min_confidence=.7,relationship_enabled=True,developer_id=None):
         now=time.time()
         with self.connect() as db:
             db.execute('BEGIN IMMEDIATE')
-            row=db.execute("UPDATE conversation_turns SET played=1,state='COMPLETED',closed_at=COALESCE(closed_at,?) WHERE id=? AND status='completed' AND played=0",(now,turn_id))
-            if row.rowcount:
+            row=db.execute("UPDATE conversation_turns SET played=1,state='COMPLETED',closed_at=COALESCE(closed_at,?) WHERE id=? AND status='completed' AND played=0 RETURNING source_event_id,viewer,comment",(now,turn_id)).fetchone()
+            if row:
+                source=db.execute('SELECT platform FROM source_events WHERE id=?',(row[0],)).fetchone()
+                if source and source[0]=='ray-initiative':memory_enabled=False;relationship_enabled=False
                 if relationship_enabled:self.record_relationship_played(db,turn_id,scope,now)
                 db.execute("UPDATE utterances SET status='playback_acknowledged',playback_ack_at=COALESCE(playback_ack_at,?) WHERE turn_id=? AND status='claimed'",(now,turn_id))
+                if (memory_enabled and developer_id and banter_preference(row[2])
+                        and row[1].partition(':')[0]==scope and self.save_banter_feedback(
+                            db,row[0],row[1].partition(':')[2],scope,developer_id,memory_ttl_days,now)):
+                    return True
                 if memory_enabled:
                     options={'policy':memory_policy} if memory_policy else {}
                     self.enqueue_memory_job(db,turn_id,scope=scope,ttl_seconds=memory_ttl_days*86400,capacity=memory_capacity,
@@ -197,6 +230,33 @@ class MemoryStore(Relationships,ConversationContext,SemanticMemory,MemoryReposit
                 total_tokens=COALESCE(?,total_tokens),thought_tokens=COALESCE(?,thought_tokens),
                 cached_input_tokens=COALESCE(?,cached_input_tokens),response_model=COALESCE(?,response_model) WHERE id=?''',(*values,model,key))
 
+    def reply_cache_savings(self,session=None):
+        """Input-only estimate for measured Flash-Lite replies in one developer connection."""
+        with self.connect() as db:
+            if session is None:
+                latest=db.execute("SELECT session FROM developer_inputs WHERE mode='cloud' ORDER BY created_at DESC LIMIT 1").fetchone()
+                session=latest[0] if latest else None
+            calls,measured,inputs,hits=db.execute("""
+                WITH replies AS (
+                    SELECT a.input_tokens, a.cached_input_tokens,
+                           a.input_tokens>0 AND a.cached_input_tokens BETWEEN 0 AND a.input_tokens AS measured
+                    FROM developer_inputs d JOIN conversation_turns t ON t.source_event_id=d.source_event_id
+                    JOIN api_usage a ON a.turn_id=t.turn_id JOIN provider_calls p ON p.id=a.id
+                    WHERE d.session=? AND d.mode='cloud' AND a.mode='cloud' AND a.attempted=1
+                      AND a.provider='gemini' AND a.model='gemini-3.5-flash-lite'
+                      AND p.operation IN ('generate','stream_generate')
+                )
+                SELECT COUNT(*), COUNT(*) FILTER (WHERE measured),
+                       SUM(input_tokens) FILTER (WHERE measured), SUM(cached_input_tokens) FILTER (WHERE measured)
+                FROM replies""",(session,)).fetchone()
+        # Gemini Developer API Standard text input, USD per million tokens, 2026-11-21.
+        # Use integer nanodollars until presentation. One usage row covers the selected stream.
+        return {'session':session,'model':'gemini-3.5-flash-lite','calls':calls,'measured_calls':measured,
+                'unknown_calls':calls-measured,'input_tokens':inputs,'cached_input_tokens':hits,
+                'uncached_baseline_usd':inputs*300/1e9 if measured else None,
+                'estimated_input_usd':((inputs-hits)*300+hits*30)/1e9 if measured else None,
+                'estimated_savings_usd':hits*270/1e9 if measured else None}
+
     def prepare_memory_call(self,job):
         key=self.prepare_call(job['turn_id'],'gemini','extract_memory',
             {'comment_characters':len(job['text']),'policy':job['policy']},model=job['model'],mode=job['scope'])
@@ -234,9 +294,12 @@ class SpeechController:
         self.s=settings;self.store=store;self.output=Path(output);self.clock=clock
         self.text,self.reaction,self.speech=providers or adapters(settings)
         self.memory_worker=MemoryWorker(store,settings,extractor=memory_extractor)
+        self.character=CharacterRuntime(idle_seconds=settings.character_idle_seconds,max_initiatives=settings.character_max_initiatives) if settings.character_enabled else None
 
     def run(self,comment,viewer,turn_id,emit,cancel):
         start=self.clock();deadline=start+self.s.turn_timeout
+        initiative=viewer.startswith('ray-initiative:')
+        character_epoch=self.character.begin(turn_id,comment,initiative=initiative) if self.character else None
         metrics={'mode':self.s.mode,'first_text_ms':None,'first_sentence_ms':None,'first_audio_ready_ms':None,'reaction_ms':None,'chunks':0,'characters':0,'provider_requests':0}
         reply=[];sentences=queue.Queue(maxsize=2);producer_error=[];worker_stop=threading.Event();aux=[];metrics_lock=threading.Lock()
         def current():return not cancel.is_set() and not worker_stop.is_set() and self.clock()<deadline
@@ -246,8 +309,10 @@ class SpeechController:
             while current():
                 try:sentences.put(value,timeout=.05);return
                 except queue.Full:pass
+        live_host = viewer == viewer_key('live-host','host')
         memory_viewer=self.s.mode+':'+viewer
         developer_speaker=self.store.start(turn_id,memory_viewer,comment,developer_id=self.s.developer_id)
+        if self.character:self.memory_worker.wake()
         memory_wait=self.clock()
         semantic_enabled=self.s.memory_enabled and self.s.semantic_memory_mode!='off'
         if semantic_enabled:self.memory_worker.wake()
@@ -257,18 +322,20 @@ class SpeechController:
             if not cancel.is_set():emit({'kind':'error','status':'failed','code':'MEMORY_WORKER_NOT_READY','metrics':metrics})
             return metrics
         metrics['memory_wait_ms']=round((self.clock()-memory_wait)*1000,2)
-        history=self.store.history(memory_viewer,self.s.memory_turns)
+        history=self.store.history(memory_viewer,self.s.memory_turns,turn_id=turn_id)
         memories,strategy=self.store.conversation_memories(viewer,comment,self.s)
         candidates=self.store.episode_candidates(viewer,comment,scope=self.s.mode,
             limit=self.s.semantic_candidate_limit,max_chars=self.s.semantic_max_chars) if semantic_enabled else []
         semantic_done=threading.Event();semantic_result={};generation_decision={}
-        previous_message=self.store.semantic_previous_message(viewer,scope=self.s.mode) if candidates else ''
+        previous_message=self.store.semantic_previous_message(viewer,scope=self.s.mode,turn_id=turn_id) if candidates else ''
         generation_history=history
         def prepare_context(key):
             nonlocal generation_history
             # Refresh before dispatch: a removed source cannot survive in the
             # adapter's context from an earlier turn.
             notes,method=self.store.conversation_memories(viewer,comment,self.s,judgment=generation_decision.get('value'))
+            if developer_speaker and isinstance(self.text,GeminiText):
+                notes+=self.store.developer_banter_memory(viewer,self.s)
             if isinstance(self.text,GeminiText):
                 self.text.set_retrieval_strategy(method,reaction=generation_decision.get('reaction'))
             elif hasattr(self.text,'set_retrieval_strategy'):self.text.set_retrieval_strategy(method)
@@ -278,9 +345,15 @@ class SpeechController:
             if semantic_enabled:
                 self.store.record_semantic_retrieval(turn_id,comment,candidates,generation_decision.get('value'),used=generation_decision.get('value') is not None)
             context=self.store.recall_context(viewer,comment,scope=self.s.mode,developer_id=self.s.developer_id,
-                limit=self.s.context_max_items,max_chars=self.s.context_max_chars) if self.s.memory_enabled and self.s.context_enabled else []
+                limit=self.s.context_max_items,max_chars=self.s.context_max_chars,turn_id=turn_id) if self.s.memory_enabled and self.s.context_enabled else []
+            pace_questions=self.s.language=='ja-JP' and not initiative
+            recent=self.store.history(memory_viewer,self.s.memory_turns,turn_id=turn_id)
+            if pace_questions:
+                cadence_history=recent if self.s.memory_turns>=JAPANESE_QUESTION_WINDOW else self.store.history(memory_viewer,JAPANESE_QUESTION_WINDOW,turn_id=turn_id)
+                questions=[asked_listener_in_japanese(line) for role,line in cadence_history if role=='model']
+                generation_decision['japanese_turn']=japanese_question_direction(questions[-JAPANESE_QUESTION_WINDOW:], comment)
             generation_history,context=speech_background(self.s,comment,bool(candidates),generation_decision.get('value'),
-                self.store.history(memory_viewer,self.s.memory_turns),context,selected=notes)
+                recent,context,selected=notes)
             context_supported=hasattr(self.text,'set_context')
             if context_supported:self.text.set_context(context)
             self.store.record_context_retrievals(turn_id,context,call_id=key,prepared=context_supported)
@@ -294,7 +367,15 @@ class SpeechController:
             metrics['context_tiers']=[e['tier'] for e in context];metrics['context_items']=len(context)
             metrics['memory_ids']=[m['memory_id'] for m in notes];metrics['memory_context_prepared']=supported
             metrics['memory_strategy']=method
-        models={'gemini':self.s.gemini_model,'jev':self.s.jev_model,'tts':self.s.voice} if self.s.mode=='cloud' else {'gemini':'english-fixture','jev':'fixture-reaction','tts':'flite-slt'}
+            character_begin=time.monotonic()
+            memories=self.memory_worker.character_memories(viewer) if self.character else ()
+            if not current():raise ProviderError('TURN_CANCELLED')
+            plan=self.character.plan(comment,memories,background,initiative=initiative,epoch=character_epoch) if self.character else None
+            if hasattr(self.text,'set_character_plan'):self.text.set_character_plan(plan)
+            generation_decision['character_plan']=plan
+            self.memory_worker.character_referenced(memories)
+            metrics['character_prepare_ms']=round((time.monotonic()-character_begin)*1000,3)
+        models={'gemini':self.s.gemini_model,'jev':self.s.jev_model,'tts':getattr(self.speech,'voice',self.s.voice)} if self.s.mode=='cloud' else {'gemini':'english-fixture','jev':'fixture-reaction','tts':'flite-slt'}
         publish('request_prepared',comment_characters=len(comment),history_turns=len(history)//2,memory_items=len(memories),mode=self.s.mode)
         if self.s.mode=='cloud' and not self.s.api_enabled:
             for provider,operation in [('gemini','generate'),('jev','reaction')]:
@@ -348,6 +429,10 @@ class SpeechController:
                 key=prepared('gemini','generate',{'comment_characters':len(comment),'history_turns':len(history)//2})
                 if not dispatch(key,'gemini'):return
                 speaker={'developer_speaker':developer_speaker} if isinstance(self.text,GeminiText) else {}
+                if isinstance(self.text,GeminiText) and 'japanese_turn' in generation_decision:
+                    speaker['japanese_turn']=generation_decision['japanese_turn']
+                if isinstance(self.text,GeminiText) and live_host:
+                    speaker['live_host']=True
                 if self.s.mode=='cloud' and self.s.monthly_reply_llm_usd:
                     if not isinstance(self.text,GeminiText):raise ProviderError('REPLY_LLM_BUDGET_MODEL_NOT_PRICED')
                     def before_send(size,output,attempts):
@@ -356,22 +441,39 @@ class SpeechController:
                         with metrics_lock:metrics['provider_requests']+=1
                         publish('call_dispatched',call_id=key,provider='gemini')
                     speaker['before_send']=before_send
+                plan=generation_decision.get('character_plan')
+                decoder=PublicDecoder(structured=bool(getattr(self.text.stream,'ray_public_output',False)),buffer=buffer,plan=plan,limit=self.s.max_reply_chars) if self.character else None
                 for delta in self.text.stream(comment,generation_history,**speaker):
                     if not got_response:received(key,'gemini');got_response=True
                     if not current():break
                     if not isinstance(delta,str):raise ProviderError('INVALID_GENERATED_TEXT')
                     if metrics['first_text_ms'] is None:metrics['first_text_ms']=round((self.clock()-start)*1000,2)
-                    characters+=len(delta)
-                    if characters>self.s.max_reply_chars:raise ProviderError('REPLY_CHARACTER_LIMIT')
-                    for sentence in buffer.feed(delta):
+                    if not decoder:
+                        characters+=len(delta)
+                        if characters>self.s.max_reply_chars:raise ProviderError('REPLY_CHARACTER_LIMIT')
+                    for sentence in (decoder.feed(delta) if decoder else buffer.feed(delta)):
                         if metrics['first_sentence_ms'] is None:metrics['first_sentence_ms']=round((self.clock()-start)*1000,2)
+                        if isinstance(sentence,PublicOutput):
+                            characters+=len(sentence.speech)
+                            if characters>self.s.max_reply_chars:raise ProviderError('REPLY_CHARACTER_LIMIT')
+                            metrics.setdefault('public_output_ready_ms',round((self.clock()-start)*1000,2))
+                            publish('character_action',**sentence.action())
                         put(sentence)
                 if current():
-                    for sentence in buffer.feed('',final=True):
+                    for sentence in (decoder.feed('',final=True) if decoder else buffer.feed('',final=True)):
                         if metrics['first_sentence_ms'] is None:metrics['first_sentence_ms']=round((self.clock()-start)*1000,2)
+                        if isinstance(sentence,PublicOutput):
+                            characters+=len(sentence.speech)
+                            if characters>self.s.max_reply_chars:raise ProviderError('REPLY_CHARACTER_LIMIT')
+                            metrics.setdefault('public_output_ready_ms',round((self.clock()-start)*1000,2))
+                            publish('character_action',**sentence.action())
                         put(sentence)
                 self.store.call_usage(key,getattr(self.text,'usage',{}));accepted(key,'gemini')
             except Exception as exc:
+                if isinstance(exc,CharacterError):
+                    self.character.format_error()
+                    metrics['character_output_format_errors']=1
+                    exc=ProviderError(str(exc))
                 try:code=failed(key,'gemini',exc) if key else 'CONVERSATION_STORAGE_FAILED'
                 except Exception:code='CONVERSATION_STORAGE_FAILED'
                 producer_error.append(code)
@@ -381,13 +483,15 @@ class SpeechController:
             try:
                 key=prepared('jev','reaction',{'comment_characters':len(comment)})
                 if not dispatch(key,'jev'):return
+                dialogue = {'dialogue':True} if isinstance(self.reaction,JevReaction) and live_host else {}
                 if candidates and self.s.semantic_memory_mode=='jev' and isinstance(self.reaction,JevReaction):
                     current_candidates=self.store.revalidate_episode_candidates(viewer,comment,self.s,candidates)
-                    value=self.reaction.classify(comment,candidates=current_candidates,previous_message=previous_message)
-                else:value=self.reaction.classify(comment)
+                    value=self.reaction.classify(comment,candidates=current_candidates,previous_message=previous_message,**dialogue)
+                else:value=self.reaction.classify(comment,**dialogue)
                 received(key,'jev')
-                if not isinstance(value,dict) or value.get('reaction') not in ('joy','surprise','neutral'):raise ProviderError('INVALID_REACTION')
+                if not isinstance(value,dict) or value.get('reaction') not in (('joy','surprise','neutral','thinking','concerned') if dialogue else ('joy','surprise','neutral')):raise ProviderError('INVALID_REACTION')
                 if current():
+                    if self.character:self.character.react(character_epoch,value['reaction'])
                     semantic=value.pop('semantic',None)
                     if semantic is not None:
                         semantic_result.update(value=semantic,reaction=value.get('reaction'),ready_at=time.monotonic())
@@ -414,6 +518,9 @@ class SpeechController:
                     if producer_error:raise ProviderError(producer_error[0])
                     break
                 if metrics['chunks']>=self.s.max_chunks:raise ProviderError('SPEECH_CHUNK_LIMIT')
+                if self.character:
+                    if not isinstance(sentence,PublicOutput):raise ProviderError('PUBLIC_OUTPUT_TYPE_REQUIRED')
+                    sentence=sentence.speech
                 index=metrics['chunks'];name=f'{turn_id}-{index}.wav';path=self.output/name
                 publish('sentence',index=index,text=sentence)
                 key=prepared('tts','synthesize',{'characters':len(sentence),'chunk':index});reservation=None
@@ -430,7 +537,7 @@ class SpeechController:
                 if not current():break
                 self.store.record_utterance(turn_id,index,sentence,path,duration)
                 if metrics['first_audio_ready_ms'] is None:metrics['first_audio_ready_ms']=round((self.clock()-start)*1000,2)
-                publish('audio',index=index,text=sentence,audio='/conversation/audio/'+name,duration=duration,visemes=timing.get('visemes',[]),mouth_plan=timing.get('mouth_plan',[]),lip_sync=timing.get('lip_sync',timing['source']),tts_ms=round((self.clock()-tts_start)*1000,2))
+                publish('audio',index=index,text=sentence,word_starts=utterance_word_starts(timing),audio='/conversation/audio/'+name,duration=duration,visemes=timing.get('visemes',[]),mouth_plan=timing.get('mouth_plan',[]),lip_sync=timing.get('lip_sync',timing['source']),tts_ms=round((self.clock()-tts_start)*1000,2))
             if cancel.is_set():status='cancelled'
             elif self.clock()>=deadline:raise ProviderError('TURN_DEADLINE')
             elif not reply:raise ProviderError('EMPTY_GENERATED_REPLY')
@@ -443,6 +550,9 @@ class SpeechController:
             for thread in aux:thread.join(timeout=self.s.timeout+.2)
             worker_stop.set()
             metrics['total_ms']=round((self.clock()-start)*1000,2)
+            if self.character:
+                metrics['character']=self.character.metrics()
+                with self.memory_worker.lock:metrics['character_memory']=dict(self.memory_worker.character_counts)
             self.store.finish(turn_id,' '.join(reply),status,metrics)
         if not cancel.is_set():emit({'kind':'complete' if status=='completed' else 'error','status':status,'code':code,'metrics':metrics})
         return metrics
@@ -452,7 +562,7 @@ class ConversationBridge:
     """One turn worker. Old events and duplicate chunk claims cannot reach playout."""
     def __init__(self,settings,store,output,fence,lock,*,providers=None,memory_extractor=None):
         self.controller=SpeechController(settings,store,output,providers=providers,memory_extractor=memory_extractor);self.fence=fence;self.lock=lock
-        self.events=[];self.cancel_event=threading.Event();self.worker=None;self.token=None;self.claims=set();self.finished=False
+        self.viewer=None;self.events=[];self.cancel_event=threading.Event();self.worker=None;self.token=None;self.claims=set();self.finished=False
 
     def begin(self,comment,viewer='preview',*,on_begin=None,on_terminal=None):
         if not isinstance(comment,str) or not 0<len(comment.strip())<=1000 or not isinstance(viewer,str) or not 0<len(viewer)<=100:raise ValueError('INVALID_COMMENT')
@@ -502,7 +612,10 @@ class ConversationBridge:
             accepted=self.controller.store.played(token['turn_id'],scope=s.mode,memory_enabled=s.memory_enabled,
                 memory_ttl_days=s.memory_ttl_days,memory_capacity=s.memory_queue_size,
                 memory_policy=self.controller.memory_worker.policy,memory_model=self.controller.memory_worker.model,
-                memory_min_confidence=s.memory_min_confidence,relationship_enabled=s.memory_enabled and s.relationship_enabled)
+                memory_min_confidence=s.memory_min_confidence,relationship_enabled=s.memory_enabled and s.relationship_enabled,developer_id=s.developer_id)
             if accepted and s.memory_enabled and self.controller.store.memory_pending(self.viewer,s.mode):
                 self.controller.memory_worker.wake()
+            if accepted and self.controller.character:
+                self.controller.character.played(initiative=self.viewer.startswith('ray-initiative:'))
+                self.controller.memory_worker.offer_character(token['turn_id'])
             return accepted

@@ -106,7 +106,7 @@ async def replay():
                 developer_id=settings.developer_id,reviewed_non_sensitive=True)
             public_after=store.recall_context(viewer,'coffee',scope='offline',developer_id=settings.developer_id)
             assert public_after[0]['tier']==1 and 'Cedar' not in context_text(public_after)
-            await session.start_text(uuid.uuid4().hex,'Please explain coffee again.')
+            await session.start_text(uuid.uuid4().hex,'What coffee brewing advice and preferences do you remember?')
             await asyncio.wait_for(session.task,6);assert session.phase=='generated'
             tiers=[e['tier'] for e in clients.context];assert set(tiers)=={1,2,3} and tiers==sorted(tiers)
             assert len(context_text(clients.context))<=settings.context_max_chars

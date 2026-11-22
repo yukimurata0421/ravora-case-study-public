@@ -279,3 +279,13 @@ class LocalSpeech:
                   'phones': phones, 'visemes': visemes, 'mouth_plan': plan_mouth(phones)}
         output.with_suffix('.speech.json').write_text(json.dumps(report, indent=2) + '\n')
         return report
+
+def utterance_word_starts(timing):
+    """First aligned phone per spoken token, in seconds on the generated WAV."""
+    if timing.get('word_anchors'):
+        return [mark['wave_seconds'] for mark in timing['word_anchors']]
+    starts = {}
+    for phone in timing.get('phones', ()):
+        if 'token_index' in phone:
+            starts.setdefault(phone['token_index'], phone['start'])
+    return list(starts.values())

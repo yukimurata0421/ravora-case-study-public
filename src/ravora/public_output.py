@@ -26,7 +26,8 @@ class PublicOutput:
         if (not isinstance(speech, str) or not speech.strip() or len(speech) > limit
                 or any(ord(c) < 32 for c in speech) or any(c in speech for c in '{}[]`')
                 or re.search(r'(?i)(inner[_ -]?state|private[_ -]?thought|system[_ -]?prompt|public_output|'
-                             r'\bdesire\s*:|\bconflict\s*:|-----BEGIN|api[_ -]?key\s*[:=]|bearer\s+)', speech)):
+                             r'\bdesire\s*:|\bconflict\s*:|(?:内面状態|内心|欲求|葛藤|システムプロンプト)\s*[:：]|'
+                             r'-----BEGIN|api[_ -]?key\s*[:=]|bearer\s+)', speech)):
             raise CharacterError('PUBLIC_SPEECH_REJECTED')
         if (not isinstance(value['expression'],str) or not isinstance(value['motion'],str)
                 or value['expression'] not in EXPRESSIONS or value['motion'] not in MOTIONS):
@@ -70,7 +71,8 @@ def _pairs(pairs):
 
 def decode_reply(raw, limit):
     try:
-        envelope = json.loads(raw, object_pairs_hook=_pairs)
+        envelope = json.loads(raw, object_pairs_hook=_pairs,
+                              parse_constant=lambda _: (_ for _ in ()).throw(CharacterError('PUBLIC_OUTPUT_NONFINITE')))
     except (json.JSONDecodeError, RecursionError):
         raise CharacterError('PUBLIC_OUTPUT_FORMAT_ERROR') from None
     if not isinstance(envelope, dict) or set(envelope) != {'public_output'}:

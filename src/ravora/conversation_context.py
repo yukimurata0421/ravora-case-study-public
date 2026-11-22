@@ -7,6 +7,7 @@ import uuid
 
 from ravora.memory import safe_summary
 from ravora.context_prompt import context_text
+from ravora.memory_extraction import dialogue_terms, historical_reference, session_recap
 from ravora.developer_identity import DEVELOPER_PLATFORMS, developer_keys
 
 KINDS={1:'developer_dialogue',2:'comment_exchange',3:'assistant_answer'}
@@ -76,26 +77,43 @@ class ConversationContext:
                 WHERE r.scope=? AND m.scope=r.scope AND m.viewer_key=r.owner_key AND r.revoked_at IS NULL
                   AND r.owner_key IN (?,?,?) AND m.review_state='approved' AND m.sensitivity='non_sensitive'
                   AND m.deleted_at IS NULL AND m.expires_at>? ORDER BY r.approved_at DESC LIMIT 32""",(scope,*owners,time.time())).fetchall()
-            found=[];words=set(re.findall(r'[^\W_]+',query.lower()))
+            found=[];words=set(dialogue_terms(query))
             for share,key,viewer,digest,summary in rows:
                 sources=db.execute('SELECT s.id,s.viewer_key,s.platform,s.is_deleted FROM source_events s JOIN memory_sources x ON x.event_id=s.id WHERE x.memory_id=?',(key,)).fetchall()
                 if not sources or any(s[1]!=viewer or s[2] not in DEVELOPER_PLATFORMS or s[3] for s in sources):continue
                 if sensitive(summary) or digest!=fingerprint(viewer,scope,summary,[s[0] for s in sources]):continue
                 entry={'context_id':'memory:'+key,'tier':1,'kind':'shared_developer_memory','text':summary,
                     'memory_id':key,'share_id':share,'source_event_id':sources[0][0]}
-                found.append((len(words&set(summary.lower().split())),entry))
+                overlap = words.intersection(dialogue_terms(summary))
+                if overlap:found.append((len(overlap),entry))
         return [e for _,e in sorted(found,key=lambda pair:pair[0],reverse=True)]
 
-    def recall_context(self,viewer,query,*,scope,developer_id,limit=8,max_chars=3600):
+    def recall_context(self,viewer,query,*,scope,developer_id,limit=8,max_chars=3600,turn_id=None):
         if scope not in ('offline','cloud') or type(limit) is not int or not 3<=limit<=12 or type(max_chars) is not int or not 1200<=max_chars<=8000:raise ValueError('INVALID_CONTEXT_LIMITS')
         owners=developer_keys(developer_id);private=viewer in owners
-        words=re.findall(r'[^\W_]+',query[:1000],re.UNICODE)[:16]
+        words=dialogue_terms(query[:1000])[:16]
+        if not words or session_recap(query):return []
         match=' OR '.join('"'+word+'"' for word in words)
         groups={1:self._shared_context(owners,scope,query),2:[],3:[]}
         with self.connect() as db:
+            stream = None
+            if turn_id and not historical_reference(query):
+                # Once a conversation is underway, search its sources first. An explicit
+                # request for past material may cross sessions under the normal owner rules.
+                stream = db.execute('''SELECT s.stream_id FROM conversation_turns t
+                    JOIN source_events s ON s.id=t.source_event_id
+                    WHERE t.turn_id=? AND t.viewer=? AND EXISTS(
+                        SELECT 1 FROM source_events p JOIN conversation_turns prior ON prior.source_event_id=p.id
+                        WHERE p.viewer_key=s.viewer_key AND p.stream_id=s.stream_id AND prior.viewer=t.viewer
+                          AND prior.played=1 AND prior.status='completed' AND p.is_deleted=0
+                          AND p.raw_purged_at IS NULL AND p.expires_at>?)''',
+                    (turn_id,scope+':'+viewer,time.time())).fetchone()
             for tier in (1,2,3):
                 if tier==1 and not private:continue
                 where='v.scope=? AND v.tier=?';params=[scope,tier]
+                if stream:
+                    where+=' AND EXISTS(SELECT 1 FROM source_events s WHERE s.id=v.source_event_id AND s.stream_id=?)'
+                    params.append(stream[0])
                 if tier==1:
                     where+=''' AND v.viewer_key IN (?,?,?) AND EXISTS(SELECT 1 FROM developer_memory_sources d
                         WHERE d.event_id=v.source_event_id AND d.owner_key=v.viewer_key)'''
@@ -106,16 +124,13 @@ class ConversationContext:
                 # Even answer-only retrieval observes privacy/opt-out markers in
                 # the original input; omitting that check would revive a refused turn.
                 base='SELECT v.turn_id,v.source_event_id,t.comment,v.answer FROM conversation_context v JOIN conversation_turns t ON t.turn_id=v.turn_id'
-                rows=[]
-                if match:
-                    rows=db.execute(base+' JOIN conversation_fts ON conversation_fts.rowid=v.source_rowid WHERE '+where+' AND conversation_fts MATCH ? ORDER BY bm25(conversation_fts),v.closed_at DESC LIMIT 24',(*params,match)).fetchall()
-                recent=db.execute(base+' WHERE '+where+' ORDER BY v.closed_at DESC,v.received_at DESC LIMIT 24',params).fetchall()
-                seen=set()
-                for turn,event,question,answer in rows+recent:
-                    if turn in seen:continue
-                    seen.add(turn)
+                rows=db.execute(base+' JOIN conversation_fts ON conversation_fts.rowid=v.source_rowid WHERE '+where+' AND conversation_fts MATCH ? ORDER BY bm25(conversation_fts),v.closed_at DESC LIMIT 24',(*params,match)).fetchall()
+                for turn,event,question,answer in rows:
+                    # A character's own guess cannot make a viewer report relevant.
+                    evidence = answer if tier == 3 else question
+                    if not any(word in words for word in dialogue_terms(evidence)):continue
                     if sensitive(question) or sensitive(answer):continue
-                    text=('Developer: ' if tier==1 else 'Viewer: ')+question[:300]+'\nRavora: '+answer[:600] if tier!=3 else answer[:800]
+                    text=('Developer: ' if tier==1 else 'Viewer: ')+question[:300]+'\nAssistant: '+answer[:600] if tier!=3 else answer[:800]
                     groups[tier].append({'context_id':f'turn:{tier}:{turn}','tier':tier,'kind':KINDS[tier],
                         'text':text,'source_turn_id':turn,'source_event_id':event})
         # Reserve room for every tier; higher tiers get more space. Bound the

@@ -16,42 +16,42 @@
     "third-party renderer bundles",
     "host deployment and production controls"
   ],
-  "updated_at_jst": "2026-11-21T18:38:36+09:00",
+  "updated_at_jst": "2026-11-22T09:20:23+09:00",
   "files": [
     {
       "path": ".env.example",
-      "sha256": "229d598bd29eb3c970c9ed929b2049940d147fbe5988cc1aba7a5fa66ca48f21",
       "kind": "generated",
       "source": "case-study",
-      "note": "Portable documentation, fixture, or publication validation."
+      "sha256": "5f8b9cec8d894e509576f614abb544b8461d0c7dd600f6f5591f5d21ffbbf3f8",
+      "note": "Public documentation, entrypoint, packaging, validation or synthetic replay."
     },
     {
       "path": ".github/workflows/ci.yml",
-      "sha256": "8f7aea75b33e4f3b07f4bbde8d8b0ece38305e2112d5a0c3a040cc4e28650e3c",
       "kind": "generated",
       "source": "case-study",
-      "note": "Portable documentation, fixture, or package validation."
+      "sha256": "6e7cc86026ebfa0ae001f6ca6367fc62034b5228e9b7446668907abb0dbcead5",
+      "note": "Public documentation, entrypoint, packaging, validation or synthetic replay."
     },
     {
       "path": ".gitignore",
-      "sha256": "ef3c7bbc8c5beb933c5a51a34f6d95420f5e7f61d515dedde9e80d30dfd7909e",
       "kind": "generated",
-      "note": "Portable documentation, fixture, or publication validation.",
-      "source": "case-study"
+      "source": "case-study",
+      "sha256": "a7d1d857620dd06d49042365643f20f4da54eb04cc36bddd5b6b8d5ca0aed5bc",
+      "note": "Public documentation, entrypoint, packaging, validation or synthetic replay."
     },
     {
       "path": "NOTICE.md",
-      "sha256": "a59472d30e7c8c8332bc94c85e6fe3652e88af0cdc41abb36eaebf0f811c3a0a",
       "kind": "generated",
       "source": "case-study",
-      "note": "Portable documentation, fixture, or package validation."
+      "sha256": "e61baf4e8b9c7730a00f26c488fda54cbab174248a37480ec630628f6f85f1b4",
+      "note": "Public documentation, entrypoint, packaging, validation or synthetic replay."
     },
     {
       "path": "README.md",
-      "sha256": "9b319af3ccdab59afcca9a67d37af33bbe97abf567f1388aab3fa5707966c232",
       "kind": "generated",
       "source": "case-study",
-      "note": "Portable documentation, fixture, or publication validation."
+      "sha256": "dfb059222b6481c803178dbd22d933ffab0f1661836e0e84c70c0e6c3224bc43",
+      "note": "Public documentation, entrypoint, packaging, validation or synthetic replay."
     },
     {
       "path": "docs/audio-timing.md",
@@ -205,9 +205,10 @@
     },
     {
       "path": "docs/privacy.md",
-      "sha256": "61711ca036336715026de3c3f44711ce3abc905634a2a562b6e34d1f2c930ad9",
       "kind": "generated",
-      "note": "Case-study documentation, replay, packaging, or local validation support."
+      "source": "case-study",
+      "sha256": "d4fe1b30a3f2745f5684cba9d3a5bbee4623fe12a7ea3a2b3ce21e3bf29551da",
+      "note": "Public documentation, entrypoint, packaging, validation or synthetic replay."
     },
     {
       "path": "docs/relationships.md",
@@ -230,6 +231,13 @@
       "sha256": "9d62d45b8449512ae5e32068a6d7d34349dcf91dc9012171efd62f29cc2197de"
     },
     {
+      "path": "docs/youtube-live.md",
+      "kind": "generated",
+      "source": "case-study",
+      "sha256": "95a15486d9c9a5bd93c62033e3822b0e9f1ee75000703d121886d362ff34cc5a",
+      "note": "Public documentation, entrypoint, packaging, validation or synthetic replay."
+    },
+    {
       "path": "examples/early-reaction-report.json",
       "sha256": "0bee1ddd2bfe5f4fa613d973a21b3c3cab7e258365c4daa1fab8964b216e444a",
       "kind": "generated",
@@ -245,17 +253,17 @@
     },
     {
       "path": "examples/relationship-report.json",
-      "sha256": "21af25d8da1b174c6063d073d03ad587975965554ffedb6cf2ade664a5b02426",
       "kind": "generated",
       "source": "case-study",
-      "note": "Portable documentation, fixture, or publication validation."
+      "sha256": "5a0fb1f654f5ab7b7bba1db464ae6e2464b6691895e531c94202e8d03c71429d",
+      "note": "Public documentation, entrypoint, packaging, validation or synthetic replay."
     },
     {
       "path": "examples/replay-report.json",
-      "sha256": "5b4c09525ad6144c10ab9b9cc748860d80ebe8fef5094320e6df2ac12ded52e4",
       "kind": "generated",
       "source": "case-study",
-      "note": "Portable documentation, fixture, or publication validation."
+      "sha256": "cc121bb729786cc7fcd563e6d62ffd8eadb3676c4f10a2d87fd17a1337b5b564",
+      "note": "Public documentation, entrypoint, packaging, validation or synthetic replay."
     },
     {
       "path": "examples/voice-evaluation.toml",
@@ -266,10 +274,10 @@
     },
     {
       "path": "publication/README.md",
-      "sha256": "997fc8a0cdea230a4a89134ce8c420aa311487aec7d426d79665cdb3f7e3316d",
       "kind": "generated",
       "source": "case-study",
-      "note": "Portable documentation, fixture, or publication validation."
+      "sha256": "37056f3a054fb775b14604449a25db4c3cb1a4a490aae38cf1ff4c9cfbdd97d7",
+      "note": "Public documentation, entrypoint, packaging, validation or synthetic replay."
     },
     {
       "path": "publication/audio-timing-evaluation-20261118.json",
@@ -338,6 +346,13 @@
       "note": "Portable documentation, fixture, or publication validation."
     },
     {
+      "path": "publication/history/2026-11-21-listener-and-mute-validation.json",
+      "kind": "generated",
+      "source": "case-study",
+      "sha256": "338debefc61f291e5de2c64751466187a5c5d034ce1b9b484bb24c2271368d71",
+      "note": "Public documentation, entrypoint, packaging, validation or synthetic replay."
+    },
+    {
       "path": "publication/history/2026-11-21-upper-lip-validation.json",
       "kind": "generated",
       "source": "case-study",
@@ -368,10 +383,10 @@
     },
     {
       "path": "pyproject.toml",
-      "sha256": "35c0454a0b8cf91bb72e2a7f444340a5375c882848c43c604bae1603d9f5df85",
       "kind": "generated",
       "source": "case-study",
-      "note": "Portable documentation, fixture, or publication validation."
+      "sha256": "5bebbff3e3f5e20ff625c6d0499d11f0278582377d110ee3f51be1ab7a8d1732",
+      "note": "Public documentation, entrypoint, packaging, validation or synthetic replay."
     },
     {
       "path": "scripts/demo.py",
@@ -410,6 +425,13 @@
       "source": "case-study"
     },
     {
+      "path": "scripts/youtube_live.py",
+      "kind": "generated",
+      "source": "case-study",
+      "sha256": "ba22ea5bf665c7d6b08ab577529ed8757455b0b4c462f665a5f24d1c65944353",
+      "note": "Public documentation, entrypoint, packaging, validation or synthetic replay."
+    },
+    {
       "path": "src/ravora/__init__.py",
       "sha256": "0f1703867b0620bbdb8d17ecf024b1c6824459a5db39fe5ae5c8a6e0fc4284ee",
       "note": "",
@@ -419,18 +441,26 @@
     },
     {
       "path": "src/ravora/case_study.py",
-      "sha256": "8359fd568ae9f90804dc0fa64ae5dc9030a96df92e7b7952addca8e4cffc4b43",
       "kind": "generated",
       "source": "case-study",
-      "note": "Portable documentation, fixture, or publication validation."
+      "sha256": "b7d377e3d98043cac21424c2086cdee1914aec7051f1b8d6265fcc12c20cbbe1",
+      "note": "Public documentation, entrypoint, packaging, validation or synthetic replay."
+    },
+    {
+      "path": "src/ravora/character_evaluation.py",
+      "kind": "adapted",
+      "source": "scripts/evaluate_character.py",
+      "source_sha256": "0722d1b62d8a991cd391c1613f2a547032969b363cdca05e51f271cc80eaaf70",
+      "sha256": "2ac0bb5f4a38419906f1a5b63610e492ebb32f8cf22faaede4a8e5bfd29a0cf3",
+      "note": "Adapted to the public package, its asset bindings or its synthetic test fixtures."
     },
     {
       "path": "src/ravora/comments.py",
-      "sha256": "b3fb4f50707464741e819e559ec95c9f052de797f5452811406cdbfad89be02b",
-      "note": "Exact source snapshot.",
+      "kind": "copied",
       "source": "src/ravora/comments.py",
-      "source_sha256": "b3fb4f50707464741e819e559ec95c9f052de797f5452811406cdbfad89be02b",
-      "kind": "copied"
+      "source_sha256": "0df45d44de77b3543646b631b50c3fd23abda425e079009f03a222495291d1e1",
+      "sha256": "0df45d44de77b3543646b631b50c3fd23abda425e079009f03a222495291d1e1",
+      "note": "Exact source snapshot."
     },
     {
       "path": "src/ravora/context_prompt.py",
@@ -442,19 +472,19 @@
     },
     {
       "path": "src/ravora/conversation.py",
-      "sha256": "6975e625ec4c0ca7931100d3291755224709d5071657d2db536a4952094ffbef",
-      "source": "src/ravora/conversation.py",
-      "source_sha256": "6975e625ec4c0ca7931100d3291755224709d5071657d2db536a4952094ffbef",
       "kind": "copied",
+      "source": "src/ravora/conversation.py",
+      "source_sha256": "66081e151ddb517904a4204979b879a2044f71a30bc4715ee7286a8d9ccf8796",
+      "sha256": "66081e151ddb517904a4204979b879a2044f71a30bc4715ee7286a8d9ccf8796",
       "note": "Exact source snapshot."
     },
     {
       "path": "src/ravora/conversation_context.py",
-      "sha256": "30a92cde3ab000531119ee5a795e9191e2e0db2155adf10cac8bd0c8088ca85b",
-      "note": "Exact source snapshot.",
+      "kind": "copied",
       "source": "src/ravora/conversation_context.py",
-      "source_sha256": "30a92cde3ab000531119ee5a795e9191e2e0db2155adf10cac8bd0c8088ca85b",
-      "kind": "copied"
+      "source_sha256": "9ad3caa1cb5f982323409ea51c288c26212037de765c518497e0a138736f49d5",
+      "sha256": "9ad3caa1cb5f982323409ea51c288c26212037de765c518497e0a138736f49d5",
+      "note": "Exact source snapshot."
     },
     {
       "path": "src/ravora/database.py",
@@ -471,6 +501,14 @@
       "source_sha256": "5c97e233f74675fb1ae9dee8c897b422f6ee4b868850a78a5ae7ee71c447893a",
       "kind": "copied",
       "note": "Exact source snapshot."
+    },
+    {
+      "path": "src/ravora/developer_http.py",
+      "kind": "adapted",
+      "source": "src/ravora/developer_http.py",
+      "source_sha256": "8cb1c098a37b3387a7545c040acda1464efc0adb0c7cb44ec26b64e1e68df47b",
+      "sha256": "3ec7a8404243a59638ff1a9531662efdfddedf990f7c0a68cae6bb7baf0f4700",
+      "note": "Adapted to the public package, its asset bindings or its synthetic test fixtures."
     },
     {
       "path": "src/ravora/developer_identity.py",
@@ -490,27 +528,27 @@
     },
     {
       "path": "src/ravora/edge_grpc.py",
-      "source": "src/ravora/edge_grpc.py",
-      "source_sha256": "8588d46c0f66eb1943013a5e3eec39c00b979dc9508863bfe783c7db6e3218b0",
       "kind": "adapted",
-      "note": "Port of listener reactions, public reply cues or microphone controls for the portable console.",
-      "sha256": "44bdf5b0d3d0ea345eabe5d4de9b4d871d33b92df3d2f625c3e90f42a4ec3d51"
+      "source": "src/ravora/edge_grpc.py",
+      "source_sha256": "828da071bd7c5ffe7e4712e0f97c594c4b2e300b14623be87243f4bdee3db9a6",
+      "sha256": "c84202ee31fa253ee0177857e74b14d8154bb76ff6eca3a7387b8b5995695fdf",
+      "note": "Adapted to the public package, its asset bindings or its synthetic test fixtures."
     },
     {
       "path": "src/ravora/fast_voice.py",
-      "sha256": "b7e30df1b513991a4051d62169a843aedb1407f3ec8e5f4ea0b75ca0cb7b0a83",
-      "source": "src/ravora/fast_voice.py",
-      "source_sha256": "b5545170b6057128e089c8291bc8c4b8603ae9220b522c91ddd26dd49d60ea47",
       "kind": "adapted",
-      "note": "Port of listener reactions, public reply cues or microphone controls for the portable console."
+      "source": "src/ravora/fast_voice.py",
+      "source_sha256": "a407c07db77721c31f36a7e6b1f0274f60f0d6834b80529887bb26bef8eed2cd",
+      "sha256": "e299571fbce6ae97e48399d21ba3e975fa1362fe0f118f7460763eb646fb8fa9",
+      "note": "Adapted to the public package, its asset bindings or its synthetic test fixtures."
     },
     {
       "path": "src/ravora/fast_voice_server.py",
-      "source": "src/ravora/fast_voice_server.py",
-      "source_sha256": "406688738391f88c5f5a2a6f1c055b2ecaf619a062f213ce44300e6dd6f87d73",
       "kind": "adapted",
-      "note": "Port of listener reactions, public reply cues or microphone controls for the portable console.",
-      "sha256": "2e29f474c8f42992f4ed60a019a379bbc04defcc828cfd106c61bf35e5de7cdf"
+      "source": "src/ravora/fast_voice_server.py",
+      "source_sha256": "244451d1d604e04771e920e4d93cb8babddcb31d2850a79a808e3de70e23e250",
+      "sha256": "0e70252eff3d4b64bcc92631d59d312903174f9d8f6ba13265f9ca1574aee5ea",
+      "note": "Adapted to the public package, its asset bindings or its synthetic test fixtures."
     },
     {
       "path": "src/ravora/gemini_memory.py",
@@ -522,11 +560,11 @@
     },
     {
       "path": "src/ravora/input_pipeline.py",
-      "sha256": "4d97bca64e58a285a01a4a1b1a27f2324d8026afbe53388e958af530444a7615",
-      "note": "",
+      "kind": "copied",
       "source": "src/ravora/input_pipeline.py",
-      "source_sha256": "4d97bca64e58a285a01a4a1b1a27f2324d8026afbe53388e958af530444a7615",
-      "kind": "copied"
+      "source_sha256": "e195fa6eba28d03114ffa468ba44c29a44ec438aee862ed0c607efc3dce89bd6",
+      "sha256": "e195fa6eba28d03114ffa468ba44c29a44ec438aee862ed0c607efc3dce89bd6",
+      "note": "Exact source snapshot."
     },
     {
       "path": "src/ravora/input_records.py",
@@ -535,6 +573,86 @@
       "source_sha256": "61159a1dad4ee69b435812a0224e64154be9007d83281b258fd6a2998a5ec75e",
       "kind": "adapted",
       "note": "Adapted to the portable archive without host tooling or original media."
+    },
+    {
+      "path": "src/ravora/live_avatar.py",
+      "kind": "copied",
+      "source": "src/ravora/live_avatar.py",
+      "source_sha256": "94c45031f29da3db1d4836d3bec9505fafb62b0f61ad410fc3f286024aba2cc1",
+      "sha256": "94c45031f29da3db1d4836d3bec9505fafb62b0f61ad410fc3f286024aba2cc1",
+      "note": "Exact source snapshot."
+    },
+    {
+      "path": "src/ravora/live_dell_mic.py",
+      "kind": "copied",
+      "source": "src/ravora/live_dell_mic.py",
+      "source_sha256": "f4c98b81203e94967c8f6bfc7a0a72ed1f3b15fb0a536bd07a072d579f4db407",
+      "sha256": "f4c98b81203e94967c8f6bfc7a0a72ed1f3b15fb0a536bd07a072d579f4db407",
+      "note": "Exact source snapshot."
+    },
+    {
+      "path": "src/ravora/live_handsfree.py",
+      "kind": "copied",
+      "source": "src/ravora/live_handsfree.py",
+      "source_sha256": "28ba6c93e36003e923e86f5440b20e79e7add5f33f5632e2aa2a20845cb97c9e",
+      "sha256": "28ba6c93e36003e923e86f5440b20e79e7add5f33f5632e2aa2a20845cb97c9e",
+      "note": "Exact source snapshot."
+    },
+    {
+      "path": "src/ravora/live_http.py",
+      "kind": "adapted",
+      "source": "src/ravora/live_http.py",
+      "source_sha256": "f06bdd906888778189bf8bb5179ee3b0e7e4c07cb79b07e097e1e97435ea9a39",
+      "sha256": "7c53f026fc2af422e227bbf3577b2c1db6ada661c2610e0a3104fdc600290c80",
+      "note": "Adapted to the public package, its asset bindings or its synthetic test fixtures."
+    },
+    {
+      "path": "src/ravora/live_media.py",
+      "kind": "adapted",
+      "source": "src/ravora/live_media.py",
+      "source_sha256": "38fa432fb19b8778fa0faa91ec06095af0697e03ad0bf64b4533caaf5f3b48a7",
+      "sha256": "b7c36d36c37d686e3687416e6e5d18e7200fda8ba289cf1b6ebfbb9f76dae020",
+      "note": "Adapted to the public package, its asset bindings or its synthetic test fixtures."
+    },
+    {
+      "path": "src/ravora/live_mic.py",
+      "kind": "copied",
+      "source": "src/ravora/live_mic.py",
+      "source_sha256": "c2a7f6201406b1db1dd34e1fce8da970960ee1549fb2121f2d1edfe7d08f78e7",
+      "sha256": "c2a7f6201406b1db1dd34e1fce8da970960ee1549fb2121f2d1edfe7d08f78e7",
+      "note": "Exact source snapshot."
+    },
+    {
+      "path": "src/ravora/live_overlay.py",
+      "kind": "adapted",
+      "source": "src/ravora/live_overlay.py",
+      "source_sha256": "6656232f256a80a0da5cae7b67c1858bbdebdffac9c1857a9b0576c3192dc277",
+      "sha256": "aa5bf95a3100398c780f727b0c1ba80407dc5a746d6239f78c3ce7eaf9a8ab41",
+      "note": "Adapted to the public package, its asset bindings or its synthetic test fixtures."
+    },
+    {
+      "path": "src/ravora/live_program.py",
+      "kind": "copied",
+      "source": "src/ravora/live_program.py",
+      "source_sha256": "57021f1002ece89c8eb69d17e3da42e91065df45cc284713e149d32abb84515f",
+      "sha256": "57021f1002ece89c8eb69d17e3da42e91065df45cc284713e149d32abb84515f",
+      "note": "Exact source snapshot."
+    },
+    {
+      "path": "src/ravora/live_voice.py",
+      "kind": "copied",
+      "source": "src/ravora/live_voice.py",
+      "source_sha256": "f533757cdefd215974289e544178e002aa881d4c3192728b2c103d35d5efc777",
+      "sha256": "f533757cdefd215974289e544178e002aa881d4c3192728b2c103d35d5efc777",
+      "note": "Exact source snapshot."
+    },
+    {
+      "path": "src/ravora/local_stt.py",
+      "kind": "adapted",
+      "source": "src/ravora/local_stt.py",
+      "source_sha256": "083ce8d48bae59efc1cade2965c23a2d198c762466c6e1df2273c9ac0ba525f7",
+      "sha256": "50029d70433f98386126cf861267f390b23f28db5a28f17c68ba93f4271ced8a",
+      "note": "Adapted to the public package, its asset bindings or its synthetic test fixtures."
     },
     {
       "path": "src/ravora/marked_speech.py",
@@ -554,27 +672,27 @@
     },
     {
       "path": "src/ravora/memory.py",
-      "source": "src/ravora/memory.py",
-      "source_sha256": "ab28a63605e83afd20476638c08172793477ec096f2f91c5ef44d5d438a1cbb3",
       "kind": "copied",
-      "note": "Exact source snapshot.",
-      "sha256": "ab28a63605e83afd20476638c08172793477ec096f2f91c5ef44d5d438a1cbb3"
+      "source": "src/ravora/memory.py",
+      "source_sha256": "9c38ea51b225a4bb1da9abb98a1d9c7861db4697c0813e4e227f4521c937f801",
+      "sha256": "9c38ea51b225a4bb1da9abb98a1d9c7861db4697c0813e4e227f4521c937f801",
+      "note": "Exact source snapshot."
     },
     {
       "path": "src/ravora/memory_extraction.py",
-      "sha256": "c9115ffb8b02008bbdb7756f5f3e0b6cf319a20a7c3d5cedcb23b9be4b4955ff",
-      "note": "",
+      "kind": "copied",
       "source": "src/ravora/memory_extraction.py",
-      "source_sha256": "c9115ffb8b02008bbdb7756f5f3e0b6cf319a20a7c3d5cedcb23b9be4b4955ff",
-      "kind": "copied"
+      "source_sha256": "f5c3103c18694c9eaacce923887eab275d6c91e16633a09a65a12b1267173b73",
+      "sha256": "f5c3103c18694c9eaacce923887eab275d6c91e16633a09a65a12b1267173b73",
+      "note": "Exact source snapshot."
     },
     {
       "path": "src/ravora/memory_worker.py",
-      "sha256": "91bde3a4d206402a8be1b0fec4b0834fbcd4aee9d5f519dee19d555bcb82c608",
-      "note": "Exact source snapshot.",
+      "kind": "copied",
       "source": "src/ravora/memory_worker.py",
-      "source_sha256": "91bde3a4d206402a8be1b0fec4b0834fbcd4aee9d5f519dee19d555bcb82c608",
-      "kind": "copied"
+      "source_sha256": "0d82eb5e85c1a930191d50197841d76dce393badefd78382317993aa02d434e7",
+      "sha256": "0d82eb5e85c1a930191d50197841d76dce393badefd78382317993aa02d434e7",
+      "note": "Exact source snapshot."
     },
     {
       "path": "src/ravora/migrations/001_memory.sql",
@@ -681,12 +799,20 @@
       "note": "Exact source snapshot."
     },
     {
-      "path": "src/ravora/persona.py",
-      "source": "src/ravora/persona.py",
-      "source_sha256": "95d395f60130a5f3908f7cf96691f99ddbc0bf1af898dd7a57bc523b3fbba369",
+      "path": "src/ravora/migrations/014_ray_character.sql",
       "kind": "copied",
-      "note": "Exact source snapshot.",
-      "sha256": "95d395f60130a5f3908f7cf96691f99ddbc0bf1af898dd7a57bc523b3fbba369"
+      "source": "migrations/014_ray_character.sql",
+      "source_sha256": "b633a7e1410cd3ef6286f5b8147fdaa1d9dcbb1968d7819c5fc24321401cec84",
+      "sha256": "b633a7e1410cd3ef6286f5b8147fdaa1d9dcbb1968d7819c5fc24321401cec84",
+      "note": "Exact source snapshot."
+    },
+    {
+      "path": "src/ravora/persona.py",
+      "kind": "adapted",
+      "source": "src/ravora/persona.py",
+      "source_sha256": "29d3833efc560e696f8ecab83de0322999331c7f38a22582543b6000e6fdf96f",
+      "sha256": "9e90536fdb39f310a52d4abc9ecaa601a89a4b8db05d152ff75be36e31a5d6a5",
+      "note": "Adapted to the public package, its asset bindings or its synthetic test fixtures."
     },
     {
       "path": "src/ravora/personas/calm.txt",
@@ -722,19 +848,35 @@
     },
     {
       "path": "src/ravora/providers.py",
-      "sha256": "09af778aae13710e24635c41ec982cd27e62cf48ed0ac24e8f9517e0bd83048a",
+      "kind": "copied",
       "source": "src/ravora/providers.py",
-      "source_sha256": "51f41cf41e2b9943f2651b954f2a0245f63bbe8d864b7a3391874229db49805e",
-      "kind": "adapted",
-      "note": "Port of listener reactions, public reply cues or microphone controls for the portable console."
+      "source_sha256": "6151838ef5fe26d14c9f6b2ac45b7f396bff2b6b4ab582a6932a42aa568e103d",
+      "sha256": "6151838ef5fe26d14c9f6b2ac45b7f396bff2b6b4ab582a6932a42aa568e103d",
+      "note": "Exact source snapshot."
     },
     {
       "path": "src/ravora/public_output.py",
-      "source": "src/ravora/ray_character.py",
       "kind": "adapted",
-      "sha256": "1b205d15918dc621a4939b868a2f77e1c26eb497efd73e3ed7caa41b1146f239",
-      "note": "Public speech and action schema adapted from the character runtime.",
-      "source_sha256": "bc609c99443be83387fc14001885a5b98777e945e2148728e4a55b483dacf933"
+      "source": "src/ravora/ray_character.py",
+      "source_sha256": "7d80423c6a3da64425fffd2d1d947bf166ba699c8ba218407c1deccd3eff977d",
+      "sha256": "261642d8ab8efd699f560968f5c391082475f4b17e845b927c2d655aa37d63f0",
+      "note": "Adapted to the public package, its asset bindings or its synthetic test fixtures."
+    },
+    {
+      "path": "src/ravora/ray_character.py",
+      "kind": "adapted",
+      "source": "src/ravora/ray_character.py",
+      "source_sha256": "7d80423c6a3da64425fffd2d1d947bf166ba699c8ba218407c1deccd3eff977d",
+      "sha256": "cae6f9cd4ab7c8679023e80bc66dbaeabe2205fb53d4d4e3ee15d40bcb0a04c6",
+      "note": "Adapted to the public package, its asset bindings or its synthetic test fixtures."
+    },
+    {
+      "path": "src/ravora/ray_memory.py",
+      "kind": "copied",
+      "source": "src/ravora/ray_memory.py",
+      "source_sha256": "46d4f2ed331de8dca49f5127f545465d89ffe43b70065e9ac1fe404390f44599",
+      "sha256": "46d4f2ed331de8dca49f5127f545465d89ffe43b70065e9ac1fe404390f44599",
+      "note": "Exact source snapshot."
     },
     {
       "path": "src/ravora/relationship_demo.py",
@@ -760,27 +902,27 @@
     },
     {
       "path": "src/ravora/semantic_memory.py",
-      "sha256": "2fbc04f487317b5af375efead7321321ebcdc888b7b66ac0226f7d3edada74f5",
-      "source": "src/ravora/semantic_memory.py",
-      "source_sha256": "2fbc04f487317b5af375efead7321321ebcdc888b7b66ac0226f7d3edada74f5",
       "kind": "copied",
+      "source": "src/ravora/semantic_memory.py",
+      "source_sha256": "3727e4ae6447504256cc1b08a65a2abe424c1619c8e4f8126911a8116d2e27d2",
+      "sha256": "3727e4ae6447504256cc1b08a65a2abe424c1619c8e4f8126911a8116d2e27d2",
       "note": "Exact source snapshot."
     },
     {
       "path": "src/ravora/settings.py",
-      "sha256": "2830fc4a08201bc83ad9c833e9dcb011cbe3541f9a898e01274a06c8391e7799",
-      "source": "src/ravora/settings.py",
-      "source_sha256": "51c675a031548400e08afbc2d519614e87861b570ff0d658364524e2272178b2",
       "kind": "adapted",
-      "note": "Reference configuration with portable paths and no host-specific STT implementation."
+      "source": "src/ravora/settings.py",
+      "source_sha256": "00d1e73f6a3bf644ebaf65b1636679be3a0a283cd6207e8e8ac4a79918d0d815",
+      "sha256": "ea3a831f7128a29f36cd0240365d1572cc2d2ef624d954515424bcd58ae01c29",
+      "note": "Adapted to the public package, its asset bindings or its synthetic test fixtures."
     },
     {
       "path": "src/ravora/speech.py",
-      "sha256": "b75c7978d9dfe06d1c2b45e3a2a1a977ec187562dec6dc5d5c71526f9e0389ac",
-      "source": "src/ravora/speech.py",
-      "source_sha256": "b75c7978d9dfe06d1c2b45e3a2a1a977ec187562dec6dc5d5c71526f9e0389ac",
       "kind": "copied",
-      "note": ""
+      "source": "src/ravora/speech.py",
+      "source_sha256": "5a804e07b194c33948682c07526a338e85ac1e18bf94b8a2c2a60a005eb6f199",
+      "sha256": "5a804e07b194c33948682c07526a338e85ac1e18bf94b8a2c2a60a005eb6f199",
+      "note": "Exact source snapshot."
     },
     {
       "path": "src/ravora/stream_pitch.py",
@@ -789,6 +931,22 @@
       "source_sha256": "f63478dda538ccc609cd118475bf533db672a835c7dc23413b5855c59a50bb96",
       "kind": "copied",
       "note": "Exact source snapshot."
+    },
+    {
+      "path": "src/ravora/stt-model.json",
+      "kind": "copied",
+      "source": "assets/stt/faster-whisper-base/ebe41f70d5b6/manifest.json",
+      "source_sha256": "f62c3884a64c70f15d65e5c078c236ff8b153e6bd82c442306491327fb62c68b",
+      "sha256": "f62c3884a64c70f15d65e5c078c236ff8b153e6bd82c442306491327fb62c68b",
+      "note": "Exact source snapshot."
+    },
+    {
+      "path": "src/ravora/stt.py",
+      "kind": "adapted",
+      "source": "src/ravora/stt.py",
+      "source_sha256": "d4f5e4dd045e15ac840bdefc88217163692b3aa3f51341dd7056c280a73c9ec6",
+      "sha256": "46d38930ce7d4ba4d01c332ebd9d1428d92a071146c1a72048d0db6febdb6725",
+      "note": "Adapted to the public package, its asset bindings or its synthetic test fixtures."
     },
     {
       "path": "src/ravora/voice_evaluation.py",
@@ -824,27 +982,43 @@
     },
     {
       "path": "src/ravora/web/developer/fast-app.js",
-      "sha256": "610aa73e3bda1cd8fa0ba944478afbfdd37df752b6227edba1940dc61812dde7",
-      "source": "renderer/developer/fast-app.js",
-      "source_sha256": "38abd91cee9b5131358630adf6fbe919f56cee4a140695f396bbadb79102e56c",
       "kind": "adapted",
-      "note": "Port of listener reactions, public reply cues or microphone controls for the portable console."
+      "source": "renderer/developer/fast-app.js",
+      "source_sha256": "78aa64bf2841bb89d1d6851fbbc72f87d595a56ac5a984f967d53b9d3eace1b9",
+      "sha256": "1527fca9f821c525bb2d374f3b0b6a4369e1afc708117f2c8501f1f315576cfd",
+      "note": "Adapted to the public package, its asset bindings or its synthetic test fixtures."
     },
     {
       "path": "src/ravora/web/developer/fast-index.html",
-      "source": "renderer/developer/fast-index.html",
-      "source_sha256": "3b420d7ad3aedf54a533a0a8f6960b9a96f288b7adf968edc0f05547007241a8",
       "kind": "adapted",
-      "note": "Port of listener reactions, public reply cues or microphone controls for the portable console.",
-      "sha256": "5f890d3f505475e8db58a7c1b7e01bf94b969cd85bc36850a28ec2f43d28f8ed"
+      "source": "renderer/developer/fast-index.html",
+      "source_sha256": "6853a561f3369bc4d54a5a70055e53d5f2c3ed630135f4e9a9d6384321d3534f",
+      "sha256": "2c0e359a336deae6f72761a5d9498889ba862fa8e099a098e7e368e1c59155a9",
+      "note": "Adapted to the public package, its asset bindings or its synthetic test fixtures."
+    },
+    {
+      "path": "src/ravora/web/developer/live-host.html",
+      "kind": "copied",
+      "source": "renderer/developer/live-host.html",
+      "source_sha256": "f1d893efda282febe3a03e4623d46ac9ea752d37b46cb8ac2a61614b72c88508",
+      "sha256": "f1d893efda282febe3a03e4623d46ac9ea752d37b46cb8ac2a61614b72c88508",
+      "note": "Exact source snapshot."
+    },
+    {
+      "path": "src/ravora/web/developer/live-host.js",
+      "kind": "copied",
+      "source": "renderer/developer/live-host.js",
+      "source_sha256": "d99927f1c7658f8730af156758b9dc37ce3ad267717591f9153d777daa91278c",
+      "sha256": "d99927f1c7658f8730af156758b9dc37ce3ad267717591f9153d777daa91278c",
+      "note": "Exact source snapshot."
     },
     {
       "path": "src/ravora/web/developer/mic-stream.js",
-      "sha256": "355338a471fafdf289a402872c64e3f476d04b33ba232bd8021499ad0c9202f2",
-      "note": "Package the console; translate visible text for the public case-study reader.",
+      "kind": "copied",
       "source": "renderer/developer/mic-stream.js",
-      "source_sha256": "355338a471fafdf289a402872c64e3f476d04b33ba232bd8021499ad0c9202f2",
-      "kind": "copied"
+      "source_sha256": "c7d0c46ca0e1f392c69b1d0e7034174f65b2bfc6bfe638ff2954585d9b9ec93e",
+      "sha256": "c7d0c46ca0e1f392c69b1d0e7034174f65b2bfc6bfe638ff2954585d9b9ec93e",
+      "note": "Exact source snapshot."
     },
     {
       "path": "src/ravora/web/developer/style.css",
@@ -856,11 +1030,11 @@
     },
     {
       "path": "src/ravora/web/developer/talk-avatar.js",
-      "sha256": "39b9b418fd8cbafa958eb8dc6b9e1c327ba14b436106b8be21d6e7af5599be9c",
-      "source": "renderer/developer/talk-avatar.js",
-      "source_sha256": "0cc9d5241bba0295ad15c1e33e5a5236298e9df278be2ee537796eecf2a5782e",
       "kind": "adapted",
-      "note": "Port of listener reactions, public reply cues or microphone controls for the portable console."
+      "source": "renderer/developer/talk-avatar.js",
+      "source_sha256": "84a4366c87ab9fa7eae0b369e9f20eae760139989860c1af4b008a63412177fb",
+      "sha256": "322e25fd08a901cab04b70d490f0bf3323c0dec288bafb946b15444c0958dec4",
+      "note": "Adapted to the public package, its asset bindings or its synthetic test fixtures."
     },
     {
       "path": "src/ravora/web/expressions.mjs",
@@ -877,6 +1051,46 @@
       "source": "renderer/latency-meter.js",
       "source_sha256": "6c8446f3a7ad58a3c0d3531449edab170d5f132253d36d2469e02571a5973a8a",
       "kind": "copied"
+    },
+    {
+      "path": "src/ravora/web/live/avatar.html",
+      "kind": "copied",
+      "source": "renderer/live/avatar.html",
+      "source_sha256": "6f0fb69053e383df4867118d826b6febe0e1cd965f1c4164cf2ce8bc1145c10c",
+      "sha256": "6f0fb69053e383df4867118d826b6febe0e1cd965f1c4164cf2ce8bc1145c10c",
+      "note": "Exact source snapshot."
+    },
+    {
+      "path": "src/ravora/web/live/avatar.js",
+      "kind": "adapted",
+      "source": "renderer/live/avatar.js",
+      "source_sha256": "3b445c3bdfcc158cfd83c5490135f8b14558162a22378a926a234e9ca8f63e87",
+      "sha256": "cf849296f2ecbd03559bfae440a4b14a0ca34f292bde52e5d40e42fa14a2a38d",
+      "note": "Adapted to the public package, its asset bindings or its synthetic test fixtures."
+    },
+    {
+      "path": "src/ravora/web/live/overlay.css",
+      "kind": "copied",
+      "source": "renderer/live/overlay.css",
+      "source_sha256": "7e5388be0272038cd8ec6f023d6a76773d5e457281b17eee3e08a6784b9b04d8",
+      "sha256": "7e5388be0272038cd8ec6f023d6a76773d5e457281b17eee3e08a6784b9b04d8",
+      "note": "Exact source snapshot."
+    },
+    {
+      "path": "src/ravora/web/live/overlay.html",
+      "kind": "copied",
+      "source": "renderer/live/overlay.html",
+      "source_sha256": "e665deb57183ac28d267bf2a6645c293ecba9ec20d0ed46b719ad0a268fa24de",
+      "sha256": "e665deb57183ac28d267bf2a6645c293ecba9ec20d0ed46b719ad0a268fa24de",
+      "note": "Exact source snapshot."
+    },
+    {
+      "path": "src/ravora/web/live/overlay.js",
+      "kind": "copied",
+      "source": "renderer/live/overlay.js",
+      "source_sha256": "b78a7272ffa2a4c7ce7aef67518c60c1981a838aa1c7bf1304b577bc7f3fca83",
+      "sha256": "b78a7272ffa2a4c7ce7aef67518c60c1981a838aa1c7bf1304b577bc7f3fca83",
+      "note": "Exact source snapshot."
     },
     {
       "path": "src/ravora/web/mouth-plan.mjs",
@@ -928,11 +1142,67 @@
     },
     {
       "path": "src/ravora/youtube.py",
-      "sha256": "39cf2861235d4954e1ce94081203909a39a9d0f5bf3468267d28f60989451749",
-      "note": "",
+      "kind": "copied",
       "source": "src/ravora/youtube.py",
-      "source_sha256": "39cf2861235d4954e1ce94081203909a39a9d0f5bf3468267d28f60989451749",
-      "kind": "copied"
+      "source_sha256": "4a71e0d0300bed06bd14ac4378ec0b6a08e1c716cc6baa2eeae82b86c2f096a8",
+      "sha256": "4a71e0d0300bed06bd14ac4378ec0b6a08e1c716cc6baa2eeae82b86c2f096a8",
+      "note": "Exact source snapshot."
+    },
+    {
+      "path": "src/ravora/youtube_auth.py",
+      "kind": "copied",
+      "source": "src/ravora/youtube_auth.py",
+      "source_sha256": "06b87ff1cd116d40d2c09735c839542df4ce4176bec1e2ee8cb8804ada2d5b79",
+      "sha256": "06b87ff1cd116d40d2c09735c839542df4ce4176bec1e2ee8cb8804ada2d5b79",
+      "note": "Exact source snapshot."
+    },
+    {
+      "path": "src/ravora/youtube_broadcast.py",
+      "kind": "copied",
+      "source": "src/ravora/youtube_broadcast.py",
+      "source_sha256": "892d8bf2951ef1f86251ebe7c578efae4405542c6a90622559b3d450b5913611",
+      "sha256": "892d8bf2951ef1f86251ebe7c578efae4405542c6a90622559b3d450b5913611",
+      "note": "Exact source snapshot."
+    },
+    {
+      "path": "src/ravora/youtube_live.py",
+      "kind": "adapted",
+      "source": "scripts/youtube_live.py",
+      "source_sha256": "ebf6643596f98822c30e1a46a5acf49b260158f99254b6a2eff24389ea1fba7a",
+      "sha256": "c3d8478610c93910364d71f29724f5460f00b78a4bfe051f1cc47f9271c8bf30",
+      "note": "Adapted to the public package, its asset bindings or its synthetic test fixtures."
+    },
+    {
+      "path": "src/ravora/youtube_proto/__init__.py",
+      "kind": "copied",
+      "source": "src/ravora/youtube_proto/__init__.py",
+      "source_sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+      "sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+      "note": "Exact source snapshot."
+    },
+    {
+      "path": "src/ravora/youtube_proto/stream_list.proto",
+      "kind": "copied",
+      "source": "src/ravora/youtube_proto/stream_list.proto",
+      "source_sha256": "457c1bcfd9c72a552c3127556eba439caa438ff74f4e269982b505d6f0147dd6",
+      "sha256": "457c1bcfd9c72a552c3127556eba439caa438ff74f4e269982b505d6f0147dd6",
+      "note": "Exact source snapshot."
+    },
+    {
+      "path": "src/ravora/youtube_proto/stream_list_pb2.py",
+      "kind": "copied",
+      "source": "src/ravora/youtube_proto/stream_list_pb2.py",
+      "source_sha256": "43d4c876ed895daafcc1d36a97a7da3b597931e110f2ac213d06dac17523746c",
+      "sha256": "43d4c876ed895daafcc1d36a97a7da3b597931e110f2ac213d06dac17523746c",
+      "note": "Exact source snapshot."
+    },
+    {
+      "path": "src/ravora/youtube_stream.py",
+      "kind": "copied",
+      "source": "src/ravora/youtube_stream.py",
+      "source_sha256": "440c37066d3f77fef197673d1f7c44381cdd79d4fa62cdea842c0ed7562389af",
+      "sha256": "440c37066d3f77fef197673d1f7c44381cdd79d4fa62cdea842c0ed7562389af",
+      "note": "Exact source snapshot."
     },
     {
       "path": "tests/check_media.mjs",
@@ -958,18 +1228,18 @@
     },
     {
       "path": "tests/test_case_study.py",
-      "sha256": "f11e8f44020ea41c69c37a58a2cbf7b04832c0a68ddc556c6699996790fe2aa7",
       "kind": "generated",
       "source": "case-study",
-      "note": "Portable documentation, fixture, or publication validation."
+      "sha256": "614211abf8a8b41c68216ab462ec75bb31562caf96d291d08bef2f29d27bb63a",
+      "note": "Public documentation, entrypoint, packaging, validation or synthetic replay."
     },
     {
       "path": "tests/test_conversation_context.py",
-      "sha256": "6bdfb2a0444f1a490a92d744d6bce73c9cd0ed505de0b60386df96fa311e63c0",
-      "note": "Source port with packaged paths and synthetic fixtures.",
+      "kind": "adapted",
       "source": "tests/test_conversation_context.py",
-      "source_sha256": "bdcdea5917936a83c8aabb1f013f4aa7499965ece0806340f04a777e4754f4c4",
-      "kind": "adapted"
+      "source_sha256": "c175cde69d9ae861887138cfb8ee1a36a26c3f29ddc31c3c9617d00eb1578bdc",
+      "sha256": "b59aee82266e90e89c074dbc1345b668cae7324d366aa9249120cf260250e1f2",
+      "note": "Adapted to the public package, its asset bindings or its synthetic test fixtures."
     },
     {
       "path": "tests/test_database.py",
@@ -1013,11 +1283,11 @@
     },
     {
       "path": "tests/test_gemini_memory.py",
-      "sha256": "c1d492dfc6f925d8d1d35adac78f29ced161e594d765439da05181efcc89494b",
-      "note": "Use extracted synthetic fixtures; keep the source assertions.",
+      "kind": "adapted",
       "source": "tests/test_gemini_memory.py",
-      "source_sha256": "5ba8b683d020f574e75fc2b62ba925e16a833fb5c73274620266ba07bfc00116",
-      "kind": "adapted"
+      "source_sha256": "a37ba2b74320281a866c19db14e6c88068876b1eb3b9e337fa1fe4cefa15bb5f",
+      "sha256": "bcdf62986dd20c846fd886e16d6a2c6865565e39c116d04c3b19f93269c7db96",
+      "note": "Adapted to the public package, its asset bindings or its synthetic test fixtures."
     },
     {
       "path": "tests/test_media_timing.py",
@@ -1028,19 +1298,19 @@
     },
     {
       "path": "tests/test_memory_worker.py",
-      "sha256": "b664c91b39e9016ad42defe8cacbc1a897300d17cf3b41908805ccc3b339562d",
-      "note": "Source port with packaged paths and synthetic fixtures.",
+      "kind": "adapted",
       "source": "tests/test_memory_worker.py",
-      "source_sha256": "b7831ed5ca8b292e6e6c8078f0a21c872408c82fe3c0c3d1620fe829aba8bd19",
-      "kind": "adapted"
+      "source_sha256": "f69ee8b854fc3b2d9cd30a6d6c3a5c8dce5b482d3255676e84b0333ec03ef61b",
+      "sha256": "0ff2410187a86028ef3d653de33aac9b27e1e6b30a01cbf1b89b1fa7da515098",
+      "note": "Adapted to the public package, its asset bindings or its synthetic test fixtures."
     },
     {
       "path": "tests/test_persona.py",
-      "source": "tests/test_persona.py",
-      "source_sha256": "4edc28276943f15ac42e59e612b1d25d9580253196e73642ba6084455e980c7b",
       "kind": "adapted",
-      "note": "Port of listener reactions, public reply cues or microphone controls for the portable console.",
-      "sha256": "abe1cd79203e22cca46643b583f39b0f1fe7a4aed5186d69f0de18a4abd00108"
+      "source": "tests/test_persona.py",
+      "source_sha256": "7e22ded7f16baae2a858954656ddfadbe759a4c54f47c3760f6195ea77dbd2e0",
+      "sha256": "c486bef89cbea4df2ee217f76d2e5864cd1ac21cb3be4dc3daae2ed8eaca46b7",
+      "note": "Adapted to the public package, its asset bindings or its synthetic test fixtures."
     },
     {
       "path": "tests/test_phone_alignment.py",
@@ -1051,20 +1321,28 @@
       "note": ""
     },
     {
-      "path": "tests/test_relationships.py",
-      "source": "tests/test_relationships.py",
+      "path": "tests/test_ray_character.py",
       "kind": "adapted",
-      "note": "Use portable synthetic fixtures and copy schema contents without permission metadata.",
-      "sha256": "dcbf33141c5a92f6856d123eb34e01e933f60ddadf505e59f38233ddda41c141",
-      "source_sha256": "a73b6e06ce9c272ebb0dc43a7d38a1927671ba97327651da7b29d914e26f1160"
+      "source": "tests/test_ray_character.py",
+      "source_sha256": "eadc41aad599577e88e20d9b1dbfab2dc0272bfef5bb61e78d299e0512d5d757",
+      "sha256": "f33737b0ea8ed985a4eb64505bbe994bc06d7a83999493376283d025666f4ebc",
+      "note": "Adapted to the public package, its asset bindings or its synthetic test fixtures."
+    },
+    {
+      "path": "tests/test_relationships.py",
+      "kind": "adapted",
+      "source": "tests/test_relationships.py",
+      "source_sha256": "b19655b44f50ff9689cb0807e2a974477835a6b8b48c0c8b1451ad906f240921",
+      "sha256": "46867932876f342cc34d16efd42dae01aa78e26a1a7985a12bb17999a3c3135b",
+      "note": "Adapted to the public package, its asset bindings or its synthetic test fixtures."
     },
     {
       "path": "tests/test_semantic_memory.py",
-      "sha256": "7fd1a1979dd6f76e6bd19539455929a29b61240550fd43b57451cc13d12ac7eb",
-      "source": "tests/test_semantic_memory.py",
-      "source_sha256": "f7ff44a50198dcee6f91c15605eb5c1b465cd120e52faf076254e1fd5292dbca",
       "kind": "adapted",
-      "note": "Source port with packaged paths and synthetic fixtures."
+      "source": "tests/test_semantic_memory.py",
+      "source_sha256": "03b4942fee9c701a3cf6a9b41a82a77573e2a2bba72197d0f67a0ebcfccfc06c",
+      "sha256": "1e98c20d05c03c3e5035657a4da171a23b8bde94b584dd03715102d4b56c306b",
+      "note": "Adapted to the public package, its asset bindings or its synthetic test fixtures."
     },
     {
       "path": "tests/test_single_reaction.py",
@@ -1081,6 +1359,30 @@
       "note": "Portable evaluation port with package-local assets, English review controls, and synthetic validation.",
       "sha256": "ea980dd16732a18f4d68ce60c372bc04c0254dfd9e35ac5187d3f56f734e7838",
       "source_sha256": "3895b649e86e9e68139e37f48d91324037fbbe9ba8a50b14fdb159ea6ceb468e"
+    },
+    {
+      "path": "tests/test_youtube_broadcast.py",
+      "kind": "copied",
+      "source": "tests/test_youtube_broadcast.py",
+      "source_sha256": "2c3d0d3d883a9e4b68c48934d6107696c9e7dff3c99233bc69afcb5fe83ade0f",
+      "sha256": "2c3d0d3d883a9e4b68c48934d6107696c9e7dff3c99233bc69afcb5fe83ade0f",
+      "note": "Exact source snapshot."
+    },
+    {
+      "path": "tests/test_youtube_live.py",
+      "kind": "adapted",
+      "source": "tests/test_youtube_live.py",
+      "source_sha256": "565aded493aa9b2b7b31dc22829e7cff83b1274844c01ef78d5e964c3ce96e9c",
+      "sha256": "e912f93442403e6d07e8c5815b688e04be20b65834439c1c2e121e360dafbc4b",
+      "note": "Adapted to the public package, its asset bindings or its synthetic test fixtures."
+    },
+    {
+      "path": "tests/test_youtube_stream.py",
+      "kind": "adapted",
+      "source": "tests/test_youtube_stream.py",
+      "source_sha256": "67099f3800a256d3050ee4576358d6bb152509e35287782d4b9352d0c2fc812f",
+      "sha256": "4fd9f173daf5218b08ff292621d0a3c68c8a37625954403149ab330f28b5b6ad",
+      "note": "Adapted to the public package, its asset bindings or its synthetic test fixtures."
     }
   ]
 }

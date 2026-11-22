@@ -317,6 +317,17 @@ class EpisodeTests(unittest.TestCase):
         self.assertEqual(speech_background(self.s,'Can you repeat that?',True,None,history,context),(history,[]))
         self.assertEqual(speech_background(self.s,'Hello',False,None,history,context),(history,context))
 
+    def test_local_recap_and_assent_keep_session_history_even_when_jev_abstains(self):
+        from ravora.memory_extraction import session_recap, acknowledgment
+        history=[('user','Please keep this off the stream.'),('model','Understood.')]
+        def no_old_context():
+            self.fail('session recap should not read older context')
+        for text in ('What did I? Talk with the before.', 'What were we talking about?', 'Oh, do you remember it?', 'Yeah, sure.'):
+            self.assertEqual(load_speech_background(self.s,text,True,None,lambda:history,no_old_context), (history,[]))
+        self.assertFalse(session_recap('What do you talk about on stream?'))
+        self.assertFalse(session_recap('What did I mention last week?'))
+        self.assertFalse(acknowledgment('No, thanks.'))
+
     def test_abstention_skips_unused_context_queries_but_reads_requested_history(self):
         history=MagicMock(return_value=[('user','A statement.'),('model','A reply.')])
         context=MagicMock(return_value=[{'tier':1}])

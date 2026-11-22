@@ -40,6 +40,7 @@ function showFace(){
 function resetFace(){listeningFace='neutral';expression();}
 const handsfree=()=>$('end-mode').value==='handsfree';
 const autoEnd=()=>$('end-mode').value!=='manual';
+$('language').addEventListener('change',()=>{if(ws?.readyState===WebSocket.OPEN)send({kind:'language',language:$('language').value});});
 function controls(){const connected=Boolean(cfg&&ws?.readyState===WebSocket.OPEN),ready=connected&&!busy;$('talk').disabled=!connected||(busy&&!held);$('stop').disabled=!connected;$('send').disabled=!ready;$('language').disabled=!ready;$('input-source').disabled=!ready;$('end-mode').disabled=!ready;
   if(handsfree())$('talk').disabled=!ready;
   $('talk').disabled ||= micMuted||mutePending;
@@ -176,7 +177,7 @@ $('stop').addEventListener('click',stop);
 $('stage-stop').addEventListener('click',stop);
 $('form').addEventListener('submit',async event=>{
   event.preventDefault();const text=$('text').value.trim();if(!text||busy||!cfg)return;busy=true;inputId=null;reactionSeq=0;reactionLocked=false;resetFace();controls();epoch++;discard();
-  try{await output();inputId=uuid();startAt=performance.now();inputEnd=startAt;send({kind:'text',input_id:inputId,text});$('text').value='';status('Waiting for reply…');}catch(error){await fail(error.message);}
+  try{await output();inputId=uuid();startAt=performance.now();inputEnd=startAt;send({kind:'text',input_id:inputId,text,language:$('language').value});$('text').value='';status('Waiting for reply…');}catch(error){await fail(error.message);}
 });
 window.addEventListener('beforeunload',()=>{mic?.stream.getTracks().forEach(track=>track.stop());ws?.close();});
 window.addEventListener('blur',()=>{holdKey=null;if(handsfree())stop();else if(held){if(autoEnd())stop();else end();}});

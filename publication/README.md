@@ -6,7 +6,7 @@ extracted source files with hashes. Generated case-study files are also listed.
 
 Included:
 
-- source-backed SQLite memory and its thirteen schema migrations;
+- source-backed SQLite memory and its fourteen schema migrations;
 - three-tier retrieval, explicit summary sharing, and revocation;
 - deterministic viewer contact state, daily caps, and qualitative request background;
 - streaming orchestration, input ledgers, and session-bound playback fences;
@@ -14,7 +14,7 @@ Included:
 - phone timing, mouth geometry, and PCM-based video timestamps without avatar assets;
 - a registered WebGL face renderer and a masked gaze-frame builder for user-supplied artwork;
 - common character and concise-reply instruction policies;
-- reference provider interfaces and a mock-only portable entrypoint;
+- reference provider interfaces, offline replays and an optional live studio;
 - a packaged browser console, synthetic fixtures, and focused tests;
 - automatic local evaluation capture, condition-specific latency percentiles,
   human review labels, transcription edit counts, and an installed review command;
@@ -83,3 +83,5 @@ retains the earlier media results and their frame-spacing limitation.
 The current port adds listener-centered questions, validated persona cues at
 playback onset, and independent microphone mute. The installed console exercises
 the handoff with synthetic inputs. [Conversation controls](../docs/conversation-controls.md#listening-speaking-and-muting) · [Previous voice evaluation validation](history/2026-11-21-voice-evaluation-validation.json)
+
+The [live studio guide](../docs/youtube-live.md) covers channel authorization, chat streaming, microphone mixing and bilingual playout. The package ships the character runtime, a local STT adapter and a model digest manifest. Operators supply their own weights, credentials and optional avatar artwork. [Previous validation](history/2026-11-21-listener-and-mute-validation.json)

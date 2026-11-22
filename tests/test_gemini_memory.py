@@ -51,6 +51,9 @@ class HTTP:
             notes=json.loads(parts[0]['text'].split('\n',1)[1])
             if any('bread oven' in n['summary'] for n in notes):
                 text='You mentioned rebuilding a bread oven with your neighbor. Start by checking the mortar joints.'
+        if payload['generationConfig'].get('responseMimeType')=='application/json':
+            from ravora.ray_character import public_fixture
+            text=public_fixture(text)
         event={'candidates':[{'content':{'parts':[{'text':text}]},'finishReason':'STOP'}]}
         return io.BytesIO(('data: '+json.dumps(event)+'\n\n').encode())
 

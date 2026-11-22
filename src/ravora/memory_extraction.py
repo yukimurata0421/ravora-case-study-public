@@ -76,6 +76,80 @@ class LocalPreferenceExtractor:
         return Extraction(tuple(Preference(topic,polarity) for topic,polarity in list(choices.items())[:4]),'SUPPORTED_PREFERENCE')
 
 
+# Common conversational words provide no evidence for retrieving a different topic.
+DIALOGUE_WORDS = set((
+    "am be been being but that this these those there then with at as if he she his her him them their us our "
+    "by from so s t re ve ll m d don didn just really actually oh ah uh um well okay ok yes yeah yep yup sure "
+    "no know want wanted say says saying talk talked talking tell telling again before now already maybe still "
+    "mean means meant thing something anything go going sounds good make making get got will all also had has have were"
+).split())
+ACK_WORDS = set((
+    "i we will do it that is am m ll d oh ah uh um yeah yes yep yup right sure ok okay maybe "
+    "thank thanks you alright really see guess so hahaha ha"
+).split())
+
+
+def laughter_only(text):
+    return bool(re.fullmatch(r'(?:(?:ha)+|lol)(?:[ ,.!]+(?:(?:ha)+|lol))*[.!]*',text.strip(),re.I))
+
+
+def acknowledgment(text):
+    words = re.findall(r"[^\W_]+", text.casefold())
+    return laughter_only(text) or (bool(words) and "?" not in text and set(words) <= ACK_WORDS)
+
+
+def banter_preference(text):
+    """Only an explicit, standalone request or first-person preference can persist."""
+    words = text.casefold().replace("’", "'").strip().rstrip("!.。！").strip()
+    words = re.sub(r',? please$', '', words)
+    if re.fullmatch(r"(?:please )?(?:stop teasing me|(?:don't|do not) tease me)(?: anymore)?"
+                    r"|i (?:dislike|(?:don't|do not) (?:like|enjoy)) (?:being teased|(?:it )?when you tease me|this kind of teasing|our banter)"
+                    r"|(?:もう)?からかわないで(?:ほしい|ください)?", words):
+        return 'dislike'
+    if re.fullmatch(r"i (?:really )?(?:like|love|enjoy) (?:being (?:gently )?teased|(?:it )?when you tease me|this kind of teasing|our banter)"
+                    r"|(?:こういう|最後の方の|軽い)からかい(?:が|は)(?:好き|面白い)", words):
+        return 'like'
+    return None
+
+
+def reply_cue(text):
+    """High precision hints about the current turn, never durable preferences."""
+    words = " ".join(re.findall(r"[^\W_]+", text.casefold().replace("’", "'")))
+    if re.search(r"\b(?:what (?:did|do) you mean(?: by that| exactly)?|what (?:did|does) that mean|(?:please |can you |could you )?explain "
+                 r"(?:it|that|what you (?:said|meant)))(?: please)?$|\bwhat did you mean by\b", words) or re.search(
+                     r"どういう意味|今の(?:冗談|言葉).*(?:説明|意味)", text):
+        return 'explain'
+    if re.match(r"(?:no )+(?:i (?:meant|mean)|that s not|that is not)|i meant to (?:say|ask)", words) or re.match(r"(?:いや|違う)[、， ]", text):
+        return 'correct'
+    if re.fullmatch(r"(?:(?:haha(?:ha)*|ha ha|lol|okay|oh|well|yeah|fair enough) )*"
+                    r"(?:you (?:really )?(?:got|caught|chase) me(?: there)?|look who s talking|"
+                    r"two can play (?:at )?that game|touché|touche)(?: haha(?:ha)*)?", words):
+        return 'play_along'
+    return None
+
+
+def historical_reference(text):
+    return bool(re.search(r"\b(?:remember|recall|remind me|earlier|previously|ago|used to|last (?:time|session|week|month)|"
+                          r"yesterday|previous (?:chat|session|conversation)|(?:other|another) (?:day|session))\b|"
+                          r"\b(?:told|mentioned|discussed|asked|talked about)\b.{0,35}\bbefore\b", text, re.I))
+
+
+def session_recap(text):
+    if re.search(r"\b(?:last (?:time|session|week|month)|yesterday|previous (?:chat|session))\b", text, re.I):
+        return False
+    if re.search(r"\b(?:do you|can you) (?:remember|recall) (?:it|that|this)\s*[?!.]*$", text,re.I):
+        return True
+    # Match a retrospective question even when STT inserts punctuation between subject and verb.
+    return bool(re.search(r"\bwhat (?:did (?:i|we)|was i|were we)\b.{0,22}?\b(?:say|said|talk(?:ing|ed)?|"
+                          r"discuss(?:ing|ed)?|mention(?:ed)?|speaking)\b|\bwhat (?:was our|was the) (?:last )?topic\b|"
+                          r"\b(?:recap|summari[sz]e) (?:this|our|the current) (?:chat|conversation)\b", text, re.I))
+
+
+def dialogue_terms(text):
+    return list(dict.fromkeys(w for w in re.findall(r'[^\W_]+', text.casefold())
+                              if w not in STOP_WORDS and w not in DIALOGUE_WORDS))
+
+
 def retrieval_query(text):
     words=re.findall(r'[^\W_]+',text.lower(),re.UNICODE)[:100]
     terms=list(dict.fromkeys(ALIASES.get(word,word) for word in words if word not in STOP_WORDS))

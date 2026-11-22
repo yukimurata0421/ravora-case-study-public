@@ -8,8 +8,8 @@ import time
 import uuid
 
 from ravora.database import Database
-from ravora.developer_identity import memory_source_filter
-from ravora.memory_extraction import POLICY, Extraction, LocalPreferenceExtractor, retrieval_query
+from ravora.developer_identity import developer_keys, memory_source_filter
+from ravora.memory_extraction import ALIASES, banter_preference, dialogue_terms, POLICY, Extraction, LocalPreferenceExtractor, retrieval_query
 from ravora.gemini_memory import GEMINI_POLICY,validate_extraction
 from ravora.semantic_memory import EPISODE_POLICY,validate_episodes
 
@@ -103,6 +103,7 @@ class MemoryRepository(Database):
             AND m.sensitivity='non_sensitive' AND m.deleted_at IS NULL
             AND NOT EXISTS(SELECT 1 FROM memory_sources x JOIN source_events s ON s.id=x.event_id
                 WHERE x.memory_id=m.memory_id AND (s.is_deleted=1 OR s.viewer_key!=m.viewer_key))"""
+        where+=" AND m.topic_key IS NOT 'reply_style_banter'"
         where+=memory_source_filter(viewer_key)
         if match:where+=' AND memory_fts MATCH ?';params.append(match)
         if since is not None:where+=' AND m.created_at>=?';params.append(since)
@@ -120,13 +121,61 @@ class MemoryRepository(Database):
                     'claim_kind':'viewer_report','created_at':created,'expires_at':expires,'sources':sources})
         return result
 
+    @staticmethod
+    def save_banter_feedback(db, event_id, owner, scope, developer_id, ttl_days, now):
+        """Caller owns the playback (or explicit operator feedback) transaction."""
+        if owner not in developer_keys(developer_id):
+            return False
+        source = db.execute("""SELECT s.text,s.received_at FROM source_events s
+            JOIN developer_memory_sources d ON d.event_id=s.id AND d.owner_key=s.viewer_key
+            WHERE s.id=? AND s.viewer_key=? AND s.viewer_id=? AND s.is_deleted=0
+              AND s.raw_purged_at IS NULL AND s.expires_at>?""", (event_id,owner,developer_id,now)).fetchone()
+        preference = banter_preference(source[0]) if source else None
+        if not preference:
+            return False
+        key = uuid.uuid5(uuid.NAMESPACE_URL, 'ravora:reply-style:'+scope+':'+event_id).hex
+        # Delayed playback and repeated imports must not restore superseded or deleted feedback.
+        newer = db.execute("""SELECT 1 FROM memory_items WHERE viewer_key=? AND scope=?
+            AND topic_key='reply_style_banter' AND (created_at,memory_id)>=(?,?) LIMIT 1""",
+            (owner,scope,source[1],key)).fetchone()
+        if newer:
+            return True
+        db.execute("""UPDATE memory_items SET summary='',tags='[]',review_state='deleted',
+            deleted_at=?,deletion_reason='superseded' WHERE viewer_key=? AND scope=?
+            AND topic_key='reply_style_banter' AND deleted_at IS NULL""",(now,owner,scope))
+        summary = ('Enjoys occasional playful teasing.' if preference == 'like' else 'Prefers replies without teasing.')
+        db.execute("""INSERT INTO memory_items(memory_id,viewer_key,scope,topic_key,summary,tags,confidence,
+            review_state,sensitivity,created_at,expires_at,approval_method)
+            VALUES(?,?,?,'reply_style_banter',?,?,1,'approved','non_sensitive',?,?,'explicit_reply_style')""",
+            (key,owner,scope,summary,json.dumps([preference]),source[1],now+ttl_days*86400))
+        db.execute('INSERT INTO memory_sources(memory_id,event_id) VALUES(?,?)',(key,event_id))
+        return True
+
+    def developer_banter_memory(self, viewer, settings):
+        if not settings.memory_enabled or viewer not in developer_keys(settings.developer_id):
+            return []
+        with self.connect() as db:
+            row=db.execute("""SELECT m.memory_id,json_extract(m.tags,'$[0]') FROM memory_items m
+                JOIN memory_sources x ON x.memory_id=m.memory_id
+                JOIN developer_memory_sources d ON d.event_id=x.event_id AND d.owner_key=m.viewer_key
+                JOIN source_events s ON s.id=x.event_id AND s.viewer_key=m.viewer_key
+                WHERE m.viewer_key=? AND m.scope=? AND m.topic_key='reply_style_banter'
+                AND m.approval_method='explicit_reply_style' AND m.review_state='approved'
+                AND m.sensitivity='non_sensitive' AND m.deleted_at IS NULL AND m.expires_at>? AND s.is_deleted=0
+                ORDER BY m.created_at DESC,m.memory_id DESC LIMIT 1""",(viewer,settings.mode,time.time())).fetchone()
+        return [{'memory_id':row[0],'retrieval':'private_reply_style','preference':row[1]}] if row else []
+
     def recall_memory(self,viewer_key,comment,*,scope):
-        query,wants_recall=retrieval_query(comment)
+        _,wants_recall=retrieval_query(comment)
+        meaningful = dialogue_terms(comment)[:16]
+        query = ' '.join(ALIASES.get(term,term) for term in meaningful)
         found=self.search_memory(viewer_key,query,scope=scope) if query else []
-        strategy='topic_fts'
-        if not found:
-            found=self.search_memory(viewer_key,'',scope=scope,limit=6 if wants_recall else 3)
-            strategy='viewer_recent' if wants_recall else 'viewer_context'
+        strategy='topic_fts' if found else 'viewer_context'
+        # Only an explicit, open-ended request invites a sample of older reports.
+        if not found and wants_recall and not meaningful and re.search(
+                r"\b(?:what do you (?:remember|recall)|(?:remember|recall) about me)\b",comment,re.I):
+            found=self.search_memory(viewer_key,'',scope=scope,limit=6)
+            strategy='viewer_recent'
         return found,strategy
 
     def record_retrievals(self,turn_id,memories,*,context_prepared,strategy,call_id=None):

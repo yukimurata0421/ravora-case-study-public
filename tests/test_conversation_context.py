@@ -19,7 +19,8 @@ from ravora.database import Database,MIGRATIONS
 from ravora.edge_grpc import EdgeClients
 from ravora.fast_voice import FastVoiceSession
 from ravora.fast_voice_server import MockVoiceClients
-from ravora.persona import DEVELOPER_SPEAKER
+from ravora.persona import DEVELOPER_SPEAKER, japanese_question_direction
+from ravora.ray_character import public_fixture
 from ravora.providers import GeminiText
 from ravora.settings import ProviderSettings,SettingsError,load_settings
 from support import HTTP,Reaction,Speech
@@ -29,12 +30,12 @@ class ContextTests(unittest.TestCase):
     def setUp(self):
         self.tmp=tempfile.TemporaryDirectory();self.addCleanup(self.tmp.cleanup);self.root=Path(self.tmp.name)
         self.store=MemoryStore(self.root/'context.sqlite3');self.owner=developer_keys('local-developer')[0]
-    def source(self,question,*,author='viewer-a',platform='youtube',store=None,relationships=True):
-        store=store or self.store;c=Comment(platform,'chat',uuid.uuid4().hex,author,'display',question,time.time())
+    def source(self,question,*,author='viewer-a',platform='youtube',store=None,relationships=True,stream='chat'):
+        store=store or self.store;c=Comment(platform,stream,uuid.uuid4().hex,author,'display',question,time.time())
         inbox=CommentInbox(store,relationships_enabled=relationships);self.assertEqual(inbox.put(c),'queued');inbox.take();inbox.claimed(c.receipt)
         turn=uuid.uuid4().hex;self.assertTrue(inbox.bind(c.receipt,turn));return c,turn
-    def turn(self,question,answer,*,author='viewer-a',platform='youtube',scope='offline',played=True,store=None,relationships=True):
-        store=store or self.store;c,key=self.source(question,author=author,platform=platform,store=store,relationships=relationships)
+    def turn(self,question,answer,*,author='viewer-a',platform='youtube',scope='offline',played=True,store=None,relationships=True,stream='chat'):
+        store=store or self.store;c,key=self.source(question,author=author,platform=platform,store=store,relationships=relationships,stream=stream)
         store.start(key,scope+':'+c.viewer,question);store.finish(key,answer,'completed',{})
         if played:self.assertTrue(store.played(key,scope=scope,memory_enabled=False,relationship_enabled=relationships))
         return c,key
@@ -149,6 +150,53 @@ class ContextTests(unittest.TestCase):
         self.seed();result=self.store.recall_context(self.owner,'coffee" OR * NEAR( ) DROP TABLE source_events;',scope='offline',developer_id='local-developer')
         self.assertTrue(result)
         with self.store.connect() as db:self.assertGreater(db.execute('SELECT COUNT(*) FROM source_events').fetchone()[0],0)
+    def test_live_history_keeps_the_current_subject_across_filler_only(self):
+        who=dict(platform='developer',author='local-developer')
+        self.turn('Dinner was soup.', 'Soup again?', stream='another-session', **who)
+        self.turn('Please keep the interview off the stream.', 'Understood.', **who)
+        self.turn('Are you listening?', 'Your secret is safe.', **who)
+        self.turn('Do not remember this trip.', 'All right.', **who)
+        self.turn('Unheard question.', 'Unplayed reply.', played=False, **who)
+        for _ in range(6):
+            self.turn('Yeah, sure.', 'Right.', **who)
+        c,turn=self.source('What did I? Talk about before.', **who)
+        self.store.start(turn,'offline:'+c.viewer,c.text,developer_id='local-developer')
+        history=self.store.history('offline:'+c.viewer,4,turn_id=turn)
+        self.assertEqual([t for role,t in history if role=='user'],[
+            'Please keep the interview off the stream.', 'Are you listening?', 'Yeah, sure.'])
+        self.assertNotIn(('model','Your secret is safe.'),history)
+        self.assertEqual(self.store.recall_context(c.viewer,c.text,scope='offline',
+            developer_id='local-developer',turn_id=turn),[])
+        self.assertEqual(self.store.conversation_memories(c.viewer,c.text,ProviderSettings())[1],'session_recap')
+
+    def test_repeated_spoken_quip_is_sent_once_and_viewer_evidence_is_preserved(self):
+        self.turn('Did you hear the chime?', 'Did you guess it?')
+        self.turn('The chime rang twice.', 'Did you guess it?')
+        c,turn=self.source('Please go on.')
+        self.store.start(turn,'offline:'+c.viewer,c.text)
+        history=self.store.history('offline:'+c.viewer,4,turn_id=turn)
+        self.assertEqual([s for role,s in history if role=='model'], ['Did you guess it?'])
+        self.assertEqual(len([s for role,s in history if role=='user']),2)
+
+    def test_older_context_requires_relevance_and_respects_the_current_session(self):
+        self.turn('I entered a chess tournament.', 'Good luck!', stream='older')
+        self.turn('Hello there.', 'Hello!')
+        c,turn=self.source('How did chess go?')
+        self.store.start(turn,'offline:'+c.viewer,c.text)
+        def background(query):
+            return self.store.recall_context(c.viewer,query,scope='offline',developer_id='local-developer',turn_id=turn)
+        self.assertFalse(background('He is sure. What do you want?'))
+        self.assertFalse(background('Chess?'))
+        self.assertFalse(background('I played chess before eating.'))
+        self.assertIn('chess tournament',context_text(background('Remember my chess tournament last time?')))
+        self.assertFalse(background('Remember my glider last time?'))
+
+    def test_no_recent_preference_fallback_for_a_new_subject(self):
+        c,key=self.memory()
+        self.assertFalse(self.store.recall_memory(c.viewer,'What do you want?',scope='offline')[0])
+        self.assertFalse(self.store.recall_memory(c.viewer,'Do you remember the telescope?',scope='offline')[0])
+        self.assertEqual(self.store.recall_memory(c.viewer,'What do you remember about me?',scope='offline')[0][0]['memory_id'],key)
+
     def test_new_schema_backfills_existing_replies_without_changing_rows(self):
         directory=self.root/'v5';directory.mkdir()
         for path in MIGRATIONS.glob('*.sql'):
@@ -162,10 +210,50 @@ class ContextTests(unittest.TestCase):
             self.assertEqual(before,db.execute('SELECT * FROM conversation_turns').fetchall())
             self.assertEqual(db.execute("SELECT COUNT(*) FROM conversation_fts WHERE conversation_fts MATCH 'espresso'").fetchone()[0],1)
             self.assertEqual(db.execute('SELECT DISTINCT tier FROM conversation_context ORDER BY tier').fetchall(),[(2,),(3,)])
+    def test_private_reply_style_is_refreshed_when_http_controller_changes_speaker(self):
+        settings = ProviderSettings()
+        who = dict(author=settings.developer_id, platform='developer')
+        _, key = self.turn('I enjoy our banter.', 'Understood.', played=False, **who)
+        self.assertTrue(self.store.played(key, developer_id=settings.developer_id))
+        output = {'candidates':[{'finishReason':'STOP','content':{'parts':[{'text':'Blue.'}]}}]}
+        http = HTTP(stream=('data: '+json.dumps(output)+'\n\n').encode())
+        controller = SpeechController(settings,self.store,self.root,
+                                      providers=(GeminiText(settings,http),Reaction(),Speech()))
+        try:
+            for actor in (who, dict(author=settings.developer_id,platform='youtube')):
+                c,turn = self.source('A blue kite.',stream='new-session',**actor)
+                controller.run(c.text,c.viewer,turn,lambda event:None,threading.Event())
+        finally:
+            controller.memory_worker.close()
+        self.assertEqual(len(http.calls),2)
+        private,public = [call[2] for call in http.calls]
+        self.assertIn('enjoys occasional affectionate banter',private['systemInstruction']['parts'][0]['text'])
+        self.assertNotIn('enjoys occasional affectionate banter',json.dumps(public))
+        self.assertNotIn('private_reply_style',json.dumps([private,public]))
+
+    def test_japanese_http_cadence_uses_only_the_same_listeners_played_reply(self):
+        self.turn('音楽が好き。','朝は静かな音が好き。')
+        self.turn('散歩したよ。','どこを歩いた？',played=False)
+        self.turn('散歩したよ。','どこを歩いた？',author='viewer-b')
+        settings=ProviderSettings(language='ja-JP',memory_turns=0,context_enabled=False)
+        output={'candidates':[{'finishReason':'STOP','content':{'parts':[{'text':public_fixture('いいね。')}]}}]}
+        http=HTTP(stream=('data: '+json.dumps(output)+'\n\n').encode())
+        controller=SpeechController(settings,self.store,self.root,providers=(GeminiText(settings,http),Reaction(),Speech()))
+        try:
+            for author,previous,text in (('viewer-a',[False],'今日は晴れたね。'),('viewer-b',[True],'今日は晴れたね。'),
+                                         ('viewer-c',[],'今日は晴れたね。'),('viewer-d',[],'レイは今の時刻がわかる？')):
+                c,key=self.source(text,author=author)
+                controller.run(c.text,c.viewer,key,lambda _:None,threading.Event())
+                payload=http.calls[-1][2]
+                self.assertIn(japanese_question_direction(previous,text),payload['systemInstruction']['parts'][0]['text'])
+                self.assertEqual([entry['role'] for entry in payload['contents']],['user'])
+        finally:
+            controller.memory_worker.close()
+
     def test_legacy_llm_wire_payload_and_saved_reply_have_context_and_audit(self):
         self.seed();c,turn=self.source('Please explain coffee.',author='local-developer',platform='developer')
         output='A short coffee answer.'
-        wire=('data: '+json.dumps({'candidates':[{'finishReason':'STOP','content':{'parts':[{'text':output}]}}]})+'\n\n').encode()
+        wire=('data: '+json.dumps({'candidates':[{'finishReason':'STOP','content':{'parts':[{'text':public_fixture(output)}]}}]})+'\n\n').encode()
         http=HTTP(stream=wire);adapter=GeminiText(ProviderSettings(),http)
         controller=SpeechController(ProviderSettings(),self.store,self.root,providers=(adapter,Reaction(),Speech()))
         events=[]
@@ -176,6 +264,7 @@ class ContextTests(unittest.TestCase):
         finally:controller.memory_worker.close()
         self.assertEqual(events[-1]['kind'],'complete')
         payload=http.calls[0][2];self.assertIn(CONTEXT_RULES,payload['systemInstruction']['parts'][0]['text'])
+        self.assertEqual(payload['generationConfig']['responseMimeType'],'application/json')
         self.assertIn(DEVELOPER_SPEAKER,payload['systemInstruction']['parts'][0]['text'])
         self.assertNotIn(DEVELOPER_SPEAKER,http.calls[1][2]['systemInstruction']['parts'][0]['text'])
         self.assertNotIn('concise explanations',json.dumps(http.calls[1][2]))

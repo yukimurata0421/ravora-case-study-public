@@ -1,8 +1,10 @@
 """Comment reception -> inbox -> turn preparation -> browser playback acknowledgement."""
 import threading
 import time
+import uuid
 
 from ravora.comments import Comment,CommentInbox,fixture_page
+from ravora.ray_character import initiative_message
 from ravora.youtube import YouTubeReader
 
 
@@ -11,11 +13,12 @@ class InputPipeline:
         self.s=settings;self.bridge=bridge;self.inbox=CommentInbox(store,capacity=settings.comment_queue_size,ttl=settings.comment_ttl,
             scope=settings.mode,relationships_enabled=settings.memory_enabled and settings.relationship_enabled)
         self.fixtures=fixtures;self.stop=threading.Event();self.reader=None;self.thread=None
+        self.last_source=None
         self.active_receipt=None;self.paused_reason=None;self.lock=threading.RLock();self.source_done=False
         self.memory_fixture_comments=memory_fixture_comments or ('I like coffee and jazz.','Do you remember my favorite drink?')
         if len(self.memory_fixture_comments)!=2 or any(not isinstance(x,str) or not 0<len(x)<=1000 for x in self.memory_fixture_comments):raise ValueError('INVALID_MEMORY_FIXTURE')
 
-    def start(self,seconds):
+    def start(self,seconds,*,wait_for_chat=False,access_token=None):
         self.bridge.controller.memory_worker.wake()
         source=self.s.comment_source
         if source=='developer':return
@@ -29,9 +32,9 @@ class InputPipeline:
             self.fixture_result=self.inbox.accept_page(chat,fixture_page(chat,time.time()),source='youtube-fixture')
             self.source_done=True
         else:
-            self.reader=YouTubeReader(self.s,self.inbox,on_page=self.check_removed)
+            self.reader=YouTubeReader(self.s,self.inbox,on_page=self.check_removed,access_token=access_token)
             def run():
-                try:self.reader.run(self.stop,seconds=seconds)
+                try:self.reader.run(self.stop,seconds=seconds,wait_for_chat=wait_for_chat)
                 finally:self.source_done=True
             self.thread=threading.Thread(target=run,daemon=True);self.thread.start()
 
@@ -57,13 +60,25 @@ class InputPipeline:
                 'queue':self.inbox.summary(),'provider_requests_attempted':self.inbox.requests_attempted(),'reader':self.reader.snapshot() if self.reader else None,
                 'fixture_page':getattr(self,'fixture_result',None),'memory_worker':self.bridge.controller.memory_worker.snapshot()}
 
-    def next(self):
+    def next(self, *, allow_host_input=False):
         with self.lock:
             if self.paused_reason:return {'available':False,'finished':True,'held':True,'code':self.paused_reason}
-            if self.reader and self.reader.status=='failed':return {'available':False,'finished':True,'error':self.reader.code}
+            if not allow_host_input and self.reader and self.reader.status=='failed':return {'available':False,'finished':True,'error':self.reader.code}
             if self.active_receipt or (self.bridge.worker and self.bridge.worker.is_alive()):return {'available':False,'finished':False}
-            comment=self.inbox.take()
-            if comment:return {'available':True,'finished':False,'comment':comment}
+            prefer='live-host' if allow_host_input and self.last_source!='live-host' else None
+            comment=self.inbox.take(prefer_source=prefer)
+            if comment:
+                self.last_source=comment['source']
+                return {'available':True,'finished':False,'comment':comment}
+            character=getattr(self.bridge.controller,'character',None)
+            if character and self.s.character_initiative_enabled and self.s.comment_source not in ('fixture','memory-fixture','developer'):
+                topic=character.idle_topic(self.bridge.controller.memory_worker.character_memories(self.bridge.viewer or ''))
+                if topic is not None:
+                    initiative=Comment('ray-initiative',self.inbox.session,uuid.uuid4().hex,'ray','Ray',
+                        initiative_message(topic),time.time())
+                    if self.inbox.put(initiative)=='queued':
+                        comment=self.inbox.take()
+                        if comment:return {'available':True,'finished':False,'comment':comment}
             held=bool(self.reader and self.reader.status=='held')
             return {'available':False,'finished':self.source_done,'held':held,'code':self.reader.code if held else None}
 

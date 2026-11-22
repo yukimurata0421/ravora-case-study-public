@@ -5,7 +5,7 @@ case study. Repository visibility and a redistribution license are separate.
 
 The snapshot contains no original avatar, model weights, private recordings,
 conversation database, credentials, or operational evidence bundle. It does not
-redistribute third-party character-rendering bundles or the CPU/VAD adaptation.
+redistribute third-party character-rendering bundles or the development RMS speech filter. The live studio uses the speech filter in the separately installed recognition library.
 
 Optional libraries and SDKs are installed separately and retain their upstream
 licenses. The local speech binding is reference code and does not bundle a speech

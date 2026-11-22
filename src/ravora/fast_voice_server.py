@@ -34,8 +34,9 @@ class MockVoiceClients:
     llm_usage={}
     async def open(self):return self
     async def close(self):pass
-    async def transcribe_frames(self,frames,emit,**_):
+    async def transcribe_frames(self,frames,emit,*,language='en-US',**_):
         import struct
+        interim,final = ('コーヒーが', 'コーヒーとジャズが好きです。') if language=='ja-JP' else ('I like coffee','I like coffee and jazz.')
         size=0;partial=False;voiced=False
         async for data in frames:
             # Synthetic activity events for the offline console only.
@@ -48,12 +49,14 @@ class MockVoiceClients:
             size+=len(data)
             if not partial and size>=6400:
                 partial=True
-                await emit({'kind':'stt_partial','text':'I like coffee','stability':.9,'segment_final':False})
+                await emit({'kind':'stt_partial','text':interim,'stability':.9,'segment_final':False})
+        await emit({'kind':'stt_partial','text':final,'stability':1.,'segment_final':True})
         await emit({'kind':'input_complete','input_seconds':size/32000})
-        return 'I like coffee and jazz.',{'mock':True}
-    async def generate(self,text,*,memories=(),**_):
+        return final,{'mock':True}
+    async def generate(self,text,*,memories=(),language='en-US',**_):
         reply='You mentioned that you like coffee. What kind do you enjoy?' if memories else 'That sounds lovely. I enjoy hearing about your interests.'
-        from ravora.public_output import PUBLIC_PROTOCOL, public_fixture
+        if language=='ja-JP':reply='コーヒーが好きって話してたね。' if memories else 'そうなんだ。好きなことの話、もっと聞きたいな。'
+        from ravora.ray_character import PUBLIC_PROTOCOL, public_fixture
         if PUBLIC_PROTOCOL in _.get('prompt',''):
             yield public_fixture(reply, expression='thinking' if '?' in text else 'joy',
                                  motion='none' if '?' in text else 'nod')
@@ -61,7 +64,7 @@ class MockVoiceClients:
         for value in (reply[:25],reply[25:]):
             yield value
             await asyncio.sleep(.03)
-    async def synthesize_stream(self,texts):
+    async def synthesize_stream(self,texts,*,language=None):
         import math,struct
         async for _ in texts:
             # Audible, bounded diagnostic tone. This is deliberately not a synthesized voice.
@@ -199,6 +202,8 @@ class FastVoiceServer:
                     if kind=='mic_mute' and set(value)=={'kind','muted'} and type(value['muted']) is bool:
                         await session.set_mic_muted(value['muted'])
                         await send({'kind':'mic_mute_ack','muted':session.mic_muted})
+                    elif kind=='language' and set(value)=={'kind','language'}:
+                        session.select_language(value['language'])
                     elif kind=='audio_start' and {'kind','input_id','language'} <= value.keys() <= {'kind','input_id','language','source','end_mode'}:
                         if session.mic_muted:continue
                         # Older clients and recorded fixtures always supply their own PCM.
@@ -208,9 +213,9 @@ class FastVoiceServer:
                         await session.start_audio(value['input_id'],value['language'],
                             dell_device=self.dell_device if source=='dell' else None,end_mode=value.get('end_mode','manual'))
                     elif kind=='audio_end' and set(value)=={'kind','input_id'}:await session.end_audio(value['input_id'])
-                    elif kind=='text' and set(value)=={'kind','input_id','text'}:
+                    elif kind=='text' and {'kind','input_id','text'} <= set(value) <= {'kind','input_id','text','language'}:
                         if not isinstance(value['text'],str):raise EdgeError('INVALID_TEXT')
-                        await session.start_text(value['input_id'],value['text'])
+                        await session.start_text(value['input_id'],value['text'],language=value.get('language'))
                     elif kind=='cancel' and set(value)=={'kind'}:await session.cancel()
                     elif kind=='played' and set(value)=={'kind','token','frames'}:
                         if not isinstance(value['token'],dict) or set(value['token'])!={'session','generation','turn_id'}:raise EdgeError('INVALID_TURN_TOKEN')

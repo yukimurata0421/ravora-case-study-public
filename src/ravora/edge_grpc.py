@@ -8,8 +8,9 @@ import time
 import wave
 from ravora.context_prompt import CONTEXT_RULES,context_text
 from ravora.relationships import RELATIONSHIP_RULES,relationship_text
-from ravora.persona import conversation_prompt
-from ravora.settings import DEFAULT_STREAMING_VOICE
+from ravora.persona import conversation_prompt, name_question_instruction, reply_style_context
+from ravora.ray_character import PUBLIC_OUTPUT_SCHEMA, PUBLIC_PROTOCOL
+from ravora.settings import DEFAULT_STREAMING_VOICE, default_wavenet_voice, streaming_voice
 from ravora.stream_pitch import load_live_shifter, pitch_shift_pcm
 
 PROJECT='example-project'
@@ -80,7 +81,7 @@ class EdgeClients:
             if pace:await asyncio.sleep(max(0,begin+len(pcm)/32000-time.monotonic()))
         return await self.transcribe_frames(frames(),emit,model=model,timeout=20)
 
-    async def transcribe_frames(self,frames,emit,*,model='chirp_2',timeout=45,language=None):
+    async def transcribe_frames(self,frames,emit,*,model='chirp_2',timeout=45,language=None,billing_usage=None):
         s=self.speech_types;begin=time.monotonic();final=[];events=[];sent=0
         language=language or self.language
         if language not in ('en-US','ja-JP'):raise EdgeError('INVALID_INPUT_LANGUAGE')
@@ -100,6 +101,9 @@ class EdgeClients:
         stream=await self.stt.streaming_recognize(requests=requests(),retry=None,timeout=timeout,metadata=(
             ('authorization','Bearer '+self.credential['access_token']),('x-goog-user-project',self.project)))
         async for response in stream:
+            # Google reports a per-request total, including on some streams without text.
+            if billing_usage is not None and 'total_billed_duration' in response.metadata:
+                billing_usage['provider_billed_seconds'] = response.metadata.total_billed_duration.total_seconds()
             if response.speech_event_type:
                 event={'type':response.speech_event_type.name,'offset_ms':response.speech_event_offset.total_seconds()*1000}
                 events.append(event)
@@ -127,28 +131,32 @@ class EdgeClients:
         text=' '.join(final).strip()
         if not text:raise EdgeError('STT_NO_FINAL_TRANSCRIPT')
         return text,{'events':events,'final_segments':len(final),'model':model,'endpoint':self.endpoints['stt']}
-    async def generate(self,text,*,model='gemini-3.5-flash-lite',prompt=None,history=(),memories=(),context=(),relationship=None,timings=None,before_send=None):
+    async def generate(self,text,*,model='gemini-3.5-flash-lite',prompt=None,history=(),memories=(),context=(),relationship=None,timings=None,before_send=None,developer_speaker=False,language=None,usage=None):
+        if usage is None:usage={}
+        self.llm_usage=usage
         build_start=time.monotonic()
         g=self.gen_types
-        prompt=prompt or conversation_prompt()
+        style,reports=reply_style_context(text,history,memories,developer_speaker=developer_speaker,language=language or self.language)
+        prompt=(prompt or conversation_prompt(language=language or self.language)) + name_question_instruction(text,history)+style
         if context:prompt+=CONTEXT_RULES
         if relationship:prompt+=RELATIONSHIP_RULES
         contents=[g.Content(role=role,parts=[g.Part(text=value)]) for role,value in history]
         parts=[]
-        if memories:parts.append(g.Part(text='Retrieved viewer reports (JSON):\n'+json.dumps(list(memories)[:10],ensure_ascii=False)))
+        if reports:parts.append(g.Part(text='Retrieved viewer reports (JSON):\n'+json.dumps(reports[:10],ensure_ascii=False)))
         if context:parts.append(g.Part(text=context_text(context)))
         if relationship:parts.append(g.Part(text=relationship_text(relationship)))
         parts.append(g.Part(text=text));contents.append(g.Content(role='user',parts=parts))
-        from ravora.public_output import PUBLIC_PROTOCOL
-        structured=PUBLIC_PROTOCOL in prompt
         config={'max_output_tokens':400,'temperature':.7}
-        if structured:config['response_mime_type']='application/json'
+        structured=PUBLIC_PROTOCOL in prompt
+        if structured:
+            config.update(response_mime_type='application/json',response_json_schema=PUBLIC_OUTPUT_SCHEMA)
         request=g.GenerateContentRequest(model='models/'+model,system_instruction=g.Content(parts=[g.Part(text=prompt)]),
             contents=contents,generation_config=g.GenerationConfig(**config))
-        self.llm_usage={};size=0;finish=None
+        size=0;finish=None
         if before_send is not None:
             # Reserve the full text payload and every possible hedge before the first RPC.
             size_bytes=len(prompt.encode())+sum(len(part.text.encode())+32 for item in contents for part in item.parts)
+            if structured:size_bytes+=len(json.dumps(PUBLIC_OUTPUT_SCHEMA).encode())
             before_send(size_bytes,request.generation_config.max_output_tokens,1+HEDGES)
         rpc_start=time.monotonic()
         def elapsed_ms():
@@ -220,8 +228,16 @@ class EdgeClients:
                     timings['first_response_ms']=elapsed_ms()
                 if response.usage_metadata:
                     u=response.usage_metadata
-                    self.llm_usage.update(input_tokens=u.prompt_token_count,output_tokens=u.candidates_token_count,total_tokens=u.total_token_count,
-                        thought_tokens=u.thoughts_token_count,response_model=response.model_version)
+                    # Streamed token counts are cumulative. An output-only chunk can omit earlier counters.
+                    if u.prompt_token_count:
+                        usage['input_tokens']=max(usage.get('input_tokens',0),u.prompt_token_count)
+                    # Proto3 scalar defaults to zero when the measured prompt had no cache hits.
+                    if u.prompt_token_count or u.cached_content_token_count:
+                        usage['cached_input_tokens']=max(usage.get('cached_input_tokens',0),u.cached_content_token_count)
+                    for key,value in (('output_tokens',u.candidates_token_count),('total_tokens',u.total_token_count),
+                                      ('thought_tokens',u.thoughts_token_count)):
+                        usage[key]=max(usage.get(key,0),value)
+                    if response.model_version:usage['response_model']=response.model_version
                 for candidate in response.candidates:
                     if candidate.index:continue
                     for part in candidate.content.parts:
@@ -238,18 +254,21 @@ class EdgeClients:
                 timings['rpc_exit_ms']=elapsed_ms()
             if heartbeat is not None:
                 heartbeat.cancel()
-        self.llm_usage['finish_reason']=finish
+        usage['finish_reason']=finish
         if finish!='STOP':raise EdgeError('INCOMPLETE_GENERATION')
-    async def synthesize(self,text,*,chirp=False):
-        t=self.tts_types;voice=self.voice if chirp else 'en-US-Wavenet-H'
+    async def synthesize(self,text,*,chirp=False,language=None):
+        language=language or self.language
+        t=self.tts_types;voice=streaming_voice(self.voice,language) if chirp else default_wavenet_voice(language)
         config={'audio_encoding':t.AudioEncoding.LINEAR16,'sample_rate_hertz':24000,'speaking_rate':.96}
         if not chirp:config['pitch']=2
         result=await self.tts.synthesize_speech(request=t.SynthesizeSpeechRequest(input=t.SynthesisInput(text=text),
-            voice=t.VoiceSelectionParams(language_code='en-US',name=voice),audio_config=t.AudioConfig(**config)),
+            voice=t.VoiceSelectionParams(language_code=language,name=voice),audio_config=t.AudioConfig(**config)),
             retry=None,timeout=20,metadata=(('x-goog-api-key',self.credential['tts_key']),))
         return wave_pcm(result.audio_content)
-    async def synthesize_stream(self,texts):
+    async def synthesize_stream(self,texts,*,language=None):
         t=self.tts_types
+        language=language or self.language
+        voice=streaming_voice(self.voice,language)
         # Open the TTS stream with the first reply text, not before it: the service aborts an idle
         # stream (gRPC ABORTED, seen as PROVIDER_HTTP_409) after ~6 s without input, and the LLM's
         # first text took 5.5 s and more in later turns. Synthesis cannot start earlier anyway.
@@ -258,7 +277,7 @@ class EdgeClients:
         except StopAsyncIteration:return
         async def requests():
             yield t.StreamingSynthesizeRequest(streaming_config=t.StreamingSynthesizeConfig(
-                voice=t.VoiceSelectionParams(language_code='en-US',name=self.voice),
+                voice=t.VoiceSelectionParams(language_code=language,name=voice),
                 streaming_audio_config=t.StreamingAudioConfig(audio_encoding=t.AudioEncoding.PCM,sample_rate_hertz=24000,speaking_rate=self.speaking_rate)))
             yield t.StreamingSynthesizeRequest(input=t.StreamingSynthesisInput(text=first))
             async for text in texts:yield t.StreamingSynthesizeRequest(input=t.StreamingSynthesisInput(text=text))
@@ -276,5 +295,5 @@ class EdgeClients:
         finally:
             stream.cancel()
 
-
+# Capability is on the method, so an overridden test/custom method must opt in.
 EdgeClients.generate.ray_public_output = True

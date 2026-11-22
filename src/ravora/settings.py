@@ -7,6 +7,17 @@ import re
 from ravora.persona import DEFAULT_PERSONA, REPLY_STYLES, PersonaError, load_persona
 
 DEFAULT_STREAMING_VOICE = 'en-US-Chirp3-HD-Zephyr'
+CONVERSATION_LANGUAGES = ('en-US', 'ja-JP')
+
+
+def default_wavenet_voice(language):
+    return {'ja-JP':'ja-JP-Wavenet-B', 'en-US':'en-US-Wavenet-H'}[language]
+
+
+def streaming_voice(configured_voice, language):
+    if language not in CONVERSATION_LANGUAGES:
+        raise SettingsError('INVALID_CONVERSATION_LANGUAGE')
+    return language + configured_voice[5:]
 
 
 def boolean(value):
@@ -16,6 +27,12 @@ def boolean(value):
 
 class SettingsError(ValueError):
     pass
+
+
+def validate_handsfree_onset_dbfs(value):
+    if type(value) not in (int, float) or not -60 <= value <= -20:
+        raise SettingsError('handsfree_onset_dbfs must be a number in -60..-20')
+    return value
 
 
 def read_env(path: Path) -> dict[str, str]:
@@ -138,8 +155,18 @@ class ProviderSettings:
     tts_key: str = field(default='', repr=False)
     gcp_access_token: str = field(default='', repr=False)
     quota_project: str = field(default='', repr=False)
+    handsfree_onset_dbfs: float = -38
+    character_enabled: bool = True
+    character_initiative_enabled: bool = True
+    character_idle_seconds: int = 120
+    character_max_initiatives: int = 2
 
     def validate(self):
+        if (type(self.character_enabled) is not bool or type(self.character_initiative_enabled) is not bool
+                or type(self.character_idle_seconds) is not int or not 30<=self.character_idle_seconds<=1800
+                or type(self.character_max_initiatives) is not int or not 0<=self.character_max_initiatives<=4):
+            raise SettingsError('INVALID_CHARACTER_SETTINGS')
+        validate_handsfree_onset_dbfs(self.handsfree_onset_dbfs)
         if type(self.monthly_reply_llm_usd) is not int or self.monthly_reply_llm_usd < 0:
             raise SettingsError('INVALID_REPLY_LLM_BUDGET')
         if self.monthly_reply_llm_usd and self.gemini_model != 'gemini-3.5-flash-lite':
@@ -163,7 +190,7 @@ class ProviderSettings:
             raise SettingsError('INVALID_CONVERSATION_CONTEXT')
         if self.voice_profile not in ('fast_streaming','legacy') or self.voice_stt_region not in ('asia-southeast1','asia-northeast1','us','eu') or self.voice_stt_model not in ('chirp_2','chirp_3','long'):
             raise SettingsError('INVALID_VOICE_PROFILE_OR_STT')
-        if self.voice_input_language not in ('en-US','ja-JP') or self.voice_tts_region!='asia-northeast1' or not re.fullmatch(r'en-US-Chirp3-HD-[A-Za-z]{1,40}',self.voice_tts_voice):
+        if self.voice_input_language not in CONVERSATION_LANGUAGES or self.voice_tts_region!='asia-northeast1' or not re.fullmatch(r'(?:en-US|ja-JP)-Chirp3-HD-[A-Za-z]{1,40}',self.voice_tts_voice):
             raise SettingsError('INVALID_STREAMING_VOICE')
         if type(self.voice_input_chunk_ms) is not int or not 20<=self.voice_input_chunk_ms<=200 or type(self.voice_jitter_buffer_ms) is not int or not 20<=self.voice_jitter_buffer_ms<=200:
             raise SettingsError('INVALID_STREAMING_BUFFER')
@@ -184,8 +211,8 @@ class ProviderSettings:
             raise SettingsError('UNSUPPORTED_PROVIDER_COMBINATION')
         if not re.fullmatch(r'[a-z0-9][a-z0-9._-]{0,100}', self.gemini_model) or not re.fullmatch(r'[a-zA-Z0-9._-]{1,100}', self.jev_model):
             raise SettingsError('INVALID_MODEL_NAME')
-        if not re.fullmatch(r'en-(?:US|GB|AU|IN)-Wavenet-[A-Z]', self.voice) or self.language != self.voice[:5]:
-            raise SettingsError('ENGLISH_WAVENET_VOICE_REQUIRED')
+        if not re.fullmatch(r'(?:en-(?:US|GB|AU|IN)|ja-JP)-Wavenet-[A-Z]', self.voice) or self.language != self.voice[:5]:
+            raise SettingsError('INVALID_WAVENET_VOICE')
         if not (.5 <= self.speaking_rate <= 1.5 and -6 <= self.pitch <= 6 and 1 <= self.timeout <= 20 and 5 <= self.turn_timeout <= 90):
             raise SettingsError('INVALID_VOICE_OR_TIMEOUT')
         if not (80 <= self.max_reply_chars <= 2000 and 60 <= self.sentence_chars <= 400 and 1 <= self.max_chunks <= 12 and 0 <= self.memory_turns <= 8 and 1 <= self.monthly_tts_chars <= 4000000):
@@ -200,6 +227,8 @@ class ProviderSettings:
             raise SettingsError('INVALID_STT_LIMITS')
         if self.stt_provider!='local_cpu' or not re.fullmatch(r'assets/stt/[A-Za-z0-9_./-]{1,180}',self.stt_model_path) or '..' in Path(self.stt_model_path).parts:
             raise SettingsError('INVALID_LOCAL_STT_PROVIDER_OR_PATH')
+        if not (100<=self.stt_min_speech_ms<=600 and 150<=self.stt_silence_ms<=1000 and 50<=self.stt_pad_ms<=300):
+            raise SettingsError('INVALID_LOCAL_VAD_SETTINGS')
         if not (.3<=self.stt_vad_probability<=.8 and .2<=self.stt_no_speech<=.9 and -2<=self.stt_log_probability<=-.1 and 1.5<=self.stt_compression<=3.5 and 0<=self.stt_language_probability<=1):raise SettingsError('INVALID_LOCAL_STT_THRESHOLDS')
         if not re.fullmatch(r'[A-Za-z0-9._-]{1,64}',self.developer_id):raise SettingsError('INVALID_DEVELOPER_ID')
         if any(any(c in value for c in '\r\n\0') for value in (self.gemini_key,self.jev_key,self.tts_key,self.gcp_access_token,self.quota_project,self.youtube_key)):
@@ -217,6 +246,7 @@ class ProviderSettings:
     def public(self):
         names=('mode','api_enabled','comment_source','comment_queue_size','comment_ttl','youtube_read_enabled','youtube_poll_seconds','youtube_max_requests','llm_provider','reaction_provider','tts_provider','gemini_model','jev_model','voice','language','speaking_rate','pitch','timeout','turn_timeout','max_reply_chars','sentence_chars','max_chunks','monthly_tts_chars','memory_turns','memory_enabled','memory_ttl_days','memory_queue_size','memory_wait_seconds','memory_extractor','memory_api_enabled','memory_model','memory_api_timeout','memory_min_confidence','stt_api_enabled','stt_model','stt_language','stt_timeout','stt_max_seconds','stt_monthly_audio_seconds','stt_session_requests','stt_min_rms')
         return {name:getattr(self,name) for name in (*names,'persona','reply_style','early_reaction_enabled','early_reaction_stability',
+            'character_enabled','character_initiative_enabled','character_idle_seconds','character_max_initiatives',
             'early_reaction_debounce_ms','early_reaction_cooldown_ms','early_reaction_max_requests',
             'monthly_reply_llm_usd','context_enabled','context_max_items','context_max_chars','relationship_enabled','voice_profile','voice_stt_region','voice_stt_model','voice_input_language',
             'voice_tts_region','voice_tts_voice','voice_input_chunk_ms','voice_jitter_buffer_ms','stt_provider','stt_model_path','stt_noise_percentile',
@@ -245,6 +275,10 @@ def load_settings(path: Path, *, mode=None, environ=None):
         'voice_tts_region':('RAVORA_VOICE_TTS_REGION',str),'voice_tts_voice':('RAVORA_VOICE_TTS_VOICE',str),
         'voice_input_chunk_ms':('RAVORA_VOICE_INPUT_CHUNK_MS',int),'voice_jitter_buffer_ms':('RAVORA_VOICE_JITTER_BUFFER_MS',int),
         'cloud_project':('GOOGLE_CLOUD_PROJECT',str)})
+    spec.update({'character_enabled':('RAVORA_CHARACTER_ENABLED',boolean),
+                 'character_initiative_enabled':('RAVORA_CHARACTER_INITIATIVE_ENABLED',boolean),
+                 'character_idle_seconds':('RAVORA_CHARACTER_IDLE_SECONDS',int),
+                 'character_max_initiatives':('RAVORA_CHARACTER_MAX_INITIATIVES',int)})
     spec.update({'semantic_memory_mode':('RAVORA_SEMANTIC_MEMORY_MODE',str),
                  'semantic_candidate_limit':('RAVORA_SEMANTIC_CANDIDATE_LIMIT',int),
                  'semantic_max_chars':('RAVORA_SEMANTIC_MAX_CHARS',int),

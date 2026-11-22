@@ -210,7 +210,9 @@ class MemoryWorkerTests(unittest.TestCase):
             def __init__(self):self.payloads=[]
             def open(self,url,headers,payload):
                 self.payloads.append(payload)
-                return io.BytesIO(b'data: {"candidates":[{"content":{"parts":[{"text":"Hello there."}]},"finishReason":"STOP"}]}\n\n')
+                from ravora.ray_character import public_fixture
+                text=public_fixture('Hello there.') if payload['generationConfig'].get('responseMimeType')=='application/json' else 'Hello there.'
+                return io.BytesIO(('data: '+json.dumps({'candidates':[{'content':{'parts':[{'text':text}]},'finishReason':'STOP'}]})+'\n\n').encode())
         http=HTTP();adapter=GeminiText(self.s,http)
         with patch('socket.create_connection',side_effect=AssertionError('NETWORK_FORBIDDEN')):
             pipeline,bridge=self.pipeline(text=adapter)

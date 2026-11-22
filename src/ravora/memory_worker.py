@@ -1,11 +1,14 @@
 """One bounded local worker. Only already-played, source-backed jobs are eligible."""
 import threading
 import time
+import queue
 
 from ravora.memory_extraction import LocalPreferenceExtractor,POLICY
 from ravora.gemini_memory import GeminiMemoryExtractor,GeminiExtraction,GEMINI_POLICY,source_block_reason
 from ravora.providers import ProviderError
 from ravora.semantic_memory import EPISODE_POLICY
+from ravora.ray_memory import CharacterMemory
+from ravora.ray_character import owner_hash
 
 
 class MemoryWorker:
@@ -23,9 +26,58 @@ class MemoryWorker:
         self.policies=(POLICY,GEMINI_POLICY,EPISODE_POLICY) if self.remote else (POLICY,)
         self.stop=threading.Event();self.lock=threading.Lock();self.thread=None;self.signalled=False
         self.last_error=None;self.active_viewer=None
+        self.character=CharacterMemory(store,settings.mode) if settings.character_enabled else None
+        self.character_queue=queue.Queue(maxsize=16)
+        self.character_cache=()
+        self.character_counts={'reads':0,'saves':0,'save_failures':0,'read_failures':0,'queue_dropped':0}
+        self.character_ready=threading.Event()
+
+    def character_memories(self,viewer):
+        owner=owner_hash(self.s.mode,viewer)
+        with self.lock:return tuple(dict(m) for m in self.character_cache if m['owner_hash'] in ('',owner))
+
+    def offer_character(self,turn_id):
+        if self.character is None or self.stop.is_set():return
+        try:self.character_queue.put_nowait(('promote',turn_id))
+        except queue.Full:
+            with self.lock:self.character_counts['queue_dropped']+=1
+            return
+        self.wake()
+
+    def character_referenced(self,memories):
+        if self.character is None or not memories:return
+        try:self.character_queue.put_nowait(('reference',tuple(m['id'] for m in memories[:8])))
+        except queue.Full:
+            with self.lock:self.character_counts['queue_dropped']+=1
+        self.wake()
+
+    def _character_reload(self):
+        if self.character is None:return
+        try:
+            loaded=self.character.load()
+            with self.lock:
+                if not self.stop.is_set():self.character_cache=loaded
+                self.character_counts['reads']+=1
+        except Exception:
+            with self.lock:self.character_counts['read_failures']+=1
+        finally:self.character_ready.set()
+
+    def _character_step(self):
+        try:kind,value=self.character_queue.get_nowait()
+        except queue.Empty:return False
+        try:
+            if kind=='promote':
+                count=self.character.promote(value)
+                with self.lock:self.character_counts['saves']+=count
+                if count:self._character_reload()
+            else:self.character.referenced(value)
+        except Exception:
+            with self.lock:self.character_counts['save_failures']+=1
+        finally:self.character_queue.task_done()
+        return True
 
     def wake(self):
-        if not self.s.memory_enabled or self.stop.is_set():return
+        if not (self.s.memory_enabled or self.character is not None) or self.stop.is_set():return
         with self.lock:
             self.signalled=True
             if self.thread and self.thread.is_alive():return
@@ -34,20 +86,22 @@ class MemoryWorker:
 
     def _run(self):
         try:
+            self._character_reload()
             # Queue capacity is <=32. Exit when idle instead of leaving an idle thread.
             for _ in range(32):
                 if self.stop.is_set():return
                 with self.lock:self.signalled=False
-                job=self.store.claim_memory_job(self.s.mode)
-                if not job and self.remote:
+                character_work=self._character_step()
+                job=self.store.claim_memory_job(self.s.mode) if self.s.memory_enabled else None
+                if not job and self.remote and self.s.memory_enabled:
                     job=self.store.claim_memory_job(self.s.mode,policy=GEMINI_POLICY,
                         lease_seconds=max(15,self.s.memory_api_timeout+10))
-                if not job and self.remote:
+                if not job and self.remote and self.s.memory_enabled:
                     job=self.store.claim_memory_job(self.s.mode,policy=EPISODE_POLICY,
                         lease_seconds=max(15,self.s.memory_api_timeout+10))
                 if not job:
                     with self.lock:
-                        if self.signalled:continue
+                        if self.signalled or character_work or not self.character_queue.empty():continue
                         self.thread=None;return
                 with self.lock:self.active_viewer=job['viewer_key']
                 try:
@@ -124,12 +178,18 @@ class MemoryWorker:
         self.stop.set()
         with self.lock:thread=self.thread
         if thread and thread is not threading.current_thread():thread.join(timeout=1)
+        with self.lock:self.character_cache=()
+        while True:
+            try:self.character_queue.get_nowait();self.character_queue.task_done()
+            except queue.Empty:break
 
     def snapshot(self):
         with self.store.connect() as db:
             counts=dict(db.execute('SELECT status,COUNT(*) FROM memory_jobs WHERE scope=? GROUP BY status',(self.s.mode,)))
             attempted=db.execute('''SELECT COALESCE(SUM(p.attempted),0) FROM provider_calls p
                 JOIN memory_jobs j ON j.api_call_id=p.id WHERE j.scope=?''',(self.s.mode,)).fetchone()[0]
+        with self.lock:character_counts=dict(self.character_counts)
         return {'enabled':self.s.memory_enabled,'extractor':'gemini' if self.remote else 'local_rules',
+                'character':{'enabled':self.character is not None,**character_counts,'pending':self.character_queue.qsize()},
                 'provider_requests_attempted':attempted,'jobs':counts,'scope':self.s.mode,'last_error':self.last_error,
                 'thread_running':bool(self.thread and self.thread.is_alive())}
