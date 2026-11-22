@@ -45,6 +45,14 @@ class RouterTests(unittest.TestCase):
         self.assertEqual(route('別の話題にしよう。', []).dialogue_policy, 'SHIFT_TO_HOOK')
         self.assertEqual(route('雑談しよう。', []).dialogue_policy, 'SELF_DISCLOSURE')
         self.assertEqual(route('What interests you?', []).dialogue_policy, 'SELF_DISCLOSURE')
+        for question in ('音楽以外の趣味は？', 'What are your hobbies besides music?'):
+            ray = CharacterRuntime()
+            epoch = ray.begin('hobbies', question)
+            self.assertEqual(ray.route(epoch,question,[]).dialogue_policy, 'SELF_DISCLOSURE')
+            memories = [{'kind':'interest','topic':topic,'strength':.6} for topic in ('music','puzzles')]
+            plan = ray.plan(question,memories,epoch=epoch)
+            self.assertEqual(plan.preferences,(('puzzles',.6),))
+            self.assertNotEqual(plan.topic,'music')
         for statements in [('I cleaned the telescope.', 'The telescope lens looks clear.', 'My telescope arrived.'),
                            ('望遠鏡を磨いた。','望遠鏡で星を見た。','望遠鏡を組み立てたよ。')]:
             earlier = [('user',statements[0]),('model','Nice.'),('user',statements[1]),('model','Interesting.')]
@@ -149,6 +157,23 @@ class TransportTests(unittest.IsolatedAsyncioTestCase):
             self.assertTrue(lookup.called)
             self.assertEqual(self.fast.character.state.need_knowledge_rag,True)
             self.play()
+
+    async def test_live_response_does_not_wait_for_remote_memory_extraction(self):
+        settings = replace(self.settings, comment_source='youtube', memory_extractor='gemini',
+                           semantic_memory_mode='off', memory_api_enabled=True)
+        controller = SpeechController(settings,self.store,self.root,
+                                      providers=(GeminiText(settings,HTTP()),Reaction(),Speech()))
+        self.addCleanup(controller.memory_worker.close)
+        with patch.object(controller.memory_worker,'wait_for',side_effect=AssertionError('blocked on extraction')):
+            events = []
+            metrics = controller.run('What is a telescope?', 'viewer', uuid4().hex, events.append, threading.Event())
+            self.assertEqual(metrics['knowledge_rag'],'allowed')
+            self.assertEqual(events[-1]['kind'],'complete')
+        await self.fast.close()
+        self.settings = settings
+        self.open_session()
+        with patch.object(self.fast.memory,'wait_for',side_effect=AssertionError('blocked on extraction')):
+            await self.speak('What is a telescope?')
 
     async def test_played_music_history_selects_an_association_but_questions_keep_their_subject(self):
         for text in ('I tried the guitar.', '昨日はジャズを聴いた。'):

@@ -125,6 +125,8 @@ See the [timing result](examples/media-timing-report.json).
 
 Record Ray and a host microphone with synchronized subtitles, or create an unlisted YouTube broadcast with channel OAuth. The studio supports Japanese and English conversation tabs, hands-free input, microphone mute and automatic gain matching. Chat arrives through gRPC `streamList`. Start with the local HEVC/AAC preview in the [live studio guide](docs/youtube-live.md).
 
+Ray starts with an interest in stargazing, puzzles and speech technology. The cloud studio can remember source-backed details from Japanese and English conversations when the operator enables memory extraction. [Character interests and viewer memory](docs/conversation-controls.md#rays-interests-and-viewer-memories)
+
 Ray can follow up on a co-host's news and shift a repeated topic through a related detail. The same routing rules govern the studio and the streaming console. [Topic changes and recall](docs/conversation-controls.md#topic-changes-and-recall)
 
 ## Try the console

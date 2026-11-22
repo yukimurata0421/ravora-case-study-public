@@ -4,6 +4,7 @@ from dataclasses import dataclass, replace
 import re
 import threading
 import time
+import unicodedata
 
 from ravora.dialogue_router import DIRECTIONS, HOOKS, DialogueRoute, is_backchannel, route_turn
 from ravora.public_output import (CharacterError, EXPRESSIONS, MOTIONS, PUBLIC_PROTOCOL,
@@ -15,15 +16,24 @@ TRAITS = ('curiosity', 'independent_opinion', 'friendly_competition', 'admits_mi
 CHALLENGE_OUTLOOK = ('Ray enjoys trying unfamiliar things and sees room to learn even when success is uncertain. '
                      'She shares in a win and takes disappointment seriously.')
 TOPICS = {
+    'stargazing': ('stargazing', 'constellation', 'telescope', '天体観測', '星空', '星座', '望遠鏡', '流星群', '星を眺め'),
+    'puzzles': ('puzzle', 'riddle', 'sudoku', 'パズル', '謎解き', 'なぞなぞ', '数独', '脱出ゲーム'),
+    'technology': ('technology', 'robotics', 'programming', 'speech recognition', '人工知能',
+                   'プログラミング', 'ロボット', '音声認識', 'アプリ開発', '文字起こし'),
     'music': ('music', 'jazz', 'piano', '音楽', 'ピアノ'),
     'games': ('game', 'gaming', 'competition', 'ゲーム', '勝負'),
     'gardening': ('garden', 'tomato', 'plant', 'gardening', '家庭菜園', '植物'),
     'science': ('science', 'space', 'experiment', '科学', '宇宙'),
-    'human_emotions': ('feeling', 'emotion', 'lonely', '感情', '気持ち'),
-    'food': ('coffee', 'tea', 'dinner', 'food', 'cooking', '料理', 'コーヒー'),
-    'learning': ('learn', 'learning', 'discover', '学ぶ', '勉強'),
+    'human_emotions': ('feeling', 'emotion', 'lonely', '感情', '気持ち', '緊張', '悔しい', 'わくわく', 'ワクワク'),
+    'food': ('coffee', 'tea', 'dinner', 'food', 'cooking', '料理', 'コーヒー', '自炊', 'お菓子作り', 'レシピ'),
+    'learning': ('learn', 'learning', 'discover', '学ぶ', '勉強', '練習中', '習い始め', '学んで'),
     'honesty': ('honest', 'truth', '正直', '誠実'),
     'fairness': ('fair', 'fairness', '公平', '対等'),
+}
+INTEREST_DESCRIPTIONS = {
+    'stargazing': 'stargazing, especially finding constellations by their shapes',
+    'puzzles': 'puzzles, especially the clue that changes how a puzzle looks',
+    'technology': 'how things work, especially how a voice turns into subtitles',
 }
 INTENTS = frozenset(('answer', 'state_opinion', 'disagree', 'ask_question', 'share_impression', 'try_challenge',
                      'share_interest', 'resume_topic', 'change_topic', 'wait'))
@@ -42,10 +52,10 @@ PUBLIC_OUTPUT_SCHEMA = {
 
 
 def topics_in(text):
-    normalized = text.casefold()
+    normalized = unicodedata.normalize('NFKC', text).casefold()
     return tuple(topic for topic, words in TOPICS.items() if any(
         (re.search(r'\b' + re.escape(word) + r'\w*\b', normalized) if word.isascii() else word in normalized)
-        for word in words))
+        for word in words) or (topic == 'technology' and re.search(r'(?<![a-z0-9])ai(?![a-z0-9])', normalized)))
 
 
 def initiative_message(topic):
@@ -99,7 +109,7 @@ class PublicPlan:
             'change_topic': 'Choose a fresh subject yourself and open with the particular thing about it you find intriguing.',
             'wait': 'Give the speaker room; do not demand another response.',
         }[self.intent]
-        preferences = ', '.join(f'{topic}: interest {strength:.2f}' for topic, strength in self.preferences[:4])
+        preferences = '; '.join(f'{INTEREST_DESCRIPTIONS.get(topic,topic)} ({strength:.2f})' for topic, strength in self.preferences[:4])
         return ('\nRay character direction: You are an AI character who is curious about human thought and feelings. '
                 'Be curious, independent, a little competitive, and willing to admit errors. ' + CHALLENGE_OUTLOOK + ' '
                 'When there is room in the exchange, volunteer what catches your attention, even before anyone asks. '
@@ -109,7 +119,7 @@ class PublicPlan:
                 + behavior + ' ' + DIRECTIONS[self.dialogue_policy]
                 + (' Bring up this idea in the conversation language: ' + self.hook + '.' if self.hook in HOOKS else '')
                 + (' Public topic: ' + self.topic + '.' if self.topic else '')
-                + (' Public character interests: ' + preferences + '.' if preferences else '')
+                + (' Public character interests: ' + preferences + '. Use an interest only if it fits the exchange.' if preferences else '')
                 + (' Familiarity from acknowledged contact: ' + self.familiarity + '.' if self.familiarity != 'unknown' else '')
                 + ' Suggested visible expression: ' + self.expression + '; motion: ' + self.motion + '.')
 
@@ -261,6 +271,9 @@ class CharacterRuntime:
                 intent = 'share_impression'
             elif policy == 'SELF_DISCLOSURE' and intent != 'resume_topic':
                 intent = 'share_interest'
+                if re.search(r'音楽以外|\b(?:apart from|besides|other than) music\b', lower):
+                    preferences = tuple(pair for pair in preferences if pair[0] != 'music')
+                    topic = next((t for t in topics if t != 'music'), '')
             self.state = replace(old, intent=intent)
             self.counts['memory_references'] += len(preferences) + len(goals)
             return PublicPlan(intent, old.expression_hint, topic, familiar, preferences,

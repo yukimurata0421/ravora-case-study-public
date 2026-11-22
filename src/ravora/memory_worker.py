@@ -32,7 +32,16 @@ class MemoryWorker:
         self.character_counts={'reads':0,'saves':0,'save_failures':0,'read_failures':0,'queue_dropped':0}
         self.character_ready=threading.Event()
 
-    def character_memories(self,viewer):
+    @property
+    def live_extraction(self):
+        return self.s.comment_source in ('youtube', 'developer') and self.s.memory_api_enabled and self.remote
+
+    def character_memories(self,viewer,route=None):
+        if route is not None and route.rag_skip_reason:
+            if route.dialogue_policy != 'SELF_DISCLOSURE' or route.topic_saturation >= .7:
+                return ()
+            with self.lock:
+                return tuple(dict(m) for m in self.character_cache if not m['owner_hash'] and m.get('configured'))
         owner=owner_hash(self.s.mode,viewer)
         with self.lock:return tuple(dict(m) for m in self.character_cache if m['owner_hash'] in ('',owner))
 

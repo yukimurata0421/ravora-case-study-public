@@ -21,6 +21,7 @@ from ravora.conversation import ConversationBridge, MemoryStore
 from ravora.developer_http import DeveloperHTTP
 from ravora.input_pipeline import InputPipeline
 from ravora.live_http import LiveHandler
+from ravora.ray_memory import CharacterMemory
 from ravora.safety import TurnFence
 from ravora.settings import load_settings, read_env, SettingsError
 from ravora.youtube_auth import authorize, ChannelAPI, publisher_lock, YouTubeError
@@ -60,6 +61,7 @@ def run(args):
         del values
     if args.check:
         print(json.dumps({'conversation_api_enabled': s.api_enabled, 'missing_conversation_keys': s.missing(),
+                          'memory_api_enabled': s.memory_api_enabled,
                           'youtube_read_enabled': s.youtube_read_enabled, 'youtube_api_key_set': bool(s.youtube_key),
                           'chat_target_set': bool(s.youtube_chat_id or s.youtube_video_id),
                           'stream_key_set': bool(stream_key), 'video_encoder': video_encoder,
@@ -113,6 +115,7 @@ def run(args):
             broadcast = Broadcast(api, directory, channel, title, args.privacy or 'unlisted', stop)
         audio = Path(stack.enter_context(tempfile.TemporaryDirectory(dir=run_dir)))
         store = MemoryStore(ROOT / 'state/conversation.sqlite3' if args.mode == 'cloud' else run_dir / 'offline.sqlite3')
+        CharacterMemory(store, s.mode).seed_initial_interests()
         language = args.host_language or s.stt_language
         default_locale = s.voice_input_language if s.voice_profile == 'fast_streaming' else s.language
         if args.host_language is None and language == 'auto' and (args.dell_mic or s.mode == 'cloud'):

@@ -69,7 +69,7 @@ class MemoryRepository(Database):
                 if not row or row[0]!=viewer_key or row[1] or row[2] is not None or row[3]<=now:raise ValueError('MEMORY_SOURCE_UNAVAILABLE')
             db.execute('''INSERT INTO memory_items
                 (memory_id,viewer_key,scope,summary,tags,confidence,created_at,expires_at) VALUES(?,?,?,?,?,?,?,?)''',
-                (key,viewer_key,scope,summary,json.dumps(tags),confidence,now,now+ttl_seconds))
+                (key,viewer_key,scope,summary,json.dumps(tags,ensure_ascii=False),confidence,now,now+ttl_seconds))
             db.executemany('INSERT INTO memory_sources(memory_id,event_id) VALUES(?,?)',[(key,e) for e in source_ids])
         return key
 
@@ -93,7 +93,10 @@ class MemoryRepository(Database):
         if scope not in ('offline','cloud') or not 3<=limit<=10:raise ValueError('INVALID_MEMORY_SEARCH')
         now=time.time() if now is None else now
         # Quote tokens, so viewer text cannot inject FTS operators or SQL.
-        words=re.findall(r'[^\W_]+',query[:1000],re.UNICODE)[:16]
+        words=re.findall(r'[^\W_]+',query[:1000],re.UNICODE)
+        # unicode61 treats unspaced Japanese as a single word. Also search the standalone topic tags.
+        jp_terms=re.findall(r'[一-鿿々]{2,}|[ァ-ヺ][ァ-ヺー]+',query[:1000])
+        words=list(dict.fromkeys([*jp_terms,*words]))[:16]
         match=' OR '.join('"'+word+'"' for word in words)
         # Drive MATCH from the FTS index once, not once per viewer memory row.
         source=('memory_fts CROSS JOIN memory_items m ON m.rowid=memory_fts.rowid' if match else
@@ -284,7 +287,7 @@ class MemoryRepository(Database):
                     db.execute('''INSERT INTO memory_items(memory_id,viewer_key,scope,summary,tags,confidence,
                         review_state,sensitivity,created_at,expires_at,extraction_turn_id,topic_key,approval_method)
                         VALUES(?,?,?,?,?,1,'approved','non_sensitive',?,?,?,?,?)''',
-                        (key,job['viewer_key'],job['scope'],content['summary'],json.dumps(content['tags']),
+                        (key,job['viewer_key'],job['scope'],content['summary'],json.dumps(content['tags'],ensure_ascii=False),
                          row[3],now+row[2],job['turn_id'],preference.topic,job['policy']))
                     quote=preference.evidence_quote;offset=job['text'].index(quote)
                     db.execute('''INSERT INTO memory_sources(memory_id,event_id,quote_start,quote_end,quote_sha256)
@@ -310,7 +313,7 @@ class MemoryRepository(Database):
                 db.execute('''INSERT INTO memory_items(memory_id,viewer_key,scope,summary,tags,confidence,
                     review_state,sensitivity,created_at,expires_at,extraction_turn_id,topic_key,polarity,approval_method)
                     VALUES(?,?,?,?,?,?,'approved','non_sensitive',?,?,?,?,?,?)''',
-                    (key,job['viewer_key'],job['scope'],content['summary'],json.dumps(content['tags']),content['confidence'],
+                    (key,job['viewer_key'],job['scope'],content['summary'],json.dumps(content['tags'],ensure_ascii=False),content['confidence'],
                      now,now+row[2],job['turn_id'],preference.topic,getattr(preference,'polarity',None),job['policy']))
                 if job['policy']==GEMINI_POLICY:
                     quote=preference.evidence_quote;offset=job['text'].index(quote)

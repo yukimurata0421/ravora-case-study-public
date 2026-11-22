@@ -20,6 +20,7 @@ from ravora.conversation import MemoryStore,SpeechController
 from ravora.fast_voice import FastVoiceSession
 from ravora.fast_voice_server import FastVoiceServer,MockVoiceClients
 from ravora.providers import Transport
+from ravora.ray_memory import CharacterMemory
 from ravora.settings import ProviderSettings
 from ravora.relationship_demo import relationship_replay
 from ravora.media_timing import media_timing_replay
@@ -214,6 +215,7 @@ async def console(port,seconds,*,route=None,avatar_binding=None,evaluation_dir=N
         evaluation=VoiceEvaluation(destination,config,mode='mock')
     with tempfile.TemporaryDirectory(prefix='ravora-console-') as directory:
         root=Path(directory);store=MemoryStore(root/'conversation.sqlite3')
+        CharacterMemory(store,'offline').seed_initial_interests()
         server=FastVoiceServer(offline_settings(),store,root,mode='mock',port=port,
             default_input=route.get('input_source','windows'),dell_device=route.get('dell_device'),
             default_end_mode=route.get('end_mode','manual'),end_silence_ms=route.get('end_silence_ms',800),

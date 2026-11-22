@@ -212,6 +212,53 @@ class PersistentTests(unittest.TestCase):
             self.assertEqual(tuple(json.loads(db.execute('SELECT traits FROM character_profiles').fetchone()[0])), TRAITS)
         self.assertEqual(CharacterRuntime().state,InnerState())
 
+    def test_initial_interests_preserve_existing_strength_and_explicit_deletion_on_restart(self):
+        self.repo.seed_initial_interests()
+        initial = {m['topic']: m for m in self.repo.load()}
+        self.assertEqual(set(initial), {'puzzles', 'stargazing', 'technology'})
+        self.assertTrue(all(m['configured'] and m['strength'] == .6 for m in initial.values()))
+        self.repo.set_preference('stargazing', .72, kind='interest')
+        self.repo.delete(initial['puzzles']['id'])
+        reopened = CharacterMemory(MemoryStore(self.store.path), 'offline')
+        reopened.seed_initial_interests()
+        self.assertEqual({m['topic']: m['strength'] for m in reopened.load()}, {'technology': .6, 'stargazing': .72})
+        with self.store.connect() as db:
+            self.assertEqual(db.execute('SELECT count(*) FROM character_preference_history').fetchone()[0], 4)
+            self.assertEqual(db.execute('SELECT count(*) FROM memory_items').fetchone()[0], 0)
+        self.assertEqual(CharacterMemory(self.store, 'cloud').load(), ())
+
+    def test_configured_interests_in_self_disclosure_and_japanese_growth(self):
+        from ravora.ray_character import topics_in
+        self.assertIn('technology', topics_in('ＡＩの声を文字起こししたよ。'))
+        self.assertNotIn('technology', topics_in('A chair in the air.'))
+        self.assertIn('puzzles', topics_in('なぞなぞを一緒に解こう。'))
+        for text in ('今夜は星座を探すよ。','望遠鏡を組み立てたよ。','天体観測を続けているよ。'):
+            turn,comment=self.exchange(text,'星空の形が気になるね。')
+        key=self.repo.set_preference('stargazing',.6,kind='interest')
+        self.repo.set_preference('puzzles',.6,kind='interest')
+        with self.store.connect() as db:
+            configured_expiry=db.execute('SELECT expires_at FROM character_memories WHERE memory_id=?',(key,)).fetchone()[0]
+        self.assertEqual(self.repo.promote(turn),1)
+        self.assertEqual(self.repo.promote(turn),0)
+        with self.store.connect() as db:
+            self.assertGreaterEqual(db.execute('SELECT expires_at FROM character_memories WHERE memory_id=?',(key,)).fetchone()[0],
+                                    configured_expiry)
+        for _ in range(3):
+            turn,_=self.exchange('最近は音楽の話をしている。','面白そうだね。')
+        self.assertEqual(self.repo.promote(turn),1)
+        worker=MemoryWorker(self.store,ProviderSettings())
+        self.addCleanup(worker.close)
+        worker.wake(); self.assertTrue(worker.character_ready.wait(2))
+        ray=CharacterRuntime(); question='レイの趣味は？'
+        epoch=ray.begin('ask',question); route=ray.route(epoch,question,[])
+        self.assertFalse(route.need_knowledge_rag)
+        memories=worker.character_memories(comment.viewer,route)
+        self.assertEqual({m['topic'] for m in memories},{'stargazing','puzzles'})
+        self.assertAlmostEqual(next(m['strength'] for m in memories if m['topic']=='stargazing'),.62)
+        plan=ray.plan(question,memories,epoch=epoch)
+        self.assertEqual(plan.intent,'share_interest')
+        self.assertIn('constellations',plan.instruction())
+
     def test_existing_ray_gains_the_new_disposition_once_and_keeps_preferences(self):
         legacy = self.root/'v14'
         legacy.mkdir()

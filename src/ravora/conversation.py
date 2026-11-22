@@ -335,7 +335,8 @@ class SpeechController:
         memory_wait=self.clock()
         semantic_enabled=rag and self.s.memory_enabled and self.s.semantic_memory_mode!='off'
         if semantic_enabled:self.memory_worker.wake()
-        if rag and not semantic_enabled and not self.memory_worker.wait_for(viewer,cancel=cancel):
+        # A live reply uses committed memories while the remote extraction runs in the background.
+        if rag and not (semantic_enabled or self.memory_worker.live_extraction) and not self.memory_worker.wait_for(viewer,cancel=cancel):
             metrics['total_ms']=round((self.clock()-start)*1000,2)
             self.store.finish(turn_id,'','failed',metrics)
             if not cancel.is_set():emit({'kind':'error','status':'failed','code':'MEMORY_WORKER_NOT_READY','metrics':metrics})
@@ -386,7 +387,7 @@ class SpeechController:
             metrics['memory_ids']=[m['memory_id'] for m in notes];metrics['memory_context_prepared']=supported
             metrics['memory_strategy']=method
             character_begin=time.monotonic()
-            memories=self.memory_worker.character_memories(viewer) if self.character and rag else ()
+            memories=self.memory_worker.character_memories(viewer,route) if self.character else ()
             if not current():raise ProviderError('TURN_CANCELLED')
             hook=claim_hook(self.store,self.s.mode,viewer,turn_id,comment,route.unspoken_hooks) if route.dialogue_policy=='SHIFT_TO_HOOK' else ''
             plan=self.character.plan(comment,memories,background,initiative=initiative,epoch=character_epoch,

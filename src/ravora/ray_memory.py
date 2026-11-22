@@ -8,7 +8,7 @@ import sqlite3
 import time
 
 from ravora.gemini_memory import source_block_reason
-from ravora.ray_character import TOPICS, TRAITS, owner_hash, topics_in
+from ravora.ray_character import INTEREST_DESCRIPTIONS, TOPICS, TRAITS, owner_hash, topics_in
 from ravora.dialogue_router import HOOKS, mentions_hook
 
 
@@ -71,10 +71,12 @@ class CharacterMemory:
             traits = json.loads(row[0]) if row else list(TRAITS)
             if not isinstance(traits, list) or set(traits) != set(TRAITS):
                 raise ValueError('CHARACTER_PROFILE_INVALID')
-            rows = db.execute("""SELECT memory_id,owner_hash,kind,topic,strength,importance
-                FROM character_memories WHERE scope=? AND status='active' AND expires_at>?
+            rows = db.execute("""SELECT m.memory_id,owner_hash,kind,topic,strength,importance,
+                    EXISTS(SELECT 1 FROM character_preference_history h WHERE h.memory_id=m.memory_id
+                           AND h.reason='operator_update')
+                FROM character_memories m WHERE scope=? AND status='active' AND expires_at>?
                 ORDER BY importance DESC,updated_at DESC LIMIT 64""", (self.scope, time.time())).fetchall()
-        return tuple(dict(zip(('id','owner_hash','kind','topic','strength','importance'), r))
+        return tuple(dict(zip(('id','owner_hash','kind','topic','strength','importance','configured'), r))
                      for r in rows if r[3] in TOPICS)
 
     def promote(self, turn_id):
@@ -122,7 +124,7 @@ class CharacterMemory:
                     (event_id,turn_id,memory_id,owner_hash,day_jst,reason,contribution,created_at) VALUES(?,?,?,?,?,?,?,?)""",
                                    (event,turn_id,key,owner,day,reason,updated-strength,now)).rowcount
                 if not added: continue
-                db.execute("UPDATE character_memories SET strength=?,updated_at=?,expires_at=?,status='active' WHERE memory_id=?",
+                db.execute("UPDATE character_memories SET strength=?,updated_at=?,expires_at=MAX(expires_at,?),status='active' WHERE memory_id=?",
                            (updated,now,now+30*86400,key))
                 db.execute("""INSERT INTO character_preference_history
                     (memory_id,event_id,previous_strength,strength,reason,created_at) VALUES(?,?,?,?,?,?)""",
@@ -148,17 +150,32 @@ class CharacterMemory:
     def set_preference(self, topic, strength, *, kind='preference'):
         if topic not in TOPICS or kind not in ('preference','value','interest') or type(strength) not in (int,float) or not 0<=strength<=1:
             raise ValueError('CHARACTER_PREFERENCE_INVALID')
-        now=time.time();key=hashlib.sha256((self.scope+'\0\0'+kind+'\0'+topic).encode()).hexdigest()
         with self.store.connect() as db:
             db.execute('BEGIN IMMEDIATE')
-            old=db.execute('SELECT strength FROM character_memories WHERE memory_id=?',(key,)).fetchone()
-            # A deliberate operator replacement supersedes earlier numeric contributions.
-            db.execute('UPDATE character_experiences SET contribution=0 WHERE memory_id=?',(key,))
-            db.execute("""INSERT INTO character_memories
-                (memory_id,scope,owner_hash,kind,topic,strength,importance,created_at,updated_at,expires_at)
-                VALUES(?,?,'',?,?,?,.9,?,?,?) ON CONFLICT(memory_id) DO UPDATE
-                SET strength=excluded.strength,status='active',updated_at=excluded.updated_at,expires_at=excluded.expires_at""",
-                       (key,self.scope,kind,topic,strength,now,now,now+90*86400))
-            db.execute("INSERT INTO character_preference_history(memory_id,previous_strength,strength,reason,created_at) VALUES(?,?,?,'operator_update',?)",
-                       (key,old[0] if old else .5,strength,now))
+            return self._write_preference(db, topic, strength, kind)
+
+    def seed_initial_interests(self):
+        """Initialize this studio's public character profile, preserving prior decisions."""
+        try:
+            with self.store.connect() as db:
+                db.execute('BEGIN IMMEDIATE')
+                for topic in INTEREST_DESCRIPTIONS:
+                    self._write_preference(db, topic, .6, 'interest', only_if_missing=True)
+        except sqlite3.Error:
+            logging.getLogger(__name__).warning('character_initial_interests_unavailable')
+
+    def _write_preference(self, db, topic, strength, kind, *, only_if_missing=False):
+        now=time.time();key=hashlib.sha256((self.scope+'\0\0'+kind+'\0'+topic).encode()).hexdigest()
+        old=db.execute('SELECT strength FROM character_memories WHERE memory_id=?',(key,)).fetchone()
+        if only_if_missing and old:
+            return key
+        # A deliberate operator replacement supersedes earlier numeric contributions.
+        db.execute('UPDATE character_experiences SET contribution=0 WHERE memory_id=?',(key,))
+        db.execute("""INSERT INTO character_memories
+            (memory_id,scope,owner_hash,kind,topic,strength,importance,created_at,updated_at,expires_at)
+            VALUES(?,?,'',?,?,?,.9,?,?,?) ON CONFLICT(memory_id) DO UPDATE
+            SET strength=excluded.strength,status='active',updated_at=excluded.updated_at,expires_at=excluded.expires_at""",
+                   (key,self.scope,kind,topic,strength,now,now,now+90*86400))
+        db.execute("INSERT INTO character_preference_history(memory_id,previous_strength,strength,reason,created_at) VALUES(?,?,?,'operator_update',?)",
+                   (key,old[0] if old else .5,strength,now))
         return key

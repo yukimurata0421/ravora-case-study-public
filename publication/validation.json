@@ -1,22 +1,23 @@
 {
-  "status": "PASS_LOCAL_AVATAR_AND_HEVC_ENCODER_PORT",
-  "validated_at_jst": "2026-11-22T21:02:40+09:00",
-  "scope": "Registered portrait rendering, revised speech articulation and selectable HEVC encoding in the portable studio.",
+  "status": "PASS_LOCAL_BILINGUAL_MEMORY_AND_CHARACTER_PORT",
+  "validated_at_jst": "2026-11-23T08:23:53+09:00",
+  "scope": "Portable Japanese and English source-backed viewer memory and a repeatable initial character profile.",
   "checks": {
     "checkout_python_tests": {
-      "tests": 344,
+      "tests": 348,
       "failures": 0,
       "errors": 0,
-      "skipped": 0
+      "skipped": 1
     },
     "installed_python_tests": {
-      "tests": 344,
+      "tests": 348,
       "failures": 0,
       "errors": 0,
-      "skipped": 0
+      "skipped": 1
     },
+    "optional_test_skipped": "Phone alignment extra unavailable in the local test environment.",
     "python": "3.14.4",
-    "wheel_sha256": "3c18dae238d2766d0f180c92e3be175441480dc752d50119c467d57329086d32",
+    "wheel_sha256": "6eba8d273f21e4c45d6be911ca834c7f4fbd367f9982fa1fde0be338e974fa58",
     "package_files_matched_to_checkout": 100,
     "checkout_replays_match_examples": 4,
     "installed_replays_match_examples": 4,
@@ -24,57 +25,26 @@
       "tests": 14,
       "passed": 14
     },
-    "reference_renders_decoded": [
-      "docs/media/ray-avatar-fixed-demo.mp4",
-      "docs/media/ray-mouth-before-after-comparison.mp4"
-    ],
-    "installed_studio_recording": {
-      "gpu": "NVIDIA GeForce GTX 1070",
-      "requested_seconds": 12,
-      "avatar": "Caller-supplied November 22 Concept 02",
-      "decoded_to_end": true,
-      "video_encoder": "hevc_nvenc",
-      "avatar_renderer": "rig",
-      "frame": 358,
-      "average_fps": 29.8,
-      "avatar_frames_rendered": 238,
-      "turns_played": 2,
-      "turns_failed": 0,
+    "installed_offline_studio": {
       "publish": false,
-      "streams": [
-        {
-          "codec_name": "hevc",
-          "width": 1920,
-          "height": 1080,
-          "has_b_frames": 0,
-          "pix_fmt": "yuv420p",
-          "color_space": "bt709",
-          "avg_frame_rate": "30/1"
-        },
-        {
-          "codec_name": "aac",
-          "avg_frame_rate": "0/0"
-        }
-      ]
+      "host_only": true,
+      "initial_interest_strengths": {
+        "puzzles": 0.6,
+        "stargazing": 0.6,
+        "technology": 0.6
+      },
+      "viewer_memories": 0
     },
-    "installed_synthetic_portrait_nvenc_example": {
-      "requested_seconds": 5,
-      "encoded_frames": 150
-    },
-    "managed_nvenc_preflight_opened": true,
     "public_payload": {
       "status": "PASS_PUBLIC_PAYLOAD",
-      "files": 190,
-      "hashes_checked": 188,
+      "files": 191,
+      "hashes_checked": 189,
       "unexpected_files": 0,
       "private_defaults_found": 0,
       "broken_local_links": 0
     },
     "secret_scan_findings": 0
   },
-  "physical_microphone_verified": false,
-  "youtube_receiver_verified": false,
-  "real_oauth_grant_exercised": false,
   "remote_ci": {
     "configured": true,
     "configured_python_versions": [
@@ -82,9 +52,7 @@
       "3.13"
     ]
   },
-  "project_license_selected": false,
-  "open_source_release_ready": false,
   "included_private_databases_or_recordings": false,
   "new_inference_api_calls": 0,
-  "earlier_validation_preserved": "publication/history/2026-11-22-dialogue-routing-validation.json"
+  "earlier_validation_preserved": "publication/history/2026-11-22-avatar-hevc-validation.json"
 }

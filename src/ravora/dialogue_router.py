@@ -25,6 +25,9 @@ ASSOCIATIONS = {
     'gardening': ('the smell of rain on dry ground',),
     'food': ('the smell of rain on dry ground',),
     'learning': ('how a folded paper glider turns',),
+    'puzzles': ('landmarks on a hand-drawn map',),
+    'stargazing': ('patterns in woven cloth',),
+    'technology': ('why tunnels make an echo',),
 }
 MUSIC_ASSOCIATIONS = (
     (r'practice|fingering|練習|指使い', 'how fingers remember an origami fold'),
@@ -135,16 +138,20 @@ def route_turn(text, history, topics_in, *, initiative=False):
     explicit_shift = re.search(r'\b(change (?:the )?(?:topic|subject)|something else|another topic)\b|話題を変|別の話(?:題|を)|音楽以外', text, re.I)
     recall = historical_reference(text) or session_recap(text) or reply_cue(text) or re.search(r'覚えて|前回', text)
     stay = continuation or re.search(r'[?？]|\b(?:how|why|what is|explain)\b|教えて|どういう意味|(?:ですか|ますか)[。\s]*$', text, re.I)
-    own_interest = re.search(r"\b(?:let['’]s chat|what interests you|what are you curious about|your call)\b|雑談しよう|何に興味|レイの好み", text, re.I)
+    own_interest = re.search(
+        r"\b(?:let['’]s chat|what interests you|what are you (?:curious about|into)|your call|"
+        r"your (?:hobbies|interests)|what (?:else )?do you like)\b|雑談しよう|何に興味|"
+        r"(?:レイ|Ray|あなた)(?:自身)?(?:の(?:好み|趣味)|は(?:何が好き|何にハマ))|"
+        r"音楽以外(?:に|で|だと|では|だったら|に何か|の)?(?:何が好き|.*趣味)", text, re.I)
     difficulty = re.search(r'\b(?:sad|hurt|exhausted|upset|lost my|want to rest)\b|つらい|辛い|疲れた|休みたい|悲しい', text, re.I)
     policy, need = 'DEEP_DIVE', True
     keep_topic = re.search(r"(?:don't|do not) change (?:the )?(?:subject|topic)|話題を変えないで", text, re.I)
     if keep_topic:
         policy = 'DEEP_DIVE'
+    elif own_interest and not recall and not initiative:
+        policy, need = 'SELF_DISCLOSURE', False
     elif explicit_shift or initiative:
         policy, need = ('SHIFT_TO_HOOK' if explicit_shift or saturation >= .7 else 'SELF_DISCLOSURE'), False
-    elif own_interest and not recall:
-        policy, need = 'SELF_DISCLOSURE', False
     elif recall or stay:
         policy = 'DEEP_DIVE'
     elif difficulty:

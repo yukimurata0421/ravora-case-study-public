@@ -478,7 +478,7 @@ class FastVoiceSession:
                 if self.s.semantic_memory_mode=='jev':self.early.candidates=candidates
                 self.early.previous_message=self.store.semantic_previous_message(viewer,scope=self.s.mode,turn_id=turn) if candidates else ''
             self.early.finalize(text)
-            if rag and not semantic_enabled:
+            if rag and not (semantic_enabled or self.memory.live_extraction):
                 ready=await asyncio.to_thread(self.memory.wait_for,viewer,cancel=self.cancelled)
                 if not ready:raise EdgeError('MEMORY_WORKER_NOT_READY')
             decision_deadline=time.monotonic()+self.s.semantic_wait_ms/1000
@@ -536,7 +536,7 @@ class FastVoiceSession:
                     prompt=self.prompts[language]+listener_instruction(strategy,reaction)
                     if developer_speaker:prompt+=DEVELOPER_SPEAKER
                     character_begin=time.monotonic()
-                    character_memories=self.memory.character_memories(viewer) if self.character and rag else ()
+                    character_memories=self.memory.character_memories(viewer,route) if self.character else ()
                     hook=await asyncio.to_thread(claim_hook,self.store,self.s.mode,viewer,turn,text,
                                                  route.unspoken_hooks) if route.dialogue_policy=='SHIFT_TO_HOOK' else ''
                     plan=self.character.plan(text,character_memories,background,initiative=self.initiative,epoch=self.character_epoch,

@@ -112,6 +112,22 @@ class GeminiMemoryTests(unittest.TestCase):
             with self.subTest(answer=str(answer)[:80]):
                 with self.assertRaises(ProviderError):GeminiMemoryExtractor(self.s,HTTP(answer)).extract_job({'text':STORY})
 
+    def test_japanese_report_is_saved_and_recalled_in_an_unspaced_question(self):
+        text='週末は手描きの星図を作っています。'
+        comment=self.seed(text=text)
+        http=HTTP(response([item(text,'手描きの星図を作っている。',tags=['星図','天体観測'])]))
+        worker,_=self.worker(http)
+        worker.wake()
+        self.assertTrue(worker.wait_for(comment.viewer))
+        reopened=MemoryStore(self.store.path)
+        notes,strategy=reopened.recall_memory(comment.viewer,'前に話した天体観測のことを覚えてる？',scope='cloud')
+        self.assertEqual(strategy,'topic_fts')
+        self.assertEqual([n['summary'] for n in notes],['Viewer reported: 手描きの星図を作っている。'])
+        self.assertEqual(reopened.recall_memory('other','天体観測',scope='cloud')[0],[])
+        result=GeminiMemoryExtractor(self.s,HTTP(response([item('an invented translation','天体観測が好き。')])))
+        with self.assertRaisesRegex(ProviderError,'EVIDENCE_MISMATCH'):
+            result.extract_job({'text':text})
+
     def test_sensitive_uncertain_low_confidence_and_injected_notes_are_not_reused(self):
         notes=[item(),item(summary='They mentioned an email: private@example.test'),
             item(summary='They described a private health matter.',sensitivity='sensitive'),
@@ -124,7 +140,8 @@ class GeminiMemoryTests(unittest.TestCase):
             self.assertEqual([m.summary for m in result.candidates],[SUMMARY])
 
     def test_private_source_or_opt_out_never_reaches_the_extractor_transport(self):
-        for text in ["I rebuilt an oven, but don't save this.",'My contact is me@example.test and I enjoy pottery.']:
+        for text in ["I rebuilt an oven, but don't save this.",'My contact is me@example.test and I enjoy pottery.',
+                     'これはオフレコ。謎解きが好き。','ここに私の暗証番号を書くよ。','この話は覚えておかないで。']:
             http=HTTP();result=GeminiMemoryExtractor(self.s,http).extract_job({'text':text})
             self.assertEqual(result.candidates,());self.assertEqual(http.calls,[])
 

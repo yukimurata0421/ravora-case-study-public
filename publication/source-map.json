@@ -16,14 +16,14 @@
     "third-party renderer bundles",
     "host deployment and production controls"
   ],
-  "updated_at_jst": "2026-11-22T21:00:58+09:00",
+  "updated_at_jst": "2026-11-23T08:22:06+09:00",
   "files": [
     {
       "path": ".env.example",
       "kind": "generated",
       "source": "case-study",
-      "sha256": "5f8b9cec8d894e509576f614abb544b8461d0c7dd600f6f5591f5d21ffbbf3f8",
-      "note": "Public documentation, entrypoint, packaging, validation or synthetic replay."
+      "sha256": "88e49448944420d13bf127e8f1bd92d89a00bec6708db4e44485ea6b9467365e",
+      "note": "Portable profile initialization and reproduction guidance."
     },
     {
       "path": ".github/workflows/ci.yml",
@@ -50,8 +50,8 @@
       "path": "README.md",
       "kind": "generated",
       "source": "case-study",
-      "sha256": "74acac1ba1a38e62f01beb47e6099d9047cc375dac504aff7583ec7e263c63ab",
-      "note": "Public documentation, validation or media allowlist."
+      "sha256": "3b4f03d04d3d467196b5a7227ef01081c8988eef1f4d6b2a649c27e8e6e57179",
+      "note": "Portable profile initialization and reproduction guidance."
     },
     {
       "path": "docs/audio-timing.md",
@@ -68,10 +68,10 @@
     },
     {
       "path": "docs/conversation-controls.md",
-      "sha256": "4ceef6a1f9e93d0411e6f6fdddbdf5ba62382ae42d18656beab2eae72a2f5fc6",
+      "sha256": "f345d44618833015ab8728aa8dd9b800fea27dc88ef9bd357076bee5f72aeb35",
       "source": "case-study",
       "kind": "generated",
-      "note": "Portable documentation, fixture, or publication validation."
+      "note": "Portable profile initialization and reproduction guidance."
     },
     {
       "path": "docs/early-reactions.md",
@@ -300,8 +300,8 @@
       "path": "publication/README.md",
       "kind": "generated",
       "source": "case-study",
-      "sha256": "cac45c010afbddbed21454ef4c3c3ec4667d4e627a844c896f3d4c463dae6724",
-      "note": "Public documentation, validation or media allowlist."
+      "sha256": "9465873b02809aaa03a523605564c38ce9633046bc8f0cdaff63fd71098c2036",
+      "note": "Portable profile initialization and reproduction guidance."
     },
     {
       "path": "publication/audio-timing-evaluation-20261118.json",
@@ -389,6 +389,13 @@
       "kind": "generated",
       "sha256": "eaa8b7d557f20092f7616887a062576f8489522342bbf8d8d2717d5b22f9e9d2",
       "note": "Previous public validation record."
+    },
+    {
+      "path": "publication/history/2026-11-22-avatar-hevc-validation.json",
+      "kind": "generated",
+      "source": "case-study",
+      "sha256": "8cef598eb016bedc5e8b1b82294b6d8e8cdc4cba3da3611cf8c98f6fe78c64ef",
+      "note": "Previous avatar and HEVC encoder verification record, retained unchanged."
     },
     {
       "path": "publication/history/2026-11-22-dialogue-routing-validation.json",
@@ -481,8 +488,8 @@
       "path": "src/ravora/case_study.py",
       "kind": "generated",
       "source": "case-study",
-      "sha256": "b7d377e3d98043cac21424c2086cdee1914aec7051f1b8d6265fcc12c20cbbe1",
-      "note": "Public documentation, entrypoint, packaging, validation or synthetic replay."
+      "sha256": "c30b9c1c59c81407b25dbed84f789f238efd6e7963e17b3a5f139d219ecefda1",
+      "note": "Portable profile initialization and reproduction guidance."
     },
     {
       "path": "src/ravora/character_evaluation.py",
@@ -510,11 +517,11 @@
     },
     {
       "path": "src/ravora/conversation.py",
-      "kind": "copied",
+      "kind": "adapted",
       "source": "src/ravora/conversation.py",
-      "source_sha256": "d12759f808e673fe9b9a58312b566499c9fd95f2f99d696dea7f9a78f0408a96",
-      "sha256": "d12759f808e673fe9b9a58312b566499c9fd95f2f99d696dea7f9a78f0408a96",
-      "note": "Exact source snapshot."
+      "source_sha256": "c9ad70e53f5ac89e637356bca87339d5fece84505687785f8a11343a74632964",
+      "sha256": "e5b81b4d4f4889bb69f0b415d88c7b85e1ab6ad1735bdcfb1a8431c844f41c7a",
+      "note": "Bilingual source-backed memory and public character interests."
     },
     {
       "path": "src/ravora/conversation_context.py",
@@ -560,9 +567,9 @@
       "path": "src/ravora/dialogue_router.py",
       "kind": "copied",
       "source": "src/ravora/dialogue_router.py",
-      "source_sha256": "b643a6b17a78c71c3448a9d4aafe75484efbc6ed85275842cd78f0799175f9a5",
-      "sha256": "b643a6b17a78c71c3448a9d4aafe75484efbc6ed85275842cd78f0799175f9a5",
-      "note": "Exact source snapshot."
+      "source_sha256": "c5148cdf1df5c00932d04c0499842bf21a9c24f618d1fbdb81ec876109740053",
+      "sha256": "c5148cdf1df5c00932d04c0499842bf21a9c24f618d1fbdb81ec876109740053",
+      "note": "Bilingual source-backed memory and public character interests."
     },
     {
       "path": "src/ravora/early_reaction.py",
@@ -584,9 +591,9 @@
       "path": "src/ravora/fast_voice.py",
       "kind": "adapted",
       "source": "src/ravora/fast_voice.py",
-      "source_sha256": "d8251d2bbe21d28c8436e04dfdf5cdb3af3b0c7ba8e36c6b332ace986318411f",
-      "sha256": "3b361aea145e11f3793dac469c0d5417ff67e21892fde779c5da03c3647f4c63",
-      "note": "Adapted to the public package, its asset bindings or its synthetic test fixtures."
+      "source_sha256": "d8c273ec0f310a4c78d8963b32a5dbb1eb12df5da9dd21cf5dc20933268c6e76",
+      "sha256": "369a6c9ae92df6beb23521b53ddb7f5db671d7fa4289ec002daaa766012b1480",
+      "note": "Bilingual source-backed memory and public character interests."
     },
     {
       "path": "src/ravora/fast_voice_server.py",
@@ -598,11 +605,11 @@
     },
     {
       "path": "src/ravora/gemini_memory.py",
-      "sha256": "5aa9eb52a2e00c07a9749f908faac79c900b7379fe4a22857f8307107bc84b51",
-      "note": "Exact source snapshot.",
+      "kind": "copied",
       "source": "src/ravora/gemini_memory.py",
-      "source_sha256": "5aa9eb52a2e00c07a9749f908faac79c900b7379fe4a22857f8307107bc84b51",
-      "kind": "copied"
+      "source_sha256": "c1b756aa4cf1a1007fabbae11575ca0712c177fc0d0f13a6d9b0c7f4b22591d9",
+      "sha256": "c1b756aa4cf1a1007fabbae11575ca0712c177fc0d0f13a6d9b0c7f4b22591d9",
+      "note": "Bilingual source-backed memory and public character interests."
     },
     {
       "path": "src/ravora/input_pipeline.py",
@@ -720,9 +727,9 @@
       "path": "src/ravora/memory.py",
       "kind": "copied",
       "source": "src/ravora/memory.py",
-      "source_sha256": "9c38ea51b225a4bb1da9abb98a1d9c7861db4697c0813e4e227f4521c937f801",
-      "sha256": "9c38ea51b225a4bb1da9abb98a1d9c7861db4697c0813e4e227f4521c937f801",
-      "note": "Exact source snapshot."
+      "source_sha256": "6fe73bf7cd0efd0bcd0666e106fbaa0797388f9db1df016e523da9ce35e285bf",
+      "sha256": "6fe73bf7cd0efd0bcd0666e106fbaa0797388f9db1df016e523da9ce35e285bf",
+      "note": "Bilingual source-backed memory and public character interests."
     },
     {
       "path": "src/ravora/memory_extraction.py",
@@ -736,9 +743,9 @@
       "path": "src/ravora/memory_worker.py",
       "kind": "copied",
       "source": "src/ravora/memory_worker.py",
-      "source_sha256": "0d82eb5e85c1a930191d50197841d76dce393badefd78382317993aa02d434e7",
-      "sha256": "0d82eb5e85c1a930191d50197841d76dce393badefd78382317993aa02d434e7",
-      "note": "Exact source snapshot."
+      "source_sha256": "a87f914fd2d22053d7095913f3542260d626926c1b3f963094b8798e6d02eaf8",
+      "sha256": "a87f914fd2d22053d7095913f3542260d626926c1b3f963094b8798e6d02eaf8",
+      "note": "Bilingual source-backed memory and public character interests."
     },
     {
       "path": "src/ravora/migrations/001_memory.sql",
@@ -928,17 +935,17 @@
       "path": "src/ravora/ray_character.py",
       "kind": "adapted",
       "source": "src/ravora/ray_character.py",
-      "source_sha256": "26ac1bcbbf6ce2db2b7406923f332a4f6f16f794cf3c8cb6f405f792cffbff76",
-      "sha256": "fd3066649c7fc5ca4aab13c222cee81296eea7ad7d65beee37ed0d9ee4757dbc",
-      "note": "Adapted to the public package, its asset bindings or its synthetic test fixtures."
+      "source_sha256": "d87c70c3453e8fd4e34f62fc8aea27d764e33585145e42f05a6c4b9af3baf445",
+      "sha256": "df165ed6ce90b535d23af3034cc14c8de9f279a5b4a67651915a6cb95916597a",
+      "note": "Bilingual source-backed memory and public character interests."
     },
     {
       "path": "src/ravora/ray_memory.py",
-      "kind": "copied",
+      "kind": "adapted",
       "source": "src/ravora/ray_memory.py",
-      "source_sha256": "c559c5f7ab50ed40afcf371c4e511054aa7b39a603ce52bf5b111faba8338c22",
-      "sha256": "c559c5f7ab50ed40afcf371c4e511054aa7b39a603ce52bf5b111faba8338c22",
-      "note": "Exact source snapshot."
+      "source_sha256": "bf58983cc260c3539b1adec055d6b1b6fdae789120adfb3dacd063ee93ecf199",
+      "sha256": "c11f9e46f3adda9141e1a92938ac29e6c595a2fe9e2ce6a8af1ad9c644cc5224",
+      "note": "Bilingual source-backed memory and public character interests."
     },
     {
       "path": "src/ravora/relationship_demo.py",
@@ -1230,9 +1237,9 @@
       "path": "src/ravora/youtube_live.py",
       "kind": "adapted",
       "source": "scripts/youtube_live.py",
-      "source_sha256": "ed955e697dda36621a475818e532b017a9f7787be4919508e1419f07a2f9378b",
-      "sha256": "52d32b9d2ee317b58de5e35e2543a099e7da21010a5ab277401ac0bb95efa96d",
-      "note": "Portable encoder configuration, startup and session reporting."
+      "source_sha256": "d049d1e2ab44dd04088ee96ed9502f5a45c553d06d6aeb2a4c96ee0c85e49e55",
+      "sha256": "f8451637261cb544f6fdd7e764821961847c3b99d161fb64ffdd7871fdad1b8c",
+      "note": "Bilingual source-backed memory and public character interests."
     },
     {
       "path": "src/ravora/youtube_proto/__init__.py",
@@ -1316,9 +1323,9 @@
       "path": "tests/test_dialogue_router.py",
       "kind": "adapted",
       "source": "tests/test_dialogue_router.py",
-      "source_sha256": "011dc37611ee59eec764bb8aec95736f6fbcb3e327de86fd5449884fedf9ee84",
-      "sha256": "d5bde43d1883454295784ad3794645bab5a178af0219e9ccf04a8e7283f5581b",
-      "note": "Uses the public package test fixtures for synthetic speech and reaction providers."
+      "source_sha256": "a9ab11c3fa374d030236610d8f5daaf84b0179dd64b83df63d5d9cd29aa2cd48",
+      "sha256": "154b6fd0c8ccc5c7d69ba1836d207740f284826b943a2144c4dcd0fca0dd4a3a",
+      "note": "Synthetic coverage for bilingual extraction, recall and character interests."
     },
     {
       "path": "tests/test_dual_reaction.py",
@@ -1356,9 +1363,9 @@
       "path": "tests/test_gemini_memory.py",
       "kind": "adapted",
       "source": "tests/test_gemini_memory.py",
-      "source_sha256": "a37ba2b74320281a866c19db14e6c88068876b1eb3b9e337fa1fe4cefa15bb5f",
-      "sha256": "bcdf62986dd20c846fd886e16d6a2c6865565e39c116d04c3b19f93269c7db96",
-      "note": "Adapted to the public package, its asset bindings or its synthetic test fixtures."
+      "source_sha256": "6c32e591fba272ad036c0fb897b34d5f3b8ebee23e04c7d787aa26d3ba65fa54",
+      "sha256": "20b088444abdd80119166e04d6c6c6daa61734b8f3ec715a40b2c35ae3c0b4ed",
+      "note": "Synthetic coverage for bilingual extraction, recall and character interests."
     },
     {
       "path": "tests/test_media_timing.py",
@@ -1395,9 +1402,9 @@
       "path": "tests/test_ray_character.py",
       "kind": "adapted",
       "source": "tests/test_ray_character.py",
-      "source_sha256": "02bc435b45d613a996147e5e9304886cfa9064fd918558aa99b553006741ac5b",
-      "sha256": "0e60807d0da930c8692f3e39b3d4d3a1385f89269e47b41d2352aef7b6f02b25",
-      "note": "Adapted to the public package, its asset bindings or its synthetic test fixtures."
+      "source_sha256": "b031838e64b3f58a0e4d307890ddd480dcabe8a87627dc29020952dbf2b5a2d7",
+      "sha256": "6382877ac29ae3c00a482bd515fe69959e5709d086f02479f36c47cb24de5870",
+      "note": "Synthetic coverage for bilingual extraction, recall and character interests."
     },
     {
       "path": "tests/test_relationships.py",

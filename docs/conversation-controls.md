@@ -69,6 +69,28 @@ Source removal, source expiry cleanup and character-memory reset remove the
 associated suggestions. Momentary feelings and unselected suggestions stay out of
 the speech prompt. [Router](../src/ravora/dialogue_router.py) · [Playback and routing tests](../tests/test_dialogue_router.py)
 
+## Ray's interests and viewer memories
+
+Ray starts with three interests in the live studio and the offline console.
+She likes recognizing constellations by shape, solving puzzles by spotting a
+decisive clue, and understanding how speech becomes subtitles. Each starts at 0.60. Starting again
+preserves existing strengths and deletions in the same database. Repeated,
+acknowledged conversations can strengthen an interest. When someone asks about
+Ray's hobbies, the speech prompt can draw on configured character interests
+even when the router skips viewer recall. These interests supply character
+background and create no records about the speaker.
+
+In the cloud studio, set `RAVORA_API_ENABLED=true` and
+`RAVORA_MEMORY_API_ENABLED=true` in the private `.env` to enable remote
+memory extraction. After an acknowledged reply, the worker can send the
+speaker's message and reply context to the configured text provider. It checks
+opt-outs before sending and accepts only summaries backed by an exact quote
+from the speaker. Summaries and topic tags can be Japanese or English.
+Japanese topic tags support lookup inside questions written without spaces.
+The next reply can use committed memories while extraction continues in the
+background. Previously skipped turns stay skipped.
+[Extraction tests](../tests/test_gemini_memory.py) · [Character tests](../tests/test_ray_character.py)
+
 ## From a pause to the next turn
 
 The input controller uses provisional transcripts and speech-activity events.
