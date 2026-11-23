@@ -1,7 +1,7 @@
 <!doctype html>
 <html lang="ja">
 <head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1">
-<title>RAY · 配信スタジオ</title><link rel="stylesheet" href="/overlay.css"></head>
+<title>RAY · 配信スタジオ</title><link rel="stylesheet" href="/overlay.css"><link rel="stylesheet" href="/live-metrics.css"></head>
 <body class="studio"><main>
 <header class="studio-head"><h1>RAY <span>配信スタジオ</span></h1>
 <a href="/overlay" target="_blank" rel="noopener">配信画面を開く ↗</a></header>
@@ -9,7 +9,7 @@
 <canvas id="screen" width="1920" height="1080" role="img" aria-label="Rayの配信画面、コメントと発話字幕"></canvas>
 <p id="screen-status" role="status">配信画面を接続中…</p></section>
 <section class="controls" aria-label="ホストの音声操作">
-<div id="language-tabs" role="tablist" aria-label="会話言語" hidden>
+<div id="language-tabs" role="tablist" aria-label="ホストとの会話言語" hidden>
 <button id="tab-ja" role="tab" aria-selected="false" aria-controls="conversation" tabindex="-1" data-language="ja">日本語</button>
 <button id="tab-en" role="tab" aria-selected="false" aria-controls="conversation" tabindex="-1" data-language="en" lang="en">English</button>
 </div>
@@ -17,10 +17,35 @@
 <div id="conversation"><div class="actions">
 <label for="talk-mode">会話モード</label><select id="talk-mode"><option value="auto">ハンズフリー</option><option value="manual">押して話す</option></select>
 <button id="mic" type="button" aria-pressed="false" disabled>マイクをオン</button>
+<div class="mic-volume">
+<label for="host-volume">自分の配信音量</label>
+<input id="host-volume" type="range" min="-24" max="0" step="1" disabled>
+<output for="host-volume" id="host-volume-value">— dB</output>
+</div>
+<div class="mic-volume">
+<label for="bgm-volume">BGM音量</label>
+<input id="bgm-volume" type="range" min="-60" max="0" step="1" value="-24" disabled>
+<output for="bgm-volume" id="bgm-volume-value">— dB</output>
+<span id="bgm-track"></span>
+</div>
 <button id="record" type="button" aria-pressed="false" disabled>Rayに話しかける</button>
 <button id="monitor" type="button" aria-pressed="false" disabled>返答モニターを有効化</button></div>
 <p id="reply-mode"></p>
+<p id="host-volume-error" role="status"></p>
+<p id="bgm-volume-error" role="status"></p>
+<p id="transport-status" role="status" hidden></p>
+<p id="chat-status" role="status" hidden></p>
 <p id="notice" role="status">マイクはミュートです。</p></div></section>
+<section id="studio-metrics" aria-labelledby="metrics-heading">
+<header class="metrics-head"><div><h2 id="metrics-heading">稼働モニター</h2><p id="metrics-fresh" role="status">計測待ち</p></div>
+<label>表示期間 <select id="metrics-window"><option value="60">直近1分</option><option value="300" selected>直近5分</option></select></label></header>
+<div class="metrics-switch" role="group" aria-label="グラフの種類">
+<button type="button" data-view="broadcast" aria-pressed="true">配信状態</button>
+<button type="button" data-view="usage" aria-pressed="false">使用量</button>
+<button type="button" data-view="api" aria-pressed="false">API合計</button></div>
+<p class="metric-scope" id="api-scope" hidden>今回の配信開始からの累計。表示期間を変えると、グラフの横軸だけが変わります。</p>
+<div id="metric-charts"></div>
+</section>
 <p id="caption" class="sr-only" aria-live="polite"></p>
 </main><script src="/overlay.js" type="module"></script><script src="/host.js" type="module"></script>
 </body></html>

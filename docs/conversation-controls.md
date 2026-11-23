@@ -1,4 +1,8 @@
-# Conversation controls and memory ownership
+# Conversation controls
+
+This page covers voice selection, turn-taking, topic changes, Ray's interests,
+recall and cloud budgets. Source ownership and sharing rules are described
+separately in [memory ownership and sharing](privacy.md).
 
 ## Selecting a voice
 
@@ -41,6 +45,20 @@ tracks, and a configured host capture releases its device. While muted, the
 server ignores audio starts and microphone frames. Unmuting in hands-free mode
 rearms capture when the console is idle. The tab remembers mute across reloads.
 Audio received before mute follows the normal [evaluation retention policy](voice-evaluation.md).
+
+### Ending a turn and starting the reply
+
+The input controller uses provisional transcripts and speech-activity events.
+It checks the input audio timeline before accepting an end-of-speech event.
+Hands-free mode waits for a new onset, retains the short lead-in, releases
+capture during the reply and rearms after browser playback. Empty or oversized
+transcripts can rearm; provider and budget errors remain visible. A connection
+loss invalidates its turn and releases the microphone. Acknowledging the exact
+rendered frame count commits the played reply. [Input controller](../src/ravora/fast_voice.py)
+
+The reply stream can start up to two additional requests at 1.3 and 2.6 seconds
+if no provider response has arrived. The controller selects one responding stream
+and cancels the others. Speech synthesis starts when validated reply text is available. These thresholds govern dispatch; the provider can still take longer.
 
 ## Topic changes and recall
 
@@ -93,17 +111,20 @@ background. Previously skipped turns stay skipped.
 
 ## From a pause to the next turn
 
-The input controller uses provisional transcripts and speech-activity events.
-It checks the input audio timeline before accepting an end-of-speech event.
-Hands-free mode waits for a new onset, retains the short lead-in, releases
-capture during the reply and rearms after browser playback. Empty or oversized
-transcripts can rearm; provider and budget errors remain visible. A connection
-loss invalidates its turn and releases the microphone. Acknowledging the exact
-rendered frame count commits the played reply. [Input controller](../src/ravora/fast_voice.py)
+The live studio defaults to an English initiative after 60 uninterrupted
+quiet seconds. A new host input or waiting comment takes priority over
+unheard self-talk. `RAVORA_CHARACTER_MAX_INITIATIVES=-1` enables continuing
+initiatives, a positive count sets the session cap, and 0 disables them.
+The developer console defaults to 45 seconds and four initiatives.
 
-The reply stream can start up to two additional requests at 1.3 and 2.6 seconds
-if no provider response has arrived. The controller selects one responding stream
-and cancels the others. Speech synthesis starts when validated reply text is available. These thresholds govern dispatch; the provider can still take longer.
+Ray can continue a previously played thought or choose a new theme. Recent
+played themes and opening angles reduce near-term repetition. An invitation
+to continue may use the previous public remark after checking source
+ownership, playback and deletion. Ray's lasting interests remain available
+when knowledge injection is off. An explicit, eligible memory request
+can still trigger recall after the topic reaches its saturation threshold.
+`RAVORA_REPLY_STYLE=normal` gives a casual reply space for a concrete reason
+or comparison. Brief requests and greetings can still get brief answers.
 
 ## Recall across different wording
 

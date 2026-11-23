@@ -32,15 +32,33 @@ class RouterTests(unittest.TestCase):
                    ('user','ギターを練習したよ。'), ('model','最後まで弾けたんだね。')]
         self.assertEqual(route('I like jazz.', []).topic_saturation, 0)
         self.assertEqual(route('That rhythm is neat.', history[:2]).topic_saturation, .35)
-        for text in ('そのリズムが好き。', 'うん。'):
+        for text,policy in [('そのリズムが好き。','SHIFT_TO_HOOK'), ('うん。','CONTINUE_TOPIC'),
+                            ('うんうん。','CONTINUE_TOPIC'),('Mm-hmm.','CONTINUE_TOPIC'),
+                            ('ジャズの裏拍に合わせると旋律の聞こえ方が変わる。','DEEP_DIVE')]:
             result = route(text, history)
             self.assertEqual((result.topic_saturation, result.dialogue_policy, result.need_knowledge_rag),
-                             (.7, 'SHIFT_TO_HOOK', False))
+                             (.7, policy, False))
         self.assertEqual(route('もっと詳しく教えて。', history).dialogue_policy, 'DEEP_DIVE')
         self.assertEqual(route('What is jazz?', history).rag_skip_reason, 'saturation')
+        for question in ('前回のジャズのアルバム、何だっけ？', 'Which jazz album did I recommend last time?'):
+            metrics = {}
+            result = route(question, history)
+            self.assertEqual((result.topic_saturation,result.dialogue_policy), (.7,'DEEP_DIVE'))
+            self.assertTrue(result.allow_retrieval(metrics,question))
+            self.assertEqual(metrics['knowledge_rag'],'explicit_recall')
+            self.assertFalse(DialogueRoute(topic_saturation=.7,need_knowledge_rag=False).allow_retrieval({},question))
+        for comment in ('昨日のジャズは何だか懐かしかった。', 'ジャズの曲は今でも覚えてるよ。', 'I listened to jazz yesterday.'):
+            self.assertFalse(route(comment,history).allow_retrieval({},comment))
         self.assertEqual(route('I planted tomatoes.', history).topic_saturation, 0)
-        self.assertEqual(route('うん。', [('user','ピアノの話だよ'),('model','続きを聞く？')]).dialogue_policy, 'EMPATHY')
-        self.assertEqual(route('へえ。', [('user','I like jazz.'),('model','How about footsteps on gravel.')]).dialogue_policy, 'EMPATHY')
+        self.assertEqual(route('うん。', [('user','ピアノの話だよ'),('model','続きを聞く？')]).dialogue_policy, 'CONTINUE_TOPIC')
+        self.assertEqual(route('へえ。', [('user','I like jazz.'),('model','How about footsteps on gravel.')]).dialogue_policy, 'CONTINUE_TOPIC')
+        for line in ('話題を変えないで。', "Don't change the subject."):
+            epoch = ray.begin(line,line)
+            ray.route(epoch,line,history)
+            self.assertEqual(ray.plan(line,epoch=epoch).intent,'answer')
+        for text,prior in [('うん。',[]), ('そうだね',[('user','この話は内緒。'),('model','わかった。')]), ('Thanks!',history), ('haha',history),
+                           ('Yep.',[('user','I need to rest.'),('model','Rest well.')])]:
+            self.assertEqual(route(text,prior).dialogue_policy,'EMPATHY')
         self.assertEqual(route('その話はつらい。', []).dialogue_policy, 'EMPATHY')
         self.assertEqual(route('別の話題にしよう。', []).dialogue_policy, 'SHIFT_TO_HOOK')
         self.assertEqual(route('雑談しよう。', []).dialogue_policy, 'SELF_DISCLOSURE')
@@ -83,7 +101,10 @@ class RouterTests(unittest.TestCase):
                 if int(path.name[:3]) <= 15:
                     (legacy/path.name).symlink_to(path)
             db_path = root/'old.db'
-            MemoryStore(db_path,migrations=legacy).start('old','viewer','existing')
+            # Seed the historical schema without calling a writer that requires newer columns.
+            with MemoryStore(db_path,migrations=legacy).connect() as db:
+                db.execute("""INSERT INTO conversation_turns(id,turn_id,viewer,comment,status,started)
+                              VALUES('old','old','viewer','existing','running','2026-11-01')""")
             for _ in range(2):
                 with MemoryStore(db_path).connect() as db:
                     self.assertEqual(db.execute('SELECT comment FROM conversation_turns').fetchone(), ('existing',))
@@ -130,6 +151,9 @@ class TransportTests(unittest.IsolatedAsyncioTestCase):
         adapter = GeminiText(self.settings,http)
         controller = SpeechController(self.settings,self.store,self.root,providers=(adapter,Reaction(),Speech()))
         self.addCleanup(controller.memory_worker.close)
+        controller.memory_worker.character.set_preference('stargazing',.6,kind='interest')
+        for worker in (controller.memory_worker,self.fast.memory):
+            worker._character_reload()
         for data,reason in (({'need_knowledge_rag':False},'dialogue_policy'),
                             ({'topic_saturation':.7, 'need_knowledge_rag':True},'saturation')):
             with self.subTest(reason=reason), ExitStack() as stack:
@@ -147,6 +171,8 @@ class TransportTests(unittest.IsolatedAsyncioTestCase):
                                  ([],0,'skipped_'+reason))
                 await self.speak('What is jazz?')
                 self.assertEqual((self.requests[-1]['memories'],self.requests[-1]['context']), ([],[]))
+                self.assertIn('constellations', self.requests[-1]['prompt'])
+                self.assertIn('constellations', http.requests[-1]['systemInstruction']['parts'][0]['text'])
                 self.play()
                 self.assertEqual(sum('reason='+reason in record for record in logs.output),2)
 
@@ -157,6 +183,39 @@ class TransportTests(unittest.IsolatedAsyncioTestCase):
             self.assertTrue(lookup.called)
             self.assertEqual(self.fast.character.state.need_knowledge_rag,True)
             self.play()
+
+    async def test_saturated_bilingual_recall_uses_eligible_source_on_both_transports(self):
+        from test_semantic_memory import seed
+        earlier = 'ジャズで最初に勧めたのは青い橋です。'
+        seed(self.store,text=earlier,owner=self.settings.developer_id,platform='developer-mock')
+        await self.speak('I played the piano.')
+        self.play()
+        await self.speak('I practiced jazz.')
+        self.play()
+        await self.speak('前回のジャズ、何を勧めたか覚えてる？')
+        self.assertEqual(self.fast.character.state.topic_saturation,.7)
+        self.assertTrue(any(earlier in entry['text'] for entry in self.requests[-1]['context']))
+        self.play()
+
+        _, owner = seed(self.store,text='My jazz recommendation was Blue Bridge.')
+        seed(self.store,text='My jazz recommendation was Other Album.',owner='other')
+        adapter = GeminiText(self.settings,HTTP())
+        controller = SpeechController(self.settings,self.store,self.root,providers=(adapter,Reaction(),Speech()))
+        self.addCleanup(controller.memory_worker.close)
+        repeated = [('user','I like jazz.'),('model','Nice rhythm.')] * 2
+        question = 'Which jazz album did I recommend last time?'
+        with patch.object(self.store,'history',return_value=repeated):
+            def ask():
+                return controller.run(question,owner.viewer,uuid4().hex,lambda event:None,threading.Event())
+            metrics = ask()
+            self.assertEqual(metrics['knowledge_rag'],'explicit_recall')
+            content = json.dumps(adapter.http.requests[-1])
+            self.assertIn('Blue Bridge',content)
+            self.assertNotIn('Other Album',content)
+            with self.store.connect() as db:
+                self.store.remove_source(db,owner.receipt,time.time())
+            ask()
+            self.assertNotIn('Blue Bridge',json.dumps(adapter.http.requests[-1]))
 
     async def test_live_response_does_not_wait_for_remote_memory_extraction(self):
         settings = replace(self.settings, comment_source='youtube', memory_extractor='gemini',
@@ -198,11 +257,17 @@ class TransportTests(unittest.IsolatedAsyncioTestCase):
         self.play()
         first, second = self.fast.character.state.unspoken_hooks
         self.assertEqual(self.hooks(),{first:'unspoken',second:'unspoken'})
+        await self.speak('なるほど。')
+        self.assertNotIn(first,self.requests[-1]['prompt'])
+        self.assertTrue(self.requests[-1]['history'])
+        self.assertEqual(self.fast.character.state.dialogue_policy,'CONTINUE_TOPIC')
+        self.assertEqual(self.hooks(),{first:'unspoken',second:'unspoken'})
+        await self.fast.cancel()
         await self.fast.close()
         self.store=MemoryStore(self.store.path)
         self.open_session()
         self.reply='I wonder how footsteps change outdoors.'
-        await self.speak('なるほど。')
+        await self.speak('話題を変えて。')
         self.assertIn(first,self.requests[-1]['prompt'])
         self.assertNotIn(second,self.requests[-1]['prompt'])
         self.assertEqual(self.hooks()[first],'unspoken')
@@ -212,7 +277,7 @@ class TransportTests(unittest.IsolatedAsyncioTestCase):
         self.play()
         self.assertEqual(self.hooks()[first],'unspoken')
         self.reply='雨の日の足音って面白いね。'
-        await self.speak('へえ。')
+        await self.speak('別の話題にしよう。')
         self.assertIn(first,self.requests[-1]['prompt'])
         self.play()
         self.assertEqual(self.hooks(),{first:'used',second:'unspoken'})

@@ -4,10 +4,31 @@ from dataclasses import dataclass
 import hashlib
 import io
 import math
+from pathlib import Path
+import shutil
+import subprocess
 import sys
 import wave
 
 from ravora.providers import ProviderError
+
+
+def speech_access_token(settings):
+    token = settings.gcp_access_token
+    if not token:
+        sdk = Path.home() / 'google-cloud-sdk' / 'bin'
+        gcloud = shutil.which('gcloud') or shutil.which('gcloud', path=str(sdk))
+        if not gcloud:
+            raise ProviderError('GCLOUD_NOT_FOUND')
+        try:
+            result = subprocess.run([gcloud, 'auth', 'print-access-token', '--project', settings.cloud_project],
+                                    capture_output=True, text=True, timeout=15, check=True)
+        except (OSError, subprocess.SubprocessError):
+            raise ProviderError('STT_AUTH_REFRESH_FAILED') from None
+        token = result.stdout.strip()
+    if not token or any(ch.isspace() for ch in token):
+        raise ProviderError('STT_AUTH_UNAVAILABLE')
+    return token
 
 
 @dataclass(frozen=True)

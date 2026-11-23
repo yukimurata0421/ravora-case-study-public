@@ -26,7 +26,7 @@ from ravora.safety import TurnFence
 from ravora.settings import CONVERSATION_LANGUAGES, streaming_voice
 from ravora.semantic_memory import load_speech_background
 from ravora.conversation import SentenceBuffer
-from ravora.ray_character import CharacterError,CharacterRuntime,PublicDecoder,PublicOutput,initiative_message,public_prompt
+from ravora.ray_character import CharacterError,CharacterRuntime,PublicDecoder,PublicOutput,public_prompt
 from ravora.dialogue_router import DialogueRoute
 from ravora.ray_memory import claim_hook
 
@@ -133,7 +133,7 @@ class FastVoiceSession:
         self.mic_muted=False
         self.evaluation=evaluation
         self.character=CharacterRuntime(idle_seconds=self.s.character_idle_seconds,max_initiatives=self.s.character_max_initiatives) if self.s.character_enabled else None
-        self.character_epoch=0;self.initiative=False
+        self.character_epoch=0;self.initiative=False;self.followup=None
     def evaluate(self,method,*args,**kwargs):
         if self.evaluation is not None:
             return self.evaluation.call(method,self.key,*args,**kwargs)
@@ -160,9 +160,9 @@ class FastVoiceSession:
         key,_=self.records.create(input_id,kind,payload)
         self.fence.cancel();self.token=None
         self.input_id=input_id;self.key=key;self.cancelled=threading.Event();self.receipt=None;self.expected_frames=0
-        self.initiative=False
+        self.initiative=False;self.followup=None
         if self.character:
-            self.character.cancel();self.character_epoch=self.character.epoch
+            self.character.cancel(keep_thread=True);self.character_epoch=self.character.epoch
         self.early=None
         return key
     def input_current(self,key):
@@ -189,6 +189,8 @@ class FastVoiceSession:
             raise EdgeError('INVALID_END_MODE')
         if language not in CONVERSATION_LANGUAGES:
             raise EdgeError('INVALID_INPUT_LANGUAGE')
+        if self.initiative and self.phase in ('responding','generated'):
+            await self.cancel('HUMAN_INPUT')
         key = self.prepare(input_id, 'audio', b'')
         self.end_reason = None
         self.end_mode = end_mode
@@ -426,12 +428,17 @@ class FastVoiceSession:
     async def start_text(self,input_id,text,*,language=None):
         if language is not None and language not in CONVERSATION_LANGUAGES:
             raise EdgeError('INVALID_INPUT_LANGUAGE')
-        text=clean(text,1000);key=self.prepare(input_id,'text',text.encode());self.phase='responding'
+        text=clean(text,1000)
+        if self.initiative and self.phase in ('responding','generated'):
+            await self.cancel('HUMAN_INPUT')
+        key=self.prepare(input_id,'text',text.encode());self.phase='responding'
         if language is not None:self.conversation_language=language
         self.task=asyncio.create_task(self.respond(text,self.conversation_language))
     def current(self,token):
         return self.fence.current(token) and not self.cancelled.is_set() and not self.closed
     def source_current(self,turn):
+        if self.followup and not self.store.can_initiate(self.followup,self.s.mode):
+            return False
         with self.store.connect() as db:
             row=db.execute('SELECT t.status,s.is_deleted,s.raw_purged_at FROM conversation_turns t JOIN source_events s ON s.id=t.source_event_id WHERE t.turn_id=?',(turn,)).fetchone()
         return bool(row and row[0] not in ('cancelled','source_removed','source_expired') and row[1]==0 and row[2] is None)
@@ -449,7 +456,7 @@ class FastVoiceSession:
             if not self.inbox.bind(comment.receipt,turn):raise EdgeError('COMMENT_NO_LONGER_AVAILABLE')
             self.receipt=comment.receipt;self.viewer=viewer;self.phase='responding'
             if self.character:
-                self.character_epoch=self.character.begin(key,text,initiative=self.initiative)
+                self.character_epoch=self.character.begin(key,text,initiative=self.initiative,viewer=viewer,opening=self.followup)
                 # begin() incorporates the final transcript; preserve the face already shown while listening.
                 if self.early and self.early.value:
                     self.character.react(self.character_epoch,self.early.value['reaction'])
@@ -459,12 +466,13 @@ class FastVoiceSession:
             developer_speaker=self.store.start(turn,self.s.mode+':'+viewer,text,developer_id=self.s.developer_id)
             if self.early is None:self.early=self.make_reactions(key,input_id)
             self.early.bind(turn)
-            await self.send({'kind':'turn','input_id':input_id,'token':token,'text':text})
+            await self.send({'kind':'turn','input_id':input_id,'token':token,'text':'' if self.initiative else text})
             route = DialogueRoute()
             if self.character:
                 route_history = await asyncio.to_thread(self.store.history,self.s.mode+':'+viewer,4,turn_id=turn)
+                route_history += self.store.opening_history(self.character,self.character_epoch,self.s.mode)
                 route = self.character.route(self.character_epoch,text,route_history,initiative=self.initiative)
-            rag = route.allow_retrieval(metrics)
+            rag = route.allow_retrieval(metrics, text)
             semantic_enabled=rag and self.s.memory_enabled and self.s.semantic_memory_mode!='off'
             if semantic_enabled:
                 # Extraction remains asynchronous; this path never blocks speech on a remote job.
@@ -477,7 +485,8 @@ class FastVoiceSession:
                 metrics['semantic_candidates']=len(candidates)
                 if self.s.semantic_memory_mode=='jev':self.early.candidates=candidates
                 self.early.previous_message=self.store.semantic_previous_message(viewer,scope=self.s.mode,turn_id=turn) if candidates else ''
-            self.early.finalize(text)
+            if not self.initiative:
+                self.early.finalize(text)
             if rag and not (semantic_enabled or self.memory.live_extraction):
                 ready=await asyncio.to_thread(self.memory.wait_for,viewer,cancel=self.cancelled)
                 if not ready:raise EdgeError('MEMORY_WORKER_NOT_READY')
@@ -515,7 +524,8 @@ class FastVoiceSession:
                     semantic_decision=self.early.semantic if arrived is not None and arrived<=decision_deadline else None
                     call=prepare('gemini','stream_generate',self.s.gemini_model)
                     notes,strategy=self.store.conversation_memories(viewer,text,self.s,judgment=semantic_decision) if rag else ([], 'dialogue_gate')
-                    if rag and developer_speaker:notes+=self.store.developer_banter_memory(viewer,self.s)
+                    if rag and metrics['knowledge_rag'] != 'explicit_recall' and developer_speaker:
+                        notes+=self.store.developer_banter_memory(viewer,self.s)
                     metrics['memory_strategy']=strategy
                     if semantic_enabled:
                         self.store.record_semantic_retrieval(turn,text,candidates,semantic_decision,used=semantic_decision is not None)
@@ -527,6 +537,11 @@ class FastVoiceSession:
                             limit=self.s.context_max_items,max_chars=self.s.context_max_chars,turn_id=turn)
                     history,context=load_speech_background(self.s,text,bool(self.early.candidates),semantic_decision,
                         lambda:self.store.history(self.s.mode+':'+viewer,self.s.memory_turns,turn_id=turn),read_context,selected=notes)
+                    if self.followup is not None:
+                        history = self.store.followup_history(self.followup,self.s.mode)
+                        context = []
+                    else:
+                        history = history + self.store.opening_history(self.character,self.character_epoch,self.s.mode)
                     self.store.record_context_retrievals(turn,context,call_id=call,prepared=True)
                     metrics['context_tiers']=[e['tier'] for e in context];metrics['context_items']=len(context)
                     lookup=time.monotonic()
@@ -536,7 +551,7 @@ class FastVoiceSession:
                     prompt=self.prompts[language]+listener_instruction(strategy,reaction)
                     if developer_speaker:prompt+=DEVELOPER_SPEAKER
                     character_begin=time.monotonic()
-                    character_memories=self.memory.character_memories(viewer,route) if self.character else ()
+                    character_memories=self.memory.character_memories(viewer,route,text) if self.character else ()
                     hook=await asyncio.to_thread(claim_hook,self.store,self.s.mode,viewer,turn,text,
                                                  route.unspoken_hooks) if route.dialogue_policy=='SHIFT_TO_HOOK' else ''
                     plan=self.character.plan(text,character_memories,background,initiative=self.initiative,epoch=self.character_epoch,
@@ -641,6 +656,7 @@ class FastVoiceSession:
                 raise
             if not self.source_current(turn):raise EdgeError('COMMENT_NO_LONGER_AVAILABLE')
             path=self.output/(turn+'-0.wav');path.write_bytes(pcm_wave(audio,24000));self.expected_frames=len(audio)//2
+            metrics['first_audio_ready_ms']=elapsed()
             self.store.record_utterance(turn,0,''.join(reply),path,self.expected_frames/24000)
             # The worklet can drain a short reply while its phonemes are still being estimated.
             await emit({'kind': 'audio_end', 'frames': self.expected_frames})
@@ -686,6 +702,7 @@ class FastVoiceSession:
             if tasks:await asyncio.gather(*tasks,return_exceptions=True)
             if self.early is not None and not self.input_current(key):await self.early.close()
         if failure and self.key==key and not self.cancelled.is_set():
+            if self.character:self.character.cancel(event=key)
             await self.send(failure)
     def played(self,token,frames):
         if self.phase!='generated' or not self.current(token) or type(frames) is not int or frames!=self.expected_frames or not self.source_current(token['turn_id']):return False
@@ -703,7 +720,9 @@ class FastVoiceSession:
             if self.early is not None:self.early.stop()
             if self.s.memory_enabled:self.memory.wake()
             if self.character:
-                self.character.played(initiative=self.initiative)
+                turn = token['turn_id']
+                exchange = self.store.followup_exchange(turn,self.viewer,self.s.mode) if self.s.character_initiative_enabled and not self.initiative else None
+                self.character.played(self.key,turn,self.viewer,exchange,initiative=self.initiative)
                 if not self.initiative:self.memory.offer_character(token['turn_id'])
         return accepted
     async def cancel(self,reason='DEVELOPER_CANCELLED'):
@@ -733,13 +752,14 @@ class FastVoiceSession:
     async def maybe_initiate(self):
         if (not self.character or not self.s.character_initiative_enabled or self.closed
                 or self.phase not in ('idle','played') or self.task and not self.task.done()):return False
-        memories=self.memory.character_memories(self.viewer) if self.viewer else ()
-        topic=self.character.idle_topic(memories)
-        if topic is None:return False
+        thread = self.character.take_followup()
+        if not self.store.can_initiate(thread,self.s.mode):
+            return False
         input_id=uuid.uuid4().hex
-        text=initiative_message(topic)
+        text=thread.message
         self.prepare(input_id,'text',text.encode())
+        self.followup=thread
         self.initiative=True;self.phase='responding'
-        await self.send({'kind':'initiative','input_id':input_id,'topic':topic})
+        await self.send({'kind':'initiative','input_id':input_id,'topic':thread.topic})
         self.task=asyncio.create_task(self.respond(text,self.conversation_language))
         return True

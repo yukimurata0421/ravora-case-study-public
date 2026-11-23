@@ -108,6 +108,7 @@ class LocalSTT:
         self.pipe=None;self.process=None;self.identity={}
 
     def transcribe(self,packet,*,cancel=None,language=None):
+        from ravora.airband_vad import analyze
         import numpy as np
         language = self.s.stt_language if language is None else language
         if language not in ('ja','en','auto'):
@@ -115,8 +116,12 @@ class LocalSTT:
         with self.lock:
             started=time.monotonic();deadline=started+self.s.stt_timeout
             with wave.open(io.BytesIO(packet.data)) as wav:audio=np.frombuffer(wav.readframes(wav.getnframes()),dtype='<i2').astype(np.float32)/32768
-            diagnostics={'device':'cpu','compute_type':'int8','cpu_threads':1,'engine_invoked':False}
+            vad=analyze(audio,self.s.vad_config())
+            diagnostics={'vad':vad.diagnostics,'device':'cpu','compute_type':'int8','cpu_threads':1,'engine_invoked':False}
             self.usage={'response_model':self.model_id,'local_diagnostics':diagnostics}
+            if not len(vad.audio):
+                diagnostics.update({'elapsed_seconds':round(time.monotonic()-started,4),'reason':'RMS_VAD_NO_SPEECH'})
+                return {'text':'','language':'und','speech':False,'segments':[]}
             options={'model_path':self.s.stt_model_path,'vad_probability':self.s.stt_vad_probability,
                 'min_speech_ms':self.s.stt_min_speech_ms,'silence_ms':self.s.stt_silence_ms,'pad_ms':self.s.stt_pad_ms,
                 'no_speech':self.s.stt_no_speech,'log_probability':self.s.stt_log_probability,
@@ -126,14 +131,19 @@ class LocalSTT:
                     self._stop();context=mp.get_context('spawn');parent,child=context.Pipe()
                     self.pipe=parent;self.process=context.Process(target=_worker,args=(child,options),name='ravora-local-stt',daemon=True)
                     self.process.start();child.close();ready=self._receive(deadline,cancel);self.identity=ready['identity']
-                self.pipe.send((language,audio.tobytes()));value=self._receive(deadline,cancel)
+                self.pipe.send((language,vad.audio.tobytes()));value=self._receive(deadline,cancel)
             except (OSError,EOFError):
                 self._stop();raise ProviderError('LOCAL_STT_WORKER_EXITED') from None
             except ProviderError:
                 self._stop();raise
-            segments=value['segments']
-            if any(not 0 <= item['start'] < item['end'] <= packet.duration + .001 for item in segments):
-                raise ProviderError('INVALID_LOCAL_STT_TIMESTAMPS')
+            segments=[]
+            for segment in value['segments']:
+                a=vad.original_time(segment['start']);b=vad.original_time(segment['end'],end=True)
+                if not (0<=a<b<=packet.duration+.001):raise ProviderError('INVALID_LOCAL_STT_TIMESTAMPS')
+                words=[]
+                for word in segment['words']:
+                    words.append({**word,'start':round(vad.original_time(word['start']),6),'end':round(vad.original_time(word['end'],end=True),6)})
+                segments.append({**segment,'start':round(a,6),'end':round(b,6),'words':words})
             text=''.join(s['text'] for s in segments).strip()
             if len(text)>1000:raise ProviderError('LOCAL_TRANSCRIPT_TOO_LONG')
             diagnostics.update({**value['identity'],'engine_invoked':True,'decode_seconds':value['decode_seconds'],'elapsed_seconds':round(time.monotonic()-started,4),

@@ -1,0 +1,52 @@
+{
+  "status": "PASS_LOCAL_TWITCH_STUDIO_PORT",
+  "validated_at_jst": "2026-11-24T04:02:31+09:00",
+  "scope": "Portable Twitch RTMPS H.264/AAC output, EventSub chat, bilingual program replies, and the sanitized operations record.",
+  "checks": {
+    "checkout_python_tests": {
+      "tests": 360,
+      "failures": 0,
+      "errors": 0,
+      "skipped": 1
+    },
+    "installed_python_tests": {
+      "tests": 360,
+      "failures": 0,
+      "errors": 0,
+      "skipped": 1
+    },
+    "optional_test_skipped": "Phone alignment extra unavailable in the local test environment.",
+    "python": "3.14.4",
+    "checkout_replays_match_examples": 4,
+    "installed_replays_match_examples": 4,
+    "browser_module_tests": {
+      "tests": 14,
+      "failures": 0,
+      "node": "24.19.0",
+      "live_host_syntax_check": "passed"
+    },
+    "installed_twitch_config_check": "Selected h264_nvenc with no stream key and no network connection.",
+    "public_payload": {
+      "status": "PASS_PUBLIC_PAYLOAD",
+      "files": 192,
+      "hashes_checked": 190,
+      "unexpected_files": 0,
+      "private_defaults_found": 0,
+      "broken_local_links": 0
+    },
+    "secret_scan_findings": 0
+  },
+  "verification_history": [
+    "The initial bilingual test fixture supplied the structured-output flag on the adapter instead of its stream method. The corrected fixture and both complete suites passed.",
+    "Early full-suite attempts hit a local task limit and lacked the console extra. The final isolated runs used adequate task headroom, the declared console dependency and the standard test umask."
+  ],
+  "historical_runtime_evidence": "docs/twitch-live-operations-20261124.md",
+  "historical_viewer_measurement": {
+    "samples": 1,
+    "twitch_event_to_watch_audio_seconds": 4.437,
+    "new_live_test": false
+  },
+  "included_private_databases_or_recordings": false,
+  "new_inference_api_calls": 0,
+  "earlier_validation_preserved": "publication/history/2026-11-23-media-consolidation-validation.json"
+}

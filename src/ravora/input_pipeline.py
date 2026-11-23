@@ -3,8 +3,7 @@ import threading
 import time
 import uuid
 
-from ravora.comments import Comment,CommentInbox,fixture_page
-from ravora.ray_character import initiative_message
+from ravora.comments import Comment,CommentInbox,VIEWER_CHAT_SOURCES,fixture_page
 from ravora.youtube import YouTubeReader
 
 
@@ -14,11 +13,13 @@ class InputPipeline:
             scope=settings.mode,relationships_enabled=settings.memory_enabled and settings.relationship_enabled)
         self.fixtures=fixtures;self.stop=threading.Event();self.reader=None;self.thread=None
         self.last_source=None
+        self.followup_claim=None
+        self.active_followup=None
         self.active_receipt=None;self.paused_reason=None;self.lock=threading.RLock();self.source_done=False
         self.memory_fixture_comments=memory_fixture_comments or ('I like coffee and jazz.','Do you remember my favorite drink?')
         if len(self.memory_fixture_comments)!=2 or any(not isinstance(x,str) or not 0<len(x)<=1000 for x in self.memory_fixture_comments):raise ValueError('INVALID_MEMORY_FIXTURE')
 
-    def start(self,seconds,*,wait_for_chat=False,access_token=None):
+    def start(self,seconds,*,wait_for_chat=False,access_token=None,twitch_reader=None):
         self.bridge.controller.memory_worker.wake()
         source=self.s.comment_source
         if source=='developer':return
@@ -31,10 +32,17 @@ class InputPipeline:
             chat='fixture-'+self.inbox.session
             self.fixture_result=self.inbox.accept_page(chat,fixture_page(chat,time.time()),source='youtube-fixture')
             self.source_done=True
-        else:
-            self.reader=YouTubeReader(self.s,self.inbox,on_page=self.check_removed,access_token=access_token)
+        elif source in ('youtube', 'twitch'):
+            if source == 'twitch':
+                if twitch_reader is None:
+                    raise ValueError('TWITCH_CHAT_READER_REQUIRED')
+                self.reader = twitch_reader
+                options = {}
+            else:
+                self.reader=YouTubeReader(self.s,self.inbox,on_page=self.check_removed,access_token=access_token)
+                options = {'wait_for_chat': wait_for_chat}
             def run():
-                try:self.reader.run(self.stop,seconds=seconds,wait_for_chat=wait_for_chat)
+                try:self.reader.run(self.stop,seconds=seconds,**options)
                 finally:self.source_done=True
             self.thread=threading.Thread(target=run,daemon=True);self.thread.start()
 
@@ -60,7 +68,7 @@ class InputPipeline:
                 'queue':self.inbox.summary(),'provider_requests_attempted':self.inbox.requests_attempted(),'reader':self.reader.snapshot() if self.reader else None,
                 'fixture_page':getattr(self,'fixture_result',None),'memory_worker':self.bridge.controller.memory_worker.snapshot()}
 
-    def next(self, *, allow_host_input=False):
+    def next(self, *, allow_host_input=False, allow_initiative=True):
         with self.lock:
             if self.paused_reason:return {'available':False,'finished':True,'held':True,'code':self.paused_reason}
             if not allow_host_input and self.reader and self.reader.status=='failed':return {'available':False,'finished':True,'error':self.reader.code}
@@ -71,14 +79,16 @@ class InputPipeline:
                 self.last_source=comment['source']
                 return {'available':True,'finished':False,'comment':comment}
             character=getattr(self.bridge.controller,'character',None)
-            if character and self.s.character_initiative_enabled and self.s.comment_source not in ('fixture','memory-fixture','developer'):
-                topic=character.idle_topic(self.bridge.controller.memory_worker.character_memories(self.bridge.viewer or ''))
-                if topic is not None:
-                    initiative=Comment('ray-initiative',self.inbox.session,uuid.uuid4().hex,'ray','Ray',
-                        initiative_message(topic),time.time())
-                    if self.inbox.put(initiative)=='queued':
-                        comment=self.inbox.take()
-                        if comment:return {'available':True,'finished':False,'comment':comment}
+            live = self.s.comment_source in VIEWER_CHAT_SOURCES or (allow_host_input and self.s.comment_source=='developer')
+            if live and allow_initiative and character and self.s.character_initiative_enabled:
+                thread = character.take_followup()
+                if self.inbox.store.can_initiate(thread,self.s.mode):
+                    initiative = Comment('ray-initiative',self.inbox.session,uuid.uuid4().hex,'ray','Ray',
+                                         thread.message,time.time())
+                    comment = self.inbox.claim_idle_initiative(initiative)
+                    if comment:
+                        self.followup_claim = (initiative.receipt,thread)
+                        return {'available':True,'finished':False,'comment':comment}
             held=bool(self.reader and self.reader.status=='held')
             return {'available':False,'finished':self.source_done,'held':held,'code':self.reader.code if held else None}
 
@@ -88,6 +98,8 @@ class InputPipeline:
             if self.paused_reason:raise ValueError('INPUT_PAUSED')
             comment,viewer=self.inbox.claimed(receipt)
             if self.active_receipt:raise ValueError('TURN_BUSY')
+            if viewer.startswith('ray-initiative:') and (not self.followup_claim or self.followup_claim[0]!=receipt):
+                raise ValueError('COMMENT_NO_LONGER_AVAILABLE')
             self.active_receipt=receipt
             def bind(token):
                 if not self.inbox.bind(receipt,token['turn_id']):raise ValueError('COMMENT_NO_LONGER_AVAILABLE')
@@ -98,25 +110,37 @@ class InputPipeline:
                     if kind!='complete':self.active_receipt=None
                     if kind=='error' and value.get('code') in ('PROVIDER_HTTP_401','PROVIDER_HTTP_402','PROVIDER_HTTP_403','PROVIDER_HTTP_429','LOCAL_MONTHLY_TTS_LIMIT'):
                         self.paused_reason=value['code']
-            try:return self.bridge.begin(comment,viewer,on_begin=bind,on_terminal=terminal)
+            options = {}
+            if self.followup_claim and self.followup_claim[0] == receipt:
+                options['followup'] = self.followup_claim[1]
+            self.followup_claim = None
+            self.active_followup = options.get('followup')
+            try:return self.bridge.begin(comment,viewer,on_begin=bind,on_terminal=terminal,**options)
             except Exception:
                 self.active_receipt=None;raise
 
-    def played(self,token):
+    def played(self,token,*,program_latency=None):
         with self.lock:
-            accepted=self.bridge.mark_played(token)
+            accepted=self.bridge.mark_played(token, program_latency=program_latency)
             if accepted and self.active_receipt:
                 self.inbox.finish(self.active_receipt,'played');self.active_receipt=None
+                self.active_followup=None
                 if self.s.comment_source=='memory-fixture':self._memory_fixture_next()
             return accepted
 
+    def followup_available(self):
+        thread = self.active_followup
+        return self.inbox.store.can_initiate(thread,self.s.mode)
+
     def check_removed(self):
         with self.lock:
-            if self.active_receipt and self.bridge.token and self.inbox.removed_turn(self.bridge.token['turn_id']):
-                self.bridge.cancel();self.active_receipt=None
+            if self.active_receipt and self.bridge.token and (self.inbox.removed_turn(self.bridge.token['turn_id'])
+                    or self.active_followup and not self.followup_available()):
+                self.cancel()
 
     def cancel(self):
         with self.lock:
+            self.followup_claim=self.active_followup=None
             self.bridge.cancel()
             if self.active_receipt:self.inbox.finish(self.active_receipt,'cancelled');self.active_receipt=None
 

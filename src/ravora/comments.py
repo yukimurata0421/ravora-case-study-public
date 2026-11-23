@@ -1,4 +1,4 @@
-"""Bounded comment inbox shared by fixtures and YouTube. No network in this module."""
+"""Bounded comment inbox for live chat and fixtures. No network in this module."""
 from dataclasses import dataclass
 import datetime as dt
 import hashlib
@@ -8,6 +8,9 @@ import uuid
 
 from ravora.conversation import MemoryStore
 from ravora.developer_identity import viewer_key
+
+
+VIEWER_CHAT_SOURCES = ('youtube', 'youtube-fixture', 'twitch')
 
 
 @dataclass(frozen=True)
@@ -64,6 +67,7 @@ class CommentInbox:
     def __init__(self,store:MemoryStore,*,capacity=5,ttl=45,session=None,clock=time.time,scope='offline',relationships_enabled=True):
         if scope not in ('offline','cloud'):raise ValueError('INVALID_RELATIONSHIP_SCOPE')
         self.display_revision=0
+        self.removal_revision=0
         self.scope=scope;self.relationships_enabled=relationships_enabled
         self.store=store;self.capacity=capacity;self.ttl=ttl;self.session=session or uuid.uuid4().hex;self.clock=clock
         with store.connect() as db:
@@ -93,7 +97,7 @@ class CommentInbox:
         with self.store.connect() as db:
             db.execute('BEGIN IMMEDIATE')
             status=self._put(db,comment,relationship_evidence=relationship_evidence)
-        if comment.source in ('youtube','youtube-fixture') and status!='duplicate':
+        if comment.source in VIEWER_CHAT_SOURCES and status!='duplicate':
             self.display_revision+=1
         return status
 
@@ -133,7 +137,10 @@ class CommentInbox:
                 db.execute('INSERT INTO youtube_cursors VALUES(?,?,?) ON CONFLICT(chat_id) DO UPDATE SET token=excluded.token,updated=excluded.updated',(self.cursor_key(chat_id,streaming),token,self.clock()))
         if items:
             self.display_revision+=1
-        return {'counts':counts,'poll_after_seconds':None if streaming else interval/1000,'ended':ended}
+        if counts.get('removed') or counts.get('banned_author'):
+            self.removal_revision+=1
+        poll_after = interval / 1000 if type(interval) is int and 0 < interval <= 0xffffffff else None
+        return {'counts':counts,'poll_after_seconds':poll_after,'ended':ended}
 
     @staticmethod
     def cursor_key(chat_id, streaming):
@@ -152,6 +159,33 @@ class CommentInbox:
         db.execute("UPDATE comment_inbox SET status='removed',reason='source_deleted',text='',display_name='' WHERE source=? AND stream_id=? AND message_id=?",(source,stream_id,message_id))
         if row and row[0]:db.execute("UPDATE conversation_turns SET comment='',reply='',played=0,status='source_removed' WHERE id=?",(row[0],))
 
+    def remove(self, source, stream_id, message_id):
+        with self.store.connect() as db:
+            db.execute('BEGIN IMMEDIATE')
+            self._remove(db, source, stream_id, message_id)
+        self.display_revision += 1
+        self.removal_revision += 1
+
+    def claim_idle_initiative(self,comment):
+        # Check for a human again inside the writer transaction. Never leave a
+        # synthetic comment waiting behind a newly arrived human turn.
+        now = self.clock()
+        with self.store.connect() as db:
+            db.execute('BEGIN IMMEDIATE')
+            if db.execute("""SELECT 1 FROM comment_inbox WHERE session=? AND status='queued'
+                    AND expires>? LIMIT 1""",(self.session,now)).fetchone():
+                return None
+            if self._put(db,comment)!='queued':
+                return None
+            db.execute("UPDATE comment_inbox SET status='claimed' WHERE receipt=?",(comment.receipt,))
+        return dict(receipt=comment.receipt,source=comment.source,display_name=comment.display_name,
+                    comment=comment.text,viewer=comment.viewer)
+
+    def human_waiting(self):
+        with self.store.connect() as db:
+            return bool(db.execute("""SELECT 1 FROM comment_inbox WHERE session=? AND status='queued'
+                AND source!='ray-initiative' AND expires>? LIMIT 1""",(self.session,self.clock())).fetchone())
+
     def take(self, *, prefer_source=None):
         now=self.clock()
         with self.store.connect() as db:
@@ -167,11 +201,11 @@ class CommentInbox:
         with self.store.connect() as db:
             return db.execute("""SELECT receipt,display_name,text FROM (
                 SELECT receipt,display_name,text,rowid AS seq FROM comment_inbox
-                WHERE session=? AND source IN ('youtube','youtube-fixture')
+                WHERE session=? AND source IN (?,?,?)
                   AND status!='removed' AND text!=''
                   AND (reason IS NULL OR reason IN ('queue_full','viewer_already_pending','queue_expired'))
                 ORDER BY (receipt=?) DESC,rowid DESC LIMIT 6) ORDER BY seq""",
-                (self.session,selected)).fetchall()
+                (self.session,*VIEWER_CHAT_SOURCES,selected)).fetchall()
 
     def claimed(self,receipt):
         with self.store.connect() as db:

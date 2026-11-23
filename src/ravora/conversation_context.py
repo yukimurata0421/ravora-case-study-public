@@ -7,7 +7,7 @@ import uuid
 
 from ravora.memory import safe_summary
 from ravora.context_prompt import context_text
-from ravora.memory_extraction import dialogue_terms, historical_reference, session_recap
+from ravora.memory_extraction import dialogue_terms, explicit_memory_request, historical_reference, session_recap
 from ravora.developer_identity import DEVELOPER_PLATFORMS, developer_keys
 
 KINDS={1:'developer_dialogue',2:'comment_exchange',3:'assistant_answer'}
@@ -94,6 +94,10 @@ class ConversationContext:
         words=dialogue_terms(query[:1000])[:16]
         if not words or session_recap(query):return []
         match=' OR '.join('"'+word+'"' for word in words)
+        # unicode61 indexes an unspaced Japanese phrase as one token. For an
+        # explicit recall, also check topical nouns in the owner's recent eligible turns.
+        jp_subjects = set(re.findall(r'[ァ-ヺー]{2,}|[一-龯々]{2,}', query)) if explicit_memory_request(query) else set()
+        jp_subjects.difference_update(('前回','以前','先週','昨日','何度','前日','会話','質問','名前','話題'))
         groups={1:self._shared_context(owners,scope,query),2:[],3:[]}
         with self.connect() as db:
             stream = None
@@ -125,10 +129,15 @@ class ConversationContext:
                 # the original input; omitting that check would revive a refused turn.
                 base='SELECT v.turn_id,v.source_event_id,t.comment,v.answer FROM conversation_context v JOIN conversation_turns t ON t.turn_id=v.turn_id'
                 rows=db.execute(base+' JOIN conversation_fts ON conversation_fts.rowid=v.source_rowid WHERE '+where+' AND conversation_fts MATCH ? ORDER BY bm25(conversation_fts),v.closed_at DESC LIMIT 24',(*params,match)).fetchall()
-                for turn,event,question,answer in rows:
+                if jp_subjects and tier != 3:
+                    recent = db.execute(base+' WHERE '+where+' AND v.viewer_key=? ORDER BY v.closed_at DESC LIMIT 24',
+                                        (*params,viewer)).fetchall()
+                    rows.extend(r for r in recent if any(term in r[2] for term in jp_subjects))
+                for turn,event,question,answer in dict.fromkeys(rows):
                     # A character's own guess cannot make a viewer report relevant.
                     evidence = answer if tier == 3 else question
-                    if not any(word in words for word in dialogue_terms(evidence)):continue
+                    if not (any(word in words for word in dialogue_terms(evidence))
+                            or any(term in evidence for term in jp_subjects)):continue
                     if sensitive(question) or sensitive(answer):continue
                     text=('Developer: ' if tier==1 else 'Viewer: ')+question[:300]+'\nAssistant: '+answer[:600] if tier!=3 else answer[:800]
                     groups[tier].append({'context_id':f'turn:{tier}:{turn}','tier':tier,'kind':KINDS[tier],

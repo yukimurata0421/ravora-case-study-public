@@ -1,84 +1,78 @@
 {
-  "status": "PASS_LOCAL_MEDIA_CONSOLIDATION",
-  "validated_at_jst": "2026-11-23T11:15:47+09:00",
-  "scope": "README and articulation documentation restructure; retained public media reduced to one conversation, one same-audio comparison and the voice audition. No source code changes.",
+  "status": "PASS_LOCAL_STUDIO_OPERATIONS_PORT",
+  "validated_at_jst": "2026-11-24T04:25:40+09:00",
+  "scope": "Portable live studio behavior, same-event YouTube operation, replay, sanitized incident timelines and player audio alignment.",
   "checks": {
     "checkout_python_tests": {
-      "tests": 348,
+      "tests": 460,
       "failures": 0,
       "errors": 0,
       "skipped": 1
     },
     "installed_python_tests": {
-      "tests": 348,
+      "tests": 460,
       "failures": 0,
       "errors": 0,
       "skipped": 1
     },
-    "optional_test_skipped": "Phone alignment extra unavailable in the local test environment.",
+    "optional_test_skipped": "Phone alignment dependency unavailable in the local test environment.",
     "python": "3.14.4",
     "checkout_replays_match_examples": 4,
     "installed_replays_match_examples": 4,
-    "browser_module_tests": {
-      "run": false,
-      "reason": "Node.js unavailable in the local validation environment; no browser module changed.",
-      "changed_source_files": []
+    "dual_codec_reconnect": {
+      "checkout": "passed",
+      "installed": "passed",
+      "video_codecs": [
+        "h264",
+        "hevc"
+      ],
+      "audio_codec": "aac"
     },
-    "retained_media": {
-      "ray-upper-lip-conversation.mp4": {
-        "sha256": "17de0bd4fd1a268f89026a59b31d67b672897aec5ba96809db91575b24eedff8",
-        "codecs": [
-          "h264",
-          "aac"
-        ],
-        "duration_s": 29.568,
-        "width": 1920,
-        "height": 1080
-      },
-      "ray-mouth-before-after-comparison.mp4": {
-        "sha256": "55f083e6e39e45bf83fe03bd53c7e0e22aaa1b707898257d3742e8859e71ae2f",
-        "codecs": [
-          "h264",
-          "aac"
-        ],
-        "duration_s": 18.917,
-        "width": 1920,
-        "height": 1080
-      },
-      "voice-audition.m4a": {
-        "sha256": "9962ff44efc4088e50bd9a356dc3b53924fb738f482f71e9439ff139c6af9215"
+    "browser_module_tests": {
+      "tests": 14,
+      "failures": 0,
+      "node": "24.19.0",
+      "changed_audiovisual_scripts_syntax_check": "passed"
+    },
+    "installed_config_checks": {
+      "twitch": "h264_nvenc",
+      "youtube": "hevc_nvenc"
+    },
+    "launcher": {
+      "systemd_unit_verifies": true,
+      "posix_shell_and_fixture_checks": true,
+      "native_windows_run": false
+    },
+    "synthetic_studio_benchmark": {
+      "from_turn_to_program_signal_ms": {
+        "complete_wav": 627.4,
+        "progressive_pcm": 366.26
       }
     },
-    "removed_from_working_tree": [
-      "docs/media/balcony-tomato-conversation.mp4",
-      "docs/media/ravora-thinking-conversation.mp4",
-      "docs/media/concept02-default-motion.mp4",
-      "docs/media/concept02-mouth-comparison.mp4",
-      "docs/media/concept02-lip-motion.mp4",
-      "docs/media/concept02-lip-comparison.mp4",
-      "docs/media/ray-upper-lip-comparison.mp4",
-      "docs/media/ray-avatar-fixed-demo.mp4",
-      "docs/images/balcony-tomato-preview.png"
-    ],
-    "removed_media_permalink_commit": "9af86c66154f0ac265266cc7965d5cc82fdfe0cd",
     "public_payload": {
       "status": "PASS_PUBLIC_PAYLOAD",
-      "files": 185,
-      "hashes_checked": 183,
+      "files": 222,
+      "hashes_checked": 220,
       "unexpected_files": 0,
       "private_defaults_found": 0,
       "broken_local_links": 0
     },
     "secret_scan_findings": 0
   },
-  "remote_ci": {
-    "configured": true,
-    "configured_python_versions": [
-      "3.11",
-      "3.13"
-    ]
+  "verification_history": [
+    "Early integration surfaced missing RMS VAD and private test helpers, historical fixtures using newer columns, and absent Japanese FTS fallback wiring. The final suite uses packaged prerequisites and schema-appropriate historical fixtures.",
+    "The replay snapshots moved from schema 16 to 19. Their remaining results match on checkout and installed paths."
+  ],
+  "historical_runtime_evidence": [
+    "docs/youtube-live-operations-20261124.md",
+    "docs/twitch-live-operations-20261124.md"
+  ],
+  "historical_viewer_measurement": {
+    "samples": 1,
+    "twitch_event_to_watch_audio_seconds": 4.437,
+    "new_live_test": false
   },
   "included_private_databases_or_recordings": false,
   "new_inference_api_calls": 0,
-  "earlier_validation_preserved": "publication/history/2026-11-23-bilingual-memory-validation.json"
+  "earlier_validation_preserved": "publication/history/2026-11-24-twitch-studio-validation.json"
 }

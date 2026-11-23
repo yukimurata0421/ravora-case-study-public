@@ -12,6 +12,7 @@ dist/
 *.db
 *.log
 *.wav
+*.mp3
 *.vrm
 *.vroid
 *.mp4

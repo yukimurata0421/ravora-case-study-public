@@ -1,7 +1,7 @@
 {
   "schema_version": 1,
   "kind": "allowlisted-case-study-port",
-  "source_state": "uncommitted development snapshot",
+  "source_state": "Twitch, shared studio and YouTube operations source port from the development working tree, adapted to the installed case-study package",
   "source_workspace_included": false,
   "controls_validated_structurally": [
     "publication/source-map.json",
@@ -14,16 +14,16 @@
     "avatar source assets and private recordings",
     "model weights",
     "third-party renderer bundles",
-    "host deployment and production controls"
+    "host-specific installed units and production service controls"
   ],
-  "updated_at_jst": "2026-11-23T11:50:45+09:00",
+  "updated_at_jst": "2026-11-24T04:23:38+09:00",
   "files": [
     {
       "path": ".env.example",
       "kind": "generated",
       "source": "case-study",
-      "sha256": "88e49448944420d13bf127e8f1bd92d89a00bec6708db4e44485ea6b9467365e",
-      "note": "Portable profile initialization and reproduction guidance."
+      "sha256": "0c81f90db998c4114a7314c3f7e0955938e87df51f1784dbbc0802dec4e18b67",
+      "note": "Portable settings examples with send switches off and empty credentials."
     },
     {
       "path": ".github/workflows/ci.yml",
@@ -36,22 +36,22 @@
       "path": ".gitignore",
       "kind": "generated",
       "source": "case-study",
-      "sha256": "df4fafa16125abf11c4d3f04584e0b2aa57598e66d8786fbd5063a622c067196",
-      "note": "Public documentation, validation or media allowlist."
+      "sha256": "8ce2630d56823b6e9ce47e196fc2dcf691338d8cb127fe0a8c9a34a760af516f",
+      "note": "Keep operator-supplied music out of the public payload."
     },
     {
       "path": "NOTICE.md",
       "kind": "generated",
       "source": "case-study",
-      "sha256": "e61baf4e8b9c7730a00f26c488fda54cbab174248a37480ec630628f6f85f1b4",
-      "note": "Public documentation, entrypoint, packaging, validation or synthetic replay."
+      "sha256": "b8a0b1aa4552979a8bea7f8a5a1b38e3a1018cab53e7171684891f886884a51a",
+      "note": "RMS VAD source attribution and public artifact licensing."
     },
     {
       "path": "README.md",
       "kind": "generated",
       "source": "case-study",
-      "sha256": "f0753b7caa484cee83c0301670d5ea0994aca9150bcbfdd35086e8505cf48eaa",
-      "note": "Project overview, demonstration video, claims with reproduction commands, and reading order."
+      "sha256": "4a330cf8bd88e746ece656d6c6cdc3305bd8ba8cd442f50c4bda773ab158d057",
+      "note": "Studio features, operations and historical evidence index."
     },
     {
       "path": "docs/audio-timing.md",
@@ -62,16 +62,16 @@
     },
     {
       "path": "docs/case-study.md",
-      "sha256": "0044d3a667b399981595eeee74b77d8ffdee128ae46e1eaccec6f1361ee545f2",
+      "sha256": "d342ac3d136dce7e86e752f107477026a0b487018c34eed64535daa5f92eed98",
       "kind": "generated",
       "note": "Case-study documentation, replay, packaging, or local validation support."
     },
     {
       "path": "docs/conversation-controls.md",
-      "sha256": "f345d44618833015ab8728aa8dd9b800fea27dc88ef9bd357076bee5f72aeb35",
-      "source": "case-study",
       "kind": "generated",
-      "note": "Portable profile initialization and reproduction guidance."
+      "source": "case-study",
+      "sha256": "a071fe38b5688d8ad674e33592b8b446fd7ec86fffaf39826b93949d17ce09ef",
+      "note": "Runtime initiative, source-backed recall and reply style."
     },
     {
       "path": "docs/early-reactions.md",
@@ -165,10 +165,10 @@
     },
     {
       "path": "docs/reproduce.md",
-      "sha256": "4a294e40d58861cf060da9221060e93098e1d153d8cb405d58275974c4db8452",
       "kind": "generated",
       "source": "case-study",
-      "note": "Portable documentation, fixture, or publication validation."
+      "sha256": "af45a98886acb236828e0f48a792f937e1b852b5ed7494c3c338be69ebe31b47",
+      "note": "Entry to the current local validation and earlier snapshot results."
     },
     {
       "path": "docs/voice-evaluation.md",
@@ -181,8 +181,8 @@
       "path": "docs/youtube-live.md",
       "kind": "generated",
       "source": "case-study",
-      "sha256": "714fc81ffb09389ecdf1b496870a607b76347d37490854484681bef2b4692314",
-      "note": "Public documentation, validation or media allowlist."
+      "sha256": "a8699114f5397300c54f7c7193d3727d9925964c24f9627bfb98e2a8ea80a103",
+      "note": "YouTube managed event, recovery and chat budgeting guide."
     },
     {
       "path": "examples/early-reaction-report.json",
@@ -202,23 +202,22 @@
       "path": "examples/relationship-report.json",
       "kind": "generated",
       "source": "case-study",
-      "sha256": "88ab08fa3d7ec0116ff072068836d465be2362589a245efe686804b7b19738f2",
+      "sha256": "05a769593075cdfcea7b08119233a8dc91f92c40a5e4f8d967fa69472747b40e",
       "note": "Public documentation, entrypoint, packaging, validation or synthetic replay."
     },
     {
       "path": "examples/replay-report.json",
       "kind": "generated",
       "source": "case-study",
-      "sha256": "cffc39d747f5657f0900ceb6efe1e510f678d6d4be175af6d38c2780fc94d682",
+      "sha256": "2bce3ee5733c0942b5daf3603bc19a3f2694ea4f0fd593f30013c9a6c49c2ef9",
       "note": "Public documentation, entrypoint, packaging, validation or synthetic replay."
     },
     {
       "path": "examples/studio-nvenc.toml",
-      "kind": "adapted",
-      "source": "config.toml",
-      "source_sha256": "1631c0dbe756704ad316949763eb0ea3a0a8a8ef6e5548802ea942c2cff37bc5",
-      "sha256": "f33799ab8fe02d374ddd2f72e9962f8301af6412d4d6cfbbed5ee6c9fba7ac53",
-      "note": "Standalone hardware encoder profile without private source or device settings."
+      "kind": "generated",
+      "source": "case-study",
+      "sha256": "f994f1235e8d0913e9b8793299fd61e1384c52bcb1fae2868c7bb453ffe916a8",
+      "note": "Portable encoding, audio and event metadata example."
     },
     {
       "path": "examples/voice-evaluation.toml",
@@ -231,8 +230,8 @@
       "path": "publication/README.md",
       "kind": "generated",
       "source": "case-study",
-      "sha256": "d373069354f7b4a916a9970afedb4a918558b3a1625b9de320feaaa7e1a05a53",
-      "note": "Portable profile initialization and reproduction guidance."
+      "sha256": "dfc89e4a32535b5c2b0054503b45444fb7228a8058bfb30e5945c37eab72b3d9",
+      "note": "Scope and retained validation history of the public studio port."
     },
     {
       "path": "publication/audio-timing-evaluation-20261118.json",
@@ -361,8 +360,8 @@
       "path": "pyproject.toml",
       "kind": "generated",
       "source": "case-study",
-      "sha256": "5bebbff3e3f5e20ff625c6d0499d11f0278582377d110ee3f51be1ab7a8d1732",
-      "note": "Public documentation, entrypoint, packaging, validation or synthetic replay."
+      "sha256": "c58b69c961e25fd054cf7d9a5cfac33f1b1b7bd1f71d896cb0b66ded9513c3b4",
+      "note": "Explicit HTTP dependency for the optional live-studio extra."
     },
     {
       "path": "scripts/demo.py",
@@ -397,8 +396,8 @@
       "path": "scripts/validate_public.py",
       "kind": "generated",
       "source": "case-study",
-      "sha256": "41edb07e14a58ba6d7839feebdb9b07d333c2d8c7f3a70bf70a6614681e5fda8",
-      "note": "Public documentation, validation or media allowlist."
+      "sha256": "c7344034a9d15c72dac072a03339511ef3f87ba93f020a6182c2836ed857a14a",
+      "note": "Reject newly supported raw capture and runtime file types in the payload."
     },
     {
       "path": "scripts/youtube_live.py",
@@ -434,9 +433,9 @@
       "path": "src/ravora/comments.py",
       "kind": "copied",
       "source": "src/ravora/comments.py",
-      "source_sha256": "0df45d44de77b3543646b631b50c3fd23abda425e079009f03a222495291d1e1",
-      "sha256": "0df45d44de77b3543646b631b50c3fd23abda425e079009f03a222495291d1e1",
-      "note": "Exact source snapshot."
+      "sha256": "1b18d45dcafadc8b32f2ae739cb121bc53b1d248c7e1ae08ea0af971de2a2cdc",
+      "source_sha256": "1b18d45dcafadc8b32f2ae739cb121bc53b1d248c7e1ae08ea0af971de2a2cdc",
+      "note": "Studio runtime or synthetic regression port from the development snapshot."
     },
     {
       "path": "src/ravora/context_prompt.py",
@@ -448,19 +447,19 @@
     },
     {
       "path": "src/ravora/conversation.py",
-      "kind": "adapted",
+      "kind": "copied",
       "source": "src/ravora/conversation.py",
-      "source_sha256": "c9ad70e53f5ac89e637356bca87339d5fece84505687785f8a11343a74632964",
-      "sha256": "e5b81b4d4f4889bb69f0b415d88c7b85e1ab6ad1735bdcfb1a8431c844f41c7a",
-      "note": "Bilingual source-backed memory and public character interests."
+      "sha256": "13eb496b8939c995c1a6efb185d8ef5061e538730d7fde2f1a1603ce96569fbc",
+      "source_sha256": "13eb496b8939c995c1a6efb185d8ef5061e538730d7fde2f1a1603ce96569fbc",
+      "note": "Studio runtime or synthetic regression port from the development snapshot."
     },
     {
       "path": "src/ravora/conversation_context.py",
       "kind": "copied",
       "source": "src/ravora/conversation_context.py",
-      "source_sha256": "9ad3caa1cb5f982323409ea51c288c26212037de765c518497e0a138736f49d5",
-      "sha256": "9ad3caa1cb5f982323409ea51c288c26212037de765c518497e0a138736f49d5",
-      "note": "Exact source snapshot."
+      "sha256": "df97fc0faf1464fd63e481237680bc3f66c89842719a63b6ff88c0d65041f2b0",
+      "source_sha256": "df97fc0faf1464fd63e481237680bc3f66c89842719a63b6ff88c0d65041f2b0",
+      "note": "Studio runtime or synthetic regression port from the development snapshot."
     },
     {
       "path": "src/ravora/database.py",
@@ -482,9 +481,9 @@
       "path": "src/ravora/developer_http.py",
       "kind": "adapted",
       "source": "src/ravora/developer_http.py",
-      "source_sha256": "8cb1c098a37b3387a7545c040acda1464efc0adb0c7cb44ec26b64e1e68df47b",
-      "sha256": "3ec7a8404243a59638ff1a9531662efdfddedf990f7c0a68cae6bb7baf0f4700",
-      "note": "Adapted to the public package, its asset bindings or its synthetic test fixtures."
+      "sha256": "cb25c67b6655f95c82658e59982ba4bd66dea719de67bda6f0de07ab76389931",
+      "source_sha256": "c85b7b04faf85c4bb78b8c472ceff179d0dcac56f3204c78e447623f3b4e6fea",
+      "note": "Studio runtime or synthetic regression port from the development snapshot."
     },
     {
       "path": "src/ravora/developer_identity.py",
@@ -498,9 +497,9 @@
       "path": "src/ravora/dialogue_router.py",
       "kind": "copied",
       "source": "src/ravora/dialogue_router.py",
-      "source_sha256": "c5148cdf1df5c00932d04c0499842bf21a9c24f618d1fbdb81ec876109740053",
-      "sha256": "c5148cdf1df5c00932d04c0499842bf21a9c24f618d1fbdb81ec876109740053",
-      "note": "Bilingual source-backed memory and public character interests."
+      "sha256": "5e431a1eb721db3eaee306c1786740f4e0f2045971c700d99c55e2345e0c3016",
+      "source_sha256": "5e431a1eb721db3eaee306c1786740f4e0f2045971c700d99c55e2345e0c3016",
+      "note": "Studio runtime or synthetic regression port from the development snapshot."
     },
     {
       "path": "src/ravora/early_reaction.py",
@@ -522,17 +521,17 @@
       "path": "src/ravora/fast_voice.py",
       "kind": "adapted",
       "source": "src/ravora/fast_voice.py",
-      "source_sha256": "d8c273ec0f310a4c78d8963b32a5dbb1eb12df5da9dd21cf5dc20933268c6e76",
-      "sha256": "369a6c9ae92df6beb23521b53ddb7f5db671d7fa4289ec002daaa766012b1480",
-      "note": "Bilingual source-backed memory and public character interests."
+      "sha256": "caaf3daf89ffcf7de7a35e591477131deca0ecf4b7294c1f8191a752d3f19869",
+      "source_sha256": "317fd25f21ef7f85f636acc22e80122939d80da16f05bac032300aa89c7a6954",
+      "note": "Studio runtime or synthetic regression port from the development snapshot."
     },
     {
       "path": "src/ravora/fast_voice_server.py",
       "kind": "adapted",
       "source": "src/ravora/fast_voice_server.py",
-      "source_sha256": "244451d1d604e04771e920e4d93cb8babddcb31d2850a79a808e3de70e23e250",
-      "sha256": "0e70252eff3d4b64bcc92631d59d312903174f9d8f6ba13265f9ca1574aee5ea",
-      "note": "Adapted to the public package, its asset bindings or its synthetic test fixtures."
+      "sha256": "db9644e0c0c3d0b40578dc16a0a4ab4200399ee9f4ae84f1743377c0eae58872",
+      "source_sha256": "52ac20828139afd388a46bbd503662617adb5a0d1ba3feab432d0460d2b66e2f",
+      "note": "Port the initiative lifecycle while keeping the public console and replay boundaries."
     },
     {
       "path": "src/ravora/gemini_memory.py",
@@ -546,9 +545,9 @@
       "path": "src/ravora/input_pipeline.py",
       "kind": "copied",
       "source": "src/ravora/input_pipeline.py",
-      "source_sha256": "e195fa6eba28d03114ffa468ba44c29a44ec438aee862ed0c607efc3dce89bd6",
-      "sha256": "e195fa6eba28d03114ffa468ba44c29a44ec438aee862ed0c607efc3dce89bd6",
-      "note": "Exact source snapshot."
+      "sha256": "6ea36cbbc8e7119a98b714fc618b77ed05f1d163c4b1e786bd9b6ef01963b7aa",
+      "source_sha256": "6ea36cbbc8e7119a98b714fc618b77ed05f1d163c4b1e786bd9b6ef01963b7aa",
+      "note": "Studio runtime or synthetic regression port from the development snapshot."
     },
     {
       "path": "src/ravora/input_records.py",
@@ -586,57 +585,57 @@
       "path": "src/ravora/live_http.py",
       "kind": "adapted",
       "source": "src/ravora/live_http.py",
-      "source_sha256": "f06bdd906888778189bf8bb5179ee3b0e7e4c07cb79b07e097e1e97435ea9a39",
-      "sha256": "7c53f026fc2af422e227bbf3577b2c1db6ada661c2610e0a3104fdc600290c80",
-      "note": "Adapted to the public package, its asset bindings or its synthetic test fixtures."
+      "sha256": "345ef90ca2b4af1ff2682d2c0d19f5226d29d4f3eae133abb67a4917c46fc4f1",
+      "source_sha256": "ae173698405b6d89f3ff8cdaaec66f42557bda55797e983ff5b6ae1eaa6e4bd3",
+      "note": "Adapt the authenticated monitor and metrics endpoints to bundled web assets."
     },
     {
       "path": "src/ravora/live_media.py",
       "kind": "adapted",
       "source": "src/ravora/live_media.py",
-      "source_sha256": "14efcc0f0cb6ff3f8c94c3765287b9284e1fd545bce7605f8a77ac582a8ea040",
-      "sha256": "81c4117e3edd91c1ab6c4f5053f2e436fa11b67d0bf426ea31a23de7336ccc84",
-      "note": "CPU and NVIDIA HEVC settings on the public studio output path."
+      "sha256": "bc635eed429646ed41a28da13a401b1fe771e5e48fc1c6e6e41e14eb3bbdbb1c",
+      "source_sha256": "00ccd5ec62110e7e1a7ef3cd53b2cc4ba6133169cd763816e7eda0205e9c4dd5",
+      "note": "Studio runtime or synthetic regression port from the development snapshot."
     },
     {
       "path": "src/ravora/live_mic.py",
       "kind": "copied",
       "source": "src/ravora/live_mic.py",
-      "source_sha256": "c2a7f6201406b1db1dd34e1fce8da970960ee1549fb2121f2d1edfe7d08f78e7",
-      "sha256": "c2a7f6201406b1db1dd34e1fce8da970960ee1549fb2121f2d1edfe7d08f78e7",
-      "note": "Exact source snapshot."
+      "sha256": "877a370e092175f219c809ad441f1d480b3f9cc75a14cf0a6d13462289f788cd",
+      "source_sha256": "877a370e092175f219c809ad441f1d480b3f9cc75a14cf0a6d13462289f788cd",
+      "note": "Studio runtime or synthetic regression port from the development snapshot."
     },
     {
       "path": "src/ravora/live_overlay.py",
       "kind": "adapted",
       "source": "src/ravora/live_overlay.py",
-      "source_sha256": "6656232f256a80a0da5cae7b67c1858bbdebdffac9c1857a9b0576c3192dc277",
-      "sha256": "aa5bf95a3100398c780f727b0c1ba80407dc5a746d6239f78c3ce7eaf9a8ab41",
-      "note": "Adapted to the public package, its asset bindings or its synthetic test fixtures."
+      "sha256": "1d76132cd20b50e2355d6d0f8c8b9ff5f1b139834f4e8992df29e3a7d235e737",
+      "source_sha256": "39be17727a53632684fe8e2cff898f74e033752530abc95be80a533415f4cdf1",
+      "note": "Width-aware caption placement with the public font and caller-supplied artwork path."
     },
     {
       "path": "src/ravora/live_program.py",
-      "kind": "copied",
+      "kind": "adapted",
       "source": "src/ravora/live_program.py",
-      "source_sha256": "57021f1002ece89c8eb69d17e3da42e91065df45cc284713e149d32abb84515f",
-      "sha256": "57021f1002ece89c8eb69d17e3da42e91065df45cc284713e149d32abb84515f",
-      "note": "Exact source snapshot."
+      "sha256": "92fa29ff7147aba33be1ab03dfe6ce6fdaeb9db088622d34bd40dc7aadfc8b7d",
+      "source_sha256": "7c718bd6b9b060266885f5503e725b4382b93a23971b12deab033faa6f34c548",
+      "note": "Studio runtime or synthetic regression port from the development snapshot."
     },
     {
       "path": "src/ravora/live_voice.py",
       "kind": "copied",
       "source": "src/ravora/live_voice.py",
-      "source_sha256": "f533757cdefd215974289e544178e002aa881d4c3192728b2c103d35d5efc777",
-      "sha256": "f533757cdefd215974289e544178e002aa881d4c3192728b2c103d35d5efc777",
-      "note": "Exact source snapshot."
+      "sha256": "4464719db68f1fba4696587e289e687a13bf7f8c4d83866b406458705247630c",
+      "source_sha256": "4464719db68f1fba4696587e289e687a13bf7f8c4d83866b406458705247630c",
+      "note": "Studio runtime or synthetic regression port from the development snapshot."
     },
     {
       "path": "src/ravora/local_stt.py",
       "kind": "adapted",
       "source": "src/ravora/local_stt.py",
+      "sha256": "1727eca1b13d4ba3054365bac19cdd260db2294c492e41bdae6f3df23bb23073",
       "source_sha256": "083ce8d48bae59efc1cade2965c23a2d198c762466c6e1df2273c9ac0ba525f7",
-      "sha256": "50029d70433f98386126cf861267f390b23f28db5a28f17c68ba93f4271ced8a",
-      "note": "Adapted to the public package, its asset bindings or its synthetic test fixtures."
+      "note": "Use scoped model manifests with RMS gating and timestamp restoration."
     },
     {
       "path": "src/ravora/marked_speech.py",
@@ -666,17 +665,17 @@
       "path": "src/ravora/memory_extraction.py",
       "kind": "copied",
       "source": "src/ravora/memory_extraction.py",
-      "source_sha256": "f5c3103c18694c9eaacce923887eab275d6c91e16633a09a65a12b1267173b73",
-      "sha256": "f5c3103c18694c9eaacce923887eab275d6c91e16633a09a65a12b1267173b73",
-      "note": "Exact source snapshot."
+      "sha256": "6962defacd0cc62e23dbbb5d50fea34b76e49cf9e3cf31ed2b92ed57800a0393",
+      "source_sha256": "6962defacd0cc62e23dbbb5d50fea34b76e49cf9e3cf31ed2b92ed57800a0393",
+      "note": "Studio runtime or synthetic regression port from the development snapshot."
     },
     {
       "path": "src/ravora/memory_worker.py",
       "kind": "copied",
       "source": "src/ravora/memory_worker.py",
-      "source_sha256": "a87f914fd2d22053d7095913f3542260d626926c1b3f963094b8798e6d02eaf8",
-      "sha256": "a87f914fd2d22053d7095913f3542260d626926c1b3f963094b8798e6d02eaf8",
-      "note": "Bilingual source-backed memory and public character interests."
+      "sha256": "760b2eddb446f50447f26da91d26d37e9ad9d4f9825113bd3b475bbbdcef90c9",
+      "source_sha256": "760b2eddb446f50447f26da91d26d37e9ad9d4f9825113bd3b475bbbdcef90c9",
+      "note": "Studio runtime or synthetic regression port from the development snapshot."
     },
     {
       "path": "src/ravora/migrations/001_memory.sql",
@@ -808,11 +807,11 @@
     },
     {
       "path": "src/ravora/persona.py",
-      "kind": "adapted",
+      "kind": "copied",
       "source": "src/ravora/persona.py",
-      "source_sha256": "f6e68c1cab093c808aa0914a3f3dc5193aeda1ac30758e96c78b0d21b1a681d8",
-      "sha256": "240a6670433a6fe4303132e90f224447bd3ea2da6cefba075b757185671ab4e0",
-      "note": "Adapted to the public package, its asset bindings or its synthetic test fixtures."
+      "sha256": "5b8ea65d4d65ee96f5925355caaa5b65e6a9aedde11c43288690cd51818cf57c",
+      "source_sha256": "5b8ea65d4d65ee96f5925355caaa5b65e6a9aedde11c43288690cd51818cf57c",
+      "note": "Studio runtime or synthetic regression port from the development snapshot."
     },
     {
       "path": "src/ravora/personas/calm.txt",
@@ -864,11 +863,11 @@
     },
     {
       "path": "src/ravora/ray_character.py",
-      "kind": "adapted",
+      "kind": "copied",
       "source": "src/ravora/ray_character.py",
-      "source_sha256": "d87c70c3453e8fd4e34f62fc8aea27d764e33585145e42f05a6c4b9af3baf445",
-      "sha256": "df165ed6ce90b535d23af3034cc14c8de9f279a5b4a67651915a6cb95916597a",
-      "note": "Bilingual source-backed memory and public character interests."
+      "sha256": "fe095063937e4b3b408710258cf3bfdfa35d289d6ba6197d27f5dd1ae6dfbb93",
+      "source_sha256": "fe095063937e4b3b408710258cf3bfdfa35d289d6ba6197d27f5dd1ae6dfbb93",
+      "note": "Studio runtime or synthetic regression port from the development snapshot."
     },
     {
       "path": "src/ravora/ray_memory.py",
@@ -912,9 +911,9 @@
       "path": "src/ravora/settings.py",
       "kind": "adapted",
       "source": "src/ravora/settings.py",
-      "source_sha256": "00d1e73f6a3bf644ebaf65b1636679be3a0a283cd6207e8e8ac4a79918d0d815",
-      "sha256": "ea3a831f7128a29f36cd0240365d1572cc2d2ef624d954515424bcd58ae01c29",
-      "note": "Adapted to the public package, its asset bindings or its synthetic test fixtures."
+      "sha256": "16dc369282fd524aeee1962b06539c47a0140105ffdab65ec1e0be527bb12656",
+      "source_sha256": "9e351bec94d47e9afa4e3842529afa79baf94c9118792fb10afca7f138d3d29c",
+      "note": "Portable studio/profile defaults, local activity thresholds and YouTube quota settings."
     },
     {
       "path": "src/ravora/speech.py",
@@ -944,9 +943,9 @@
       "path": "src/ravora/stt.py",
       "kind": "adapted",
       "source": "src/ravora/stt.py",
-      "source_sha256": "d4f5e4dd045e15ac840bdefc88217163692b3aa3f51341dd7056c280a73c9ec6",
-      "sha256": "46d38930ce7d4ba4d01c332ebd9d1428d92a071146c1a72048d0db6febdb6725",
-      "note": "Adapted to the public package, its asset bindings or its synthetic test fixtures."
+      "sha256": "3541f9d37a2fe2cb4037d115874239fb5a882860d6b33a845cb1794d7ba02abe",
+      "source_sha256": "6c73eb92afaadb7ad3dcc1c58531f45e3a1269fa043ba5c41b06ef42dcae8476",
+      "note": "Use the installed token helper for the opt-in speech provider."
     },
     {
       "path": "src/ravora/voice_evaluation.py",
@@ -1000,17 +999,17 @@
       "path": "src/ravora/web/developer/live-host.html",
       "kind": "copied",
       "source": "renderer/developer/live-host.html",
-      "source_sha256": "f1d893efda282febe3a03e4623d46ac9ea752d37b46cb8ac2a61614b72c88508",
-      "sha256": "f1d893efda282febe3a03e4623d46ac9ea752d37b46cb8ac2a61614b72c88508",
-      "note": "Exact source snapshot."
+      "sha256": "5764806cb7e62db0d751f8c69f50eefa7a8c9eddf796629e4e5b5045c3b9c293",
+      "source_sha256": "5764806cb7e62db0d751f8c69f50eefa7a8c9eddf796629e4e5b5045c3b9c293",
+      "note": "Studio runtime or synthetic regression port from the development snapshot."
     },
     {
       "path": "src/ravora/web/developer/live-host.js",
       "kind": "copied",
       "source": "renderer/developer/live-host.js",
-      "source_sha256": "d99927f1c7658f8730af156758b9dc37ce3ad267717591f9153d777daa91278c",
-      "sha256": "d99927f1c7658f8730af156758b9dc37ce3ad267717591f9153d777daa91278c",
-      "note": "Exact source snapshot."
+      "sha256": "5207f8d913e7a26effdb7768744d448d7e2ab1e5fe81d4b85614c1fe166eef60",
+      "source_sha256": "5207f8d913e7a26effdb7768744d448d7e2ab1e5fe81d4b85614c1fe166eef60",
+      "note": "Studio runtime or synthetic regression port from the development snapshot."
     },
     {
       "path": "src/ravora/web/developer/mic-stream.js",
@@ -1144,33 +1143,33 @@
       "path": "src/ravora/youtube.py",
       "kind": "copied",
       "source": "src/ravora/youtube.py",
-      "source_sha256": "4a71e0d0300bed06bd14ac4378ec0b6a08e1c716cc6baa2eeae82b86c2f096a8",
-      "sha256": "4a71e0d0300bed06bd14ac4378ec0b6a08e1c716cc6baa2eeae82b86c2f096a8",
-      "note": "Exact source snapshot."
+      "sha256": "d536ac175e5f460a56a0297c517e0ae3eceb5fc4f9f5339d7fd28c48d00a80b1",
+      "source_sha256": "d536ac175e5f460a56a0297c517e0ae3eceb5fc4f9f5339d7fd28c48d00a80b1",
+      "note": "Studio runtime or synthetic regression port from the development snapshot."
     },
     {
       "path": "src/ravora/youtube_auth.py",
       "kind": "copied",
       "source": "src/ravora/youtube_auth.py",
-      "source_sha256": "06b87ff1cd116d40d2c09735c839542df4ce4176bec1e2ee8cb8804ada2d5b79",
-      "sha256": "06b87ff1cd116d40d2c09735c839542df4ce4176bec1e2ee8cb8804ada2d5b79",
-      "note": "Exact source snapshot."
+      "sha256": "a54d04de78be38d6b2a18a2d0962b95155bd20f900bb688d2bb0aa5368cccf47",
+      "source_sha256": "a54d04de78be38d6b2a18a2d0962b95155bd20f900bb688d2bb0aa5368cccf47",
+      "note": "Studio runtime or synthetic regression port from the development snapshot."
     },
     {
       "path": "src/ravora/youtube_broadcast.py",
       "kind": "copied",
       "source": "src/ravora/youtube_broadcast.py",
-      "source_sha256": "892d8bf2951ef1f86251ebe7c578efae4405542c6a90622559b3d450b5913611",
-      "sha256": "892d8bf2951ef1f86251ebe7c578efae4405542c6a90622559b3d450b5913611",
-      "note": "Exact source snapshot."
+      "sha256": "7de5310579f299c7a36ba99e09ca17280784cae9cd694dae2110ccac2e29170e",
+      "source_sha256": "7de5310579f299c7a36ba99e09ca17280784cae9cd694dae2110ccac2e29170e",
+      "note": "Studio runtime or synthetic regression port from the development snapshot."
     },
     {
       "path": "src/ravora/youtube_live.py",
       "kind": "adapted",
       "source": "scripts/youtube_live.py",
-      "source_sha256": "d049d1e2ab44dd04088ee96ed9502f5a45c553d06d6aeb2a4c96ee0c85e49e55",
-      "sha256": "f8451637261cb544f6fdd7e764821961847c3b99d161fb64ffdd7871fdad1b8c",
-      "note": "Bilingual source-backed memory and public character interests."
+      "sha256": "6def659c0e70e1fceb1fc0a59f072378697cddd231e016f790e1499f89c0a7cd",
+      "source_sha256": "7ed12ddcf2a885475fef339b486d17aa8a93c1eab1d0be7a7f2f50fb5c8b7b79",
+      "note": "Public installed entrypoint with progressive playout, supervised operator link and both transports."
     },
     {
       "path": "src/ravora/youtube_proto/__init__.py",
@@ -1200,9 +1199,9 @@
       "path": "src/ravora/youtube_stream.py",
       "kind": "copied",
       "source": "src/ravora/youtube_stream.py",
-      "source_sha256": "440c37066d3f77fef197673d1f7c44381cdd79d4fa62cdea842c0ed7562389af",
-      "sha256": "440c37066d3f77fef197673d1f7c44381cdd79d4fa62cdea842c0ed7562389af",
-      "note": "Exact source snapshot."
+      "sha256": "679b16b18c3f686a98dddb8aaae606a4a706b823d923cfef43017cc30e0a8cf5",
+      "source_sha256": "679b16b18c3f686a98dddb8aaae606a4a706b823d923cfef43017cc30e0a8cf5",
+      "note": "Studio runtime or synthetic regression port from the development snapshot."
     },
     {
       "path": "tests/check_media.mjs",
@@ -1231,16 +1230,15 @@
       "path": "tests/test_case_study.py",
       "kind": "generated",
       "source": "case-study",
-      "sha256": "c5411a172b38ecca85bb475eec710b654b370a4e30582505914d4b122f8b37d0",
-      "note": "Public documentation, entrypoint, packaging, validation or synthetic replay."
+      "sha256": "209265059047fedc122eff3998bd3e8310d34c5374e6981e7faf463e39bcda59",
+      "note": "Public package resource coverage for all shipped migrations."
     },
     {
       "path": "tests/test_conversation_context.py",
-      "kind": "adapted",
-      "source": "tests/test_conversation_context.py",
-      "source_sha256": "c175cde69d9ae861887138cfb8ee1a36a26c3f29ddc31c3c9617d00eb1578bdc",
-      "sha256": "b59aee82266e90e89c074dbc1345b668cae7324d366aa9249120cf260250e1f2",
-      "note": "Adapted to the public package, its asset bindings or its synthetic test fixtures."
+      "kind": "generated",
+      "source": "case-study",
+      "sha256": "59fdaa1a70102bc73225370250711fcc89253da26607b8c9718755dfb1e760a0",
+      "note": "Historical fixtures use their own schema before forward migration."
     },
     {
       "path": "tests/test_database.py",
@@ -1254,9 +1252,9 @@
       "path": "tests/test_dialogue_router.py",
       "kind": "adapted",
       "source": "tests/test_dialogue_router.py",
-      "source_sha256": "a9ab11c3fa374d030236610d8f5daaf84b0179dd64b83df63d5d9cd29aa2cd48",
-      "sha256": "154b6fd0c8ccc5c7d69ba1836d207740f284826b943a2144c4dcd0fca0dd4a3a",
-      "note": "Synthetic coverage for bilingual extraction, recall and character interests."
+      "sha256": "f1df069a44b5f0b27c1ba2d91456dbb3fb97b8863355aa89e466a35a0fd0a3f2",
+      "source_sha256": "28fde44a82b4ddc7528b003bc07b3888cc85dbb866ac00a20eb59eb75642a6bc",
+      "note": "Studio runtime or synthetic regression port from the development snapshot."
     },
     {
       "path": "tests/test_dual_reaction.py",
@@ -1284,11 +1282,11 @@
     },
     {
       "path": "tests/test_fast_voice.py",
-      "source": "tests/test_fast_voice.py",
-      "source_sha256": "1d243abfe517e57ad30e5c7d62776dfdaf6641e3608c73d966b85c53a0580bd6",
       "kind": "adapted",
-      "note": "Port of listener reactions, public reply cues or microphone controls for the portable console.",
-      "sha256": "77b44f93a7c81d4de109d2994752f8e49ffb764044e50a2939ab907e8319cb4f"
+      "source": "tests/test_fast_voice.py",
+      "sha256": "48e3519aee4990b573575a2b18b0d8df718aecc0ae5050a6bfc0172ba60f43d0",
+      "source_sha256": "ec45a2d8ae14e4bff2718f73a89ee92056c36b202a385b455d3dfa45e4e193b8",
+      "note": "Studio runtime or synthetic regression port from the development snapshot."
     },
     {
       "path": "tests/test_gemini_memory.py",
@@ -1317,9 +1315,9 @@
       "path": "tests/test_persona.py",
       "kind": "adapted",
       "source": "tests/test_persona.py",
-      "source_sha256": "7e22ded7f16baae2a858954656ddfadbe759a4c54f47c3760f6195ea77dbd2e0",
-      "sha256": "c486bef89cbea4df2ee217f76d2e5864cd1ac21cb3be4dc3daae2ed8eaca46b7",
-      "note": "Adapted to the public package, its asset bindings or its synthetic test fixtures."
+      "sha256": "afa48664afadf7ca6c45d2f85fbef428d24e4cd2324c3fc67043a744d427755c",
+      "source_sha256": "5f2d7b23e4c059ff2a4671db75de31f529e893670c0c4a3871949c0425a6eb33",
+      "note": "Studio runtime or synthetic regression port from the development snapshot."
     },
     {
       "path": "tests/test_phone_alignment.py",
@@ -1333,9 +1331,9 @@
       "path": "tests/test_ray_character.py",
       "kind": "adapted",
       "source": "tests/test_ray_character.py",
-      "source_sha256": "b031838e64b3f58a0e4d307890ddd480dcabe8a87627dc29020952dbf2b5a2d7",
-      "sha256": "6382877ac29ae3c00a482bd515fe69959e5709d086f02479f36c47cb24de5870",
-      "note": "Synthetic coverage for bilingual extraction, recall and character interests."
+      "sha256": "16e385ff342347e39e59b40dab1956cb713e364ea85f0c913643c91b8772a344",
+      "source_sha256": "8e2c43c1d6d4766c9b6adf7fa42848db9da3830df2335493547b48d35c6025a8",
+      "note": "Studio runtime or synthetic regression port from the development snapshot."
     },
     {
       "path": "tests/test_relationships.py",
@@ -1349,17 +1347,16 @@
       "path": "tests/test_semantic_memory.py",
       "kind": "adapted",
       "source": "tests/test_semantic_memory.py",
-      "source_sha256": "03b4942fee9c701a3cf6a9b41a82a77573e2a2bba72197d0f67a0ebcfccfc06c",
-      "sha256": "0ae943a83a7ed82f4b3dc74d9f940d14fd8923cae033fd051d1bc76ed4ecc681",
-      "note": "Adapted to the public package, its asset bindings or its synthetic test fixtures."
+      "sha256": "00ffab84bc1fe4082a5bd1235e38cc14f860b3663550783d076cc6c65264f24f",
+      "source_sha256": "e9040437fb049edf420e2836e22000c14c8fa386b4b28bc57a2e19a786ce36a2",
+      "note": "Studio runtime or synthetic regression port from the development snapshot."
     },
     {
       "path": "tests/test_single_reaction.py",
-      "source": "tests/test_single_reaction.py",
-      "source_sha256": "5c3ebd2e59c7c61993105f93faf2eb11b8f6600e0e0de4787421e7e3ca6d6dcc",
-      "kind": "adapted",
-      "note": "Use the extracted input ledger; retain offline timing, cancellation, migration and durable single-call assertions.",
-      "sha256": "7a5c4dad2cd2576fa5514b7dee8c94cdd2fd8f48b5e32abda2e33ecc3bc8c9c0"
+      "kind": "generated",
+      "source": "case-study",
+      "sha256": "bb59e597ea9a545004a18df572c545d916e342f82bea749e34049f74933f148b",
+      "note": "Historical usage fixture uses pre-migration columns."
     },
     {
       "path": "tests/test_voice_evaluation.py",
@@ -1371,27 +1368,27 @@
     },
     {
       "path": "tests/test_youtube_broadcast.py",
-      "kind": "copied",
+      "kind": "adapted",
       "source": "tests/test_youtube_broadcast.py",
-      "source_sha256": "2c3d0d3d883a9e4b68c48934d6107696c9e7dff3c99233bc69afcb5fe83ade0f",
-      "sha256": "2c3d0d3d883a9e4b68c48934d6107696c9e7dff3c99233bc69afcb5fe83ade0f",
-      "note": "Exact source snapshot."
+      "sha256": "60d9a6705bd154d5bdade4a5d38a35ec774d70e4e9aa6d548fe3da865b7a729e",
+      "source_sha256": "cd0e06d485ef47d76c4893760e1d422f2c20ab505749b783b6b66a75a1bda415",
+      "note": "Studio runtime or synthetic regression port from the development snapshot."
     },
     {
       "path": "tests/test_youtube_live.py",
       "kind": "adapted",
       "source": "tests/test_youtube_live.py",
-      "source_sha256": "5cb9729b0f6221a3f2411ee9c2e2934e441846856ded9185343ebe0023fbf411",
-      "sha256": "3c3c29cbb769ceb7d0b143fd3b06ec36b396928dfafe0d627296b6bb6fab1d83",
-      "note": "Avatar binding, articulation or live encoder port and tests."
+      "sha256": "9d020346c93c820954f288a484d7d04b5cbc43e4e93bc96634ee42f9a3d6f5e3",
+      "source_sha256": "2f562dd6a658826e162d163ee4f3c86740598ef9b9580db7ce52e19f17c2075a",
+      "note": "Studio runtime or synthetic regression port from the development snapshot."
     },
     {
       "path": "tests/test_youtube_stream.py",
       "kind": "adapted",
       "source": "tests/test_youtube_stream.py",
-      "source_sha256": "8c1a550450d7ba90c80f2ad4ecba9b7efb4fe7b02e91e1981507828c598cf0e1",
-      "sha256": "c4d5cf08feb137c92ea0da19f5be6064b7745676b2ab82a41f610f20553e40b4",
-      "note": "Avatar binding, articulation or live encoder port and tests."
+      "sha256": "c423f8b8fc4e088240171566e312bf5a177cdae5503c0b0b007089d173b06b9a",
+      "source_sha256": "9d5fdff655518f9fb1b34248ba6a00ada76ea8cc1f106504fe5f7887717340ba",
+      "note": "Studio runtime or synthetic regression port from the development snapshot."
     },
     {
       "path": "docs/recording-history.md",
@@ -1413,6 +1410,289 @@
       "source": "case-study",
       "sha256": "49a6c187aa2142cfbb2460cabc50b686ef8818214715ada1c6359ae226a83826",
       "note": "Previous bilingual memory and character verification record, retained unchanged."
+    },
+    {
+      "path": "docs/twitch-live-operations-20261124.md",
+      "kind": "generated",
+      "source": "case-study",
+      "sha256": "184d867917b4d643d370f62d3c44b8dbb029dc57dc16f24c50acc5f914bc4d5d",
+      "note": "Historical Twitch audio evidence and public reproduction procedure."
+    },
+    {
+      "path": "docs/twitch-live.md",
+      "kind": "generated",
+      "source": "case-study",
+      "sha256": "ea2d69ad4c5202433eb649a1c7117d2f5ef4f8e1dc6fe70ed1dc7b69ff395014",
+      "note": "Companion Twitch studio and continuous-operation documentation."
+    },
+    {
+      "path": "publication/history/2026-11-23-media-consolidation-validation.json",
+      "kind": "generated",
+      "source": "case-study",
+      "sha256": "d99afc31f8e89eaf7d53314f955ac95443e187ca792981ef792d034addf49615",
+      "note": "Unchanged validation record for the preceding public snapshot."
+    },
+    {
+      "path": "src/ravora/live_transport.py",
+      "kind": "copied",
+      "source": "src/ravora/live_transport.py",
+      "sha256": "1ff63a7d27f174401cfb5a514d89d43d95344ba3f7986c34b2ccc4311149fa1a",
+      "note": "Exact source for the bounded RTMPS FIFO and mux worker.",
+      "source_sha256": "1ff63a7d27f174401cfb5a514d89d43d95344ba3f7986c34b2ccc4311149fa1a"
+    },
+    {
+      "path": "src/ravora/twitch_chat.py",
+      "kind": "copied",
+      "source": "src/ravora/twitch_chat.py",
+      "sha256": "c4bc40a502502c3d91a0bc7d667b039497bc9264df15081221971b5740c69c4c",
+      "note": "Exact EventSub WebSocket and broadcaster-scope OAuth adapter.",
+      "source_sha256": "c4bc40a502502c3d91a0bc7d667b039497bc9264df15081221971b5740c69c4c"
+    },
+    {
+      "path": "tests/test_live_transport.py",
+      "kind": "adapted",
+      "source": "tests/test_live_transport.py",
+      "sha256": "4ef9b58519a713482723b242392515d684ce3db3f1c392a2e8db047f683315ff",
+      "source_sha256": "9bbc31e289e34c6901242039f21586acee71c15c789829c3a9e86d167ba200b2",
+      "note": "Studio runtime or synthetic regression port from the development snapshot."
+    },
+    {
+      "path": "tests/test_twitch_chat.py",
+      "kind": "adapted",
+      "source": "tests/test_twitch_chat.py",
+      "sha256": "9b99971f67555e34df32ae28acc3aad100e17662cb00ceea4fa0f7540499a9f1",
+      "note": "Synthetic Twitch OAuth and EventSub tests with optional dependency guards.",
+      "source_sha256": "039cd09b20db6fd77824bb356501d9d02b1c693b8fab0f73750260626fba5956"
+    },
+    {
+      "path": "docs/studio-operations.md",
+      "kind": "generated",
+      "source": "case-study",
+      "sha256": "d29d9ce1668196b39aceb56ea5b8d0c15374a3fa1d767080561d0571d90472db",
+      "note": "Portable user-service setup, audio controls, observability and measurements."
+    },
+    {
+      "path": "docs/youtube-live-operations-20261124.md",
+      "kind": "generated",
+      "source": "case-study",
+      "sha256": "6746a9bf5a3f5fe989031313e8ffee4fca06d5d03c9516059d65d343d96aa58f",
+      "note": "Sanitized dated YouTube operating timeline, measurements and limits."
+    },
+    {
+      "path": "examples/ray-studio@.service",
+      "kind": "generated",
+      "source": "case-study",
+      "sha256": "1e2f189f6663ac4152364ea9af9f9fc1ed49f1e7fa02d4299fead02a9a6ba25a",
+      "note": "Opt-in example user unit with one private runtime directory per destination."
+    },
+    {
+      "path": "publication/history/2026-11-24-twitch-studio-validation.json",
+      "kind": "generated",
+      "source": "case-study",
+      "sha256": "3c76de611be6be37b733258897a46534deec632bdfbcf183d1c9d6bce987dede",
+      "note": "Earlier Twitch-only validation record."
+    },
+    {
+      "path": "scripts/Start-RayLive.ps1",
+      "kind": "generated",
+      "source": "case-study",
+      "sha256": "543d60971832ec6e7c65b13c445c7cd6200da852848671b2a0e93ede567d281b",
+      "note": "Portable Windows SSH attach and console launcher."
+    },
+    {
+      "path": "scripts/compare_voice_paths.py",
+      "kind": "adapted",
+      "source": "scripts/compare_voice_paths.py",
+      "sha256": "102a445c5b270c1c06093f8bcc225b1c9063b723ff0f50f4d5eeb4b5e3c56cdc",
+      "source_sha256": "e35b4f3206d49b59880f6f63de19224962fc3a26771c7d6e697b16676fd2b92f",
+      "note": "Use a generated PCM input and synthetic providers for the comparison."
+    },
+    {
+      "path": "scripts/evaluate_character.py",
+      "kind": "adapted",
+      "source": "scripts/evaluate_character.py",
+      "sha256": "dd8b1bd9b38c5c5c97643cdc715d4d7ac5fd48771ce76e0b0bfc33c87da2fd37",
+      "source_sha256": "f54bb125a802496487179c9554df99bd66550bf3585b6c279c2f4757e76b549e",
+      "note": "Studio runtime or synthetic regression port from the development snapshot."
+    },
+    {
+      "path": "scripts/measure_player_audio.py",
+      "kind": "generated",
+      "source": "case-study",
+      "sha256": "c6da9daec7d2948d4a63343893c17bcbee12772af79471b26a0cca2327facac6",
+      "note": "Private local audio capture and public-player onset comparison tool."
+    },
+    {
+      "path": "scripts/ray-studio-console.sh",
+      "kind": "generated",
+      "source": "case-study",
+      "sha256": "ded9609fc4aa4c1fbca060af383cbc0290dbc808f34f1d0ca7f1df10c9fc34b2",
+      "note": "Unix user-service start-or-attach helper."
+    },
+    {
+      "path": "scripts/ray-studio-service.sh",
+      "kind": "generated",
+      "source": "case-study",
+      "sha256": "572028eac5b16f7c6bb58446fb836d10c924e65950ace05521c058991ba1cdfe",
+      "note": "Destination-specific portable user-service entrypoint."
+    },
+    {
+      "path": "scripts/report_voice_latency.py",
+      "kind": "adapted",
+      "source": "scripts/report_voice_latency.py",
+      "sha256": "632240575441d0b5b47448792875ed7f0f0a7a46267613ccb2c7a06912efefa8",
+      "source_sha256": "2120c6cb74cf2d678b091fe845d8c0548d3584c2b6ebf252df2ad0589d3ce13f",
+      "note": "Studio runtime or synthetic regression port from the development snapshot."
+    },
+    {
+      "path": "src/ravora/airband_vad.py",
+      "kind": "adapted",
+      "source": "src/ravora/airband_vad.py",
+      "sha256": "2b78dd86ba87ace468b27276eafe3f9f3fb25b80572d04ab24c0fbbbea0e25ce",
+      "source_sha256": "7fa6042a6c32d1a6bce88c0fa253c9a59e10c050a0578bd980ca6511b3c8b102",
+      "note": "Studio runtime or synthetic regression port from the development snapshot."
+    },
+    {
+      "path": "src/ravora/live_bgm.py",
+      "kind": "adapted",
+      "source": "src/ravora/live_bgm.py",
+      "sha256": "e2bb83ae4943db5cc9c88503893ca5a3b09e1ad333f5b8b14a98e5aa20f72aa2",
+      "source_sha256": "af74b0b39020cc4ede2e7d91277b6f1782363a632944d349f225c76e26325e24",
+      "note": "Studio runtime or synthetic regression port from the development snapshot."
+    },
+    {
+      "path": "src/ravora/live_metrics.py",
+      "kind": "copied",
+      "source": "src/ravora/live_metrics.py",
+      "sha256": "080bf1a1113dee9b35d7e8827bb31aab86e688f71674f0c3710f5bfd5fc33b12",
+      "source_sha256": "080bf1a1113dee9b35d7e8827bb31aab86e688f71674f0c3710f5bfd5fc33b12",
+      "note": "Studio runtime or synthetic regression port from the development snapshot."
+    },
+    {
+      "path": "src/ravora/live_reverb.py",
+      "kind": "copied",
+      "source": "src/ravora/live_reverb.py",
+      "sha256": "f58e2e89fb20dd636cef85a2b1c6a78ff3c61a2e5a9fe96e844093fed97076c3",
+      "source_sha256": "f58e2e89fb20dd636cef85a2b1c6a78ff3c61a2e5a9fe96e844093fed97076c3",
+      "note": "Studio runtime or synthetic regression port from the development snapshot."
+    },
+    {
+      "path": "src/ravora/live_stt.py",
+      "kind": "adapted",
+      "source": "src/ravora/live_stt.py",
+      "sha256": "98f4aa79eddcce7c6ef62b3d0d49a3c0cae61b4e821439f3a4a7345713382889",
+      "source_sha256": "e21ce4bd69bd15aeb4c26544b7986b7c07db6b0fdc7bb178508f127a6b1c36de",
+      "note": "Studio runtime or synthetic regression port from the development snapshot."
+    },
+    {
+      "path": "src/ravora/migrations/017_usage_session.sql",
+      "kind": "copied",
+      "source": "migrations/017_usage_session.sql",
+      "sha256": "176e90d89fc7940c9b0ff6fc6bf341dbddce36db1d0564a6bbca285ad2a10bf0",
+      "source_sha256": "176e90d89fc7940c9b0ff6fc6bf341dbddce36db1d0564a6bbca285ad2a10bf0",
+      "note": "Studio runtime or synthetic regression port from the development snapshot."
+    },
+    {
+      "path": "src/ravora/migrations/018_youtube_chat_connections.sql",
+      "kind": "copied",
+      "source": "migrations/018_youtube_chat_connections.sql",
+      "sha256": "8d1d4f4f19a049f6703f0568ffde37e4fd38f1cd7cfe05020a153cc781c4f8bf",
+      "source_sha256": "8d1d4f4f19a049f6703f0568ffde37e4fd38f1cd7cfe05020a153cc781c4f8bf",
+      "note": "Studio runtime or synthetic regression port from the development snapshot."
+    },
+    {
+      "path": "src/ravora/migrations/019_youtube_chat_daily_usage.sql",
+      "kind": "copied",
+      "source": "migrations/019_youtube_chat_daily_usage.sql",
+      "sha256": "8ca572df19000826dd58ffc6ca3e4facb4122cd3c4ddbf4da9aa1f69686a29d0",
+      "source_sha256": "8ca572df19000826dd58ffc6ca3e4facb4122cd3c4ddbf4da9aa1f69686a29d0",
+      "note": "Studio runtime or synthetic regression port from the development snapshot."
+    },
+    {
+      "path": "src/ravora/web/developer/live-metrics.css",
+      "kind": "copied",
+      "source": "renderer/developer/live-metrics.css",
+      "sha256": "9d00edd86a8c0f890e3685df9443af1a78667e095a57886008f84bf886e6bbad",
+      "source_sha256": "9d00edd86a8c0f890e3685df9443af1a78667e095a57886008f84bf886e6bbad",
+      "note": "Studio runtime or synthetic regression port from the development snapshot."
+    },
+    {
+      "path": "src/ravora/web/developer/live-metrics.js",
+      "kind": "copied",
+      "source": "renderer/developer/live-metrics.js",
+      "sha256": "afc268340b8b747bfe62e217ceee9e9a4f59cae12c4741b9d8ff946b767631b1",
+      "source_sha256": "afc268340b8b747bfe62e217ceee9e9a4f59cae12c4741b9d8ff946b767631b1",
+      "note": "Studio runtime or synthetic regression port from the development snapshot."
+    },
+    {
+      "path": "src/ravora/web/developer/live-monitor.js",
+      "kind": "copied",
+      "source": "renderer/developer/live-monitor.js",
+      "sha256": "6abe383190a7351c0eaef8f5b9db5988abc860567ca610f954ce798c7afc7be4",
+      "source_sha256": "6abe383190a7351c0eaef8f5b9db5988abc860567ca610f954ce798c7afc7be4",
+      "note": "Studio runtime or synthetic regression port from the development snapshot."
+    },
+    {
+      "path": "src/ravora/web/developer/recorder.js",
+      "kind": "copied",
+      "source": "renderer/developer/recorder.js",
+      "sha256": "bdc0996515ef97354414ad251b1fa942de371a6a41b1f700fcc8abf2db61d352",
+      "source_sha256": "bdc0996515ef97354414ad251b1fa942de371a6a41b1f700fcc8abf2db61d352",
+      "note": "Studio runtime or synthetic regression port from the development snapshot."
+    },
+    {
+      "path": "tests/legacy_turn.py",
+      "kind": "copied",
+      "source": "tests/legacy_turn.py",
+      "sha256": "986638b93bd357c59ee0d1203920a265948e0046f7cb6ffad4765bf20235e571",
+      "source_sha256": "986638b93bd357c59ee0d1203920a265948e0046f7cb6ffad4765bf20235e571",
+      "note": "Studio runtime or synthetic regression port from the development snapshot."
+    },
+    {
+      "path": "tests/test_comments.py",
+      "kind": "adapted",
+      "source": "tests/test_comments.py",
+      "sha256": "00b44a0a8a2b4514985860605bd9d23a619f40544a35ea402b19fa637365702e",
+      "source_sha256": "e5524b2dec303f30c4d4a62a48e34dd19b12c2e9c3c3c03f6b8042a7258ae8c8",
+      "note": "Studio runtime or synthetic regression port from the development snapshot."
+    },
+    {
+      "path": "tests/test_live_bgm.py",
+      "kind": "copied",
+      "source": "tests/test_live_bgm.py",
+      "sha256": "afd01723eb969be8b39143b593284a1cb4f1bf2a03b08c6fde3fd0bfa773f8c1",
+      "source_sha256": "afd01723eb969be8b39143b593284a1cb4f1bf2a03b08c6fde3fd0bfa773f8c1",
+      "note": "Studio runtime or synthetic regression port from the development snapshot."
+    },
+    {
+      "path": "tests/test_live_metrics.py",
+      "kind": "adapted",
+      "source": "tests/test_live_metrics.py",
+      "sha256": "10b435e3b31d22f70be2fc879894cda6557e69b94808a3289c3fd8d4b305fc95",
+      "source_sha256": "ff9bda087a62f6da221c1842d4c325fd3444d3c994d4a186aa073ff7fef28ca3",
+      "note": "Studio runtime or synthetic regression port from the development snapshot."
+    },
+    {
+      "path": "tests/test_local_stt.py",
+      "kind": "adapted",
+      "source": "tests/test_local_stt.py",
+      "sha256": "024d17cec212256b677f885825d0ad806061ab9941d2af70e5ec2804a696558b",
+      "source_sha256": "20e3c18e82bbdd41ce3bc2a70fc91beb248063e55c9417f47a24a234c7db974a",
+      "note": "Studio runtime or synthetic regression port from the development snapshot."
+    },
+    {
+      "path": "tests/test_player_audio.py",
+      "kind": "generated",
+      "source": "case-study",
+      "sha256": "884820c695abf502fc3452b45aae244e3a04cf155d53098d7cd5c375214b9009",
+      "note": "Synthetic timing alignment and ambiguity rejection."
+    },
+    {
+      "path": "tests/test_studio_launchers.py",
+      "kind": "generated",
+      "source": "case-study",
+      "sha256": "6008f0e850b1fba0d209527587958220fd31eb3861495c3ccea2130bd9cf448d",
+      "note": "Synthetic shell start, attach and private link validation."
     }
   ]
 }

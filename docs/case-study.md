@@ -141,6 +141,17 @@ animation work, including the distinction between a voiced audio frame and an
 active reply utterance. That renderer and its original images remain outside the
 portable payload; their runtime observations are historical evidence.
 
+## Where the later work fits
+
+The later additions keep the playback acknowledgement and ownership rules
+described above. The [live studio](youtube-live.md) mixes a host microphone with Ray's
+voice and answers YouTube and Twitch chat. The [dialogue router](conversation-controls.md#topic-changes-and-recall)
+decides per turn whether to retrieve knowledge. Character interests and
+bilingual memory extraction follow the same acknowledgement rule. The
+[implementation history](implementation-history.md) and the dated
+[operations records](studio-operations.md#read-the-console-and-verify-delivery)
+describe how each change was observed.
+
 ## Limits
 
 The local checks verify state transitions, request assembly, retrieval boundaries,

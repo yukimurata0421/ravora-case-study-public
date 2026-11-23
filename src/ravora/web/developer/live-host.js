@@ -1,12 +1,80 @@
+import { startMetrics } from './live-metrics.js';
+
 const secret = location.hash.slice(1);
 history.replaceState(null, '', location.pathname);
 const headers = {Authorization: 'Bearer ' + secret};
+startMetrics(headers);
 const micButton = document.querySelector('#mic');
+function volumeControl(id, endpoint, field, {muteAt, live = false} = {}) {
+  const slider = document.getElementById(id);
+  const label = document.getElementById(id + '-value');
+  const error = document.getElementById(id + '-error');
+  let revision = 0, saving = false, pending = null, timer = null;
+  function show(db) {
+    slider.value = String(db);
+    label.value = db === muteAt ? '消音' : db + ' dB';
+    slider.setAttribute('aria-valuetext', label.value);
+  }
+  async function save() {
+    clearTimeout(timer);
+    timer = null;
+    pending = slider.valueAsNumber;
+    revision++;
+    if (saving) return;
+    saving = true;
+    try {
+      while (pending !== null) {
+        const db = pending;
+        pending = null;
+        try {
+          const response = await fetch(endpoint, {
+            method: 'POST', headers: {...headers, 'Content-Type': 'application/json'},
+            body: JSON.stringify({[field]: db}), signal: AbortSignal.timeout(4000)
+          });
+          if (!response.ok) throw new Error();
+          error.textContent = '';
+        } catch {
+          error.textContent = '音量の変更を確認できませんでした。';
+        }
+      }
+    } finally {
+      saving = false;
+      revision++;
+    }
+  }
+  slider.oninput = () => {
+    show(slider.valueAsNumber);
+    revision++;
+    if (live && timer === null) timer = setTimeout(save, 100);
+  };
+  slider.onchange = () => {
+    show(slider.valueAsNumber);
+    return save();
+  };
+  return {
+    get revision() { return revision; },
+    sync(db, requestedRevision) {
+      slider.disabled = !Number.isFinite(db);
+      if (!slider.disabled && requestedRevision === revision && !saving && timer === null && !slider.matches(':active')) show(db);
+    }
+  };
+}
+
+const hostVolume = volumeControl('host-volume', '/v1/host/mic/volume', 'host_trim_db');
+const bgmVolume = volumeControl('bgm-volume', '/v1/host/bgm/volume', 'volume_db', {muteAt: -60, live: true});
+const bgmTrack = document.querySelector('#bgm-track');
 const talkMode = document.querySelector('#talk-mode');
 const record = document.querySelector('#record'), monitor = document.querySelector('#monitor');
+const transportStatus = document.querySelector('#transport-status');
+const chatStatus = document.querySelector('#chat-status');
+const chatStates = {connecting: '接続中', reading: '接続済み', reconnecting: '再接続中', failed: '接続エラー', stopped: '終了'};
+const transportStates = {connecting: '接続中', waiting_keyframe: 'キーフレーム待ち', retry_wait: '再接続待ち',
+  writing: 'RTMPSに書き込み中', failed: '停止', closed: '終了', stopped_during_recovery: '再接続中に終了',
+  stopped_without_media: '送出前に終了'};
 const notice = document.querySelector('#notice'), caption = document.querySelector('#caption');
 let mic, submitting = false, limit, dell = false;
 let playback, lastAudio, monitorChosen = false, monitorReset, nextSound = 0;
+let sequencedMonitor = false, replyMonitor;
 const sources = new Set();
 let sessionChange = Promise.resolve();
 const languageTabs = document.querySelector('#language-tabs');
@@ -76,6 +144,9 @@ function recognitionMessage(code) {
     AUDIO_SILENCE: 'マイクの入力音量が小さいようです。',
     HOST_NO_VOICE: '発話区間を検出できませんでした。',
     HOST_SPEECH_UNCLEAR: '音声を言葉として読み取れませんでした。',
+    STT_NO_FINAL_TRANSCRIPT: 'クラウド音声認識で言葉を聞き取れませんでした。',
+    STT_SESSION_LIMIT: 'この起動で使える音声認識の回数に達しました。',
+    STT_MONTHLY_AUDIO_LIMIT: '今月の音声認識の利用上限に達しました。',
     HOST_LANGUAGE_UNCERTAIN: '発言の言語を判別できませんでした。',
     HOST_MIC_BUSY: '先の発言を処理中です。'
   };
@@ -241,7 +312,10 @@ async function openMic() {
 }
 
 micButton.onclick = () => mic ? mute(mic, 'マイクはミュートです。') : openMic();
-window.addEventListener('pagehide', () => { if (mic) mute(mic, 'マイクはミュートです。'); });
+window.addEventListener('pagehide', event => {
+  if (mic) mute(mic, 'マイクはミュートです。');
+  if (!event.persisted) replyMonitor?.stop();
+});
 
 async function questionWave(chunks) {
   const length = chunks.reduce((n, chunk) => n + chunk.length, 0);
@@ -332,17 +406,59 @@ record.onclick = () => {
 
 monitor.onclick = async () => {
   monitorChosen = true;
-  if (playback) { const old = playback; playback = null; await old.close(); sources.clear(); nextSound = 0; monitor.textContent = '返答モニターを有効化'; }
-  else { playback = new AudioContext(); await playback.resume(); monitor.textContent = '返答モニターを消音'; }
+  if (playback) {
+    replyMonitor?.stop();
+    replyMonitor = null;
+    const old = playback; playback = null;
+    await old.close(); sources.clear(); nextSound = 0;
+    monitor.textContent = '返答モニターを有効化';
+  } else {
+    const output = new AudioContext({sampleRate: 48000});
+    playback = output;
+    try {
+      await output.resume();
+      if (sequencedMonitor) {
+        const {ReplyMonitor} = await import('./live-monitor.js');
+        if (playback !== output) return;
+        replyMonitor = new ReplyMonitor(output, headers);
+        replyMonitor.poll();
+      }
+      monitor.textContent = '返答モニターを消音';
+    } catch {
+      if (playback === output) { playback = null; await output.close(); }
+      notice.textContent = '返答モニターを有効化できませんでした。もう一度押してください。';
+    }
+  }
   lastAudio = null;
   monitor.setAttribute('aria-pressed',String(Boolean(playback)));
 };
 async function update() {
   try {
     const revision = languageRequest;
+    const trimRevision = hostVolume.revision, bgmRevision = bgmVolume.revision;
     const response = await fetch('/v1/status', {headers});
     if (!response.ok) { notice.textContent = '起動時に表示された操作URLを開いてください'; return; }
     const state = await response.json();
+    sequencedMonitor = state.monitor_protocol === 'sequence_v1';
+    hostVolume.sync(state.host_trim_db, trimRevision);
+    bgmVolume.sync(state.bgm?.available ? state.bgm.volume_db : null, bgmRevision);
+    bgmTrack.textContent = !state.bgm ? '未設定' : !state.bgm.available ? '再生できる曲がありません'
+      : [state.bgm.track, state.bgm.failed_tracks ? '再生できない曲をスキップ' : ''].filter(Boolean).join(' · ');
+    if (state.transport) {
+      const {state: phase, attempts, error} = state.transport;
+      const waiting = phase === 'writing' && state.transport.last_mux_age_seconds >= 2;
+      const label = '配信送出　' + (waiting ? '書き込み待ち' : transportStates[phase] || phase)
+        + (attempts > 1 ? '（接続試行 ' + attempts + ' 回）' : '') + (error ? '　' + error : '');
+      if (transportStatus.textContent !== label) transportStatus.textContent = label;
+      transportStatus.hidden = false;
+    }
+    if (state.chat?.transport === 'twitch_eventsub_websocket') {
+      const {status, code, counts} = state.chat;
+      const label = 'Twitchチャット　' + (chatStates[status] || status)
+        + '（受付 ' + (counts?.queued || 0) + ' 件）' + (code ? '　' + code : '');
+      if (chatStatus.textContent !== label) chatStatus.textContent = label;
+      chatStatus.hidden = false;
+    }
     if (revision === languageRequest && !switching) showLanguage(state);
     if (!limit) {
       if (state.reply_mode === 'cloud' && state.conversation_language) {
@@ -363,6 +479,10 @@ async function update() {
       notice.textContent = '返答を生成できませんでした。' + (state.conversation_paused || state.last_error);
     caption.textContent = [state.stage.host_caption && 'HOST ' + state.stage.host_caption, state.stage.speaker, state.stage.caption].filter(Boolean).join('　');
     const name = state.monitor_audio, output = playback;
+    if (sequencedMonitor) {
+      replyMonitor?.invalidate(state.monitor_reset);
+      return;
+    }
     if (monitorReset !== state.monitor_reset) {
       for (const source of sources) source.stop();
       sources.clear(); nextSound = 0; monitorReset = state.monitor_reset;
@@ -391,6 +511,6 @@ async function update() {
       }
     }
   } catch { notice.textContent = '配信バックエンドとの接続を確認してください'; }
-  setTimeout(update, 150);
+  finally { setTimeout(update, 150); }
 }
 update();

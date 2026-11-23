@@ -181,6 +181,12 @@ class FastVoiceServer:
             dialogue_reactions=True,end_silence_ms=self.end_silence_ms,evaluation=self.evaluation)
         self.connection=ws
         self.session=session;self.sessions.append(session)
+        async def initiative_loop():
+            while not session.closed:
+                await asyncio.sleep(2)
+                try:await session.maybe_initiate()
+                except Exception:pass  # Optional initiative never replaces a viewer turn or retries an unknown call.
+        initiative_task=asyncio.create_task(initiative_loop())
         try:
             await send({'kind':'ready','config':{**session.public(),'default_input':self.default_input,
                 'dell_mic_available':self.dell_device is not None,'end_mode':self.default_end_mode,'handsfree':True,'mic_mute_supported':True,'avatar_available':self.demo_avatar is not None,
@@ -206,6 +212,7 @@ class FastVoiceServer:
                         session.select_language(value['language'])
                     elif kind=='audio_start' and {'kind','input_id','language'} <= value.keys() <= {'kind','input_id','language','source','end_mode'}:
                         if session.mic_muted:continue
+                        if session.initiative:await session.cancel('VIEWER_PRIORITY')
                         # Older clients and recorded fixtures always supply their own PCM.
                         source=value.get('source','windows')
                         if source not in ('windows','dell'):raise EdgeError('INVALID_MIC_SOURCE')
@@ -214,6 +221,7 @@ class FastVoiceServer:
                             dell_device=self.dell_device if source=='dell' else None,end_mode=value.get('end_mode','manual'))
                     elif kind=='audio_end' and set(value)=={'kind','input_id'}:await session.end_audio(value['input_id'])
                     elif kind=='text' and {'kind','input_id','text'} <= set(value) <= {'kind','input_id','text','language'}:
+                        if session.initiative:await session.cancel('VIEWER_PRIORITY')
                         if not isinstance(value['text'],str):raise EdgeError('INVALID_TEXT')
                         await session.start_text(value['input_id'],value['text'],language=value.get('language'))
                     elif kind=='cancel' and set(value)=={'kind'}:await session.cancel()
@@ -229,6 +237,7 @@ class FastVoiceServer:
         except ConnectionClosed:
             pass  # A lost operator connection releases the microphone below.
         finally:
+            initiative_task.cancel();await asyncio.gather(initiative_task,return_exceptions=True)
             try:await session.close()
             finally:self.connection=None
     async def close(self):

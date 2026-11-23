@@ -10,6 +10,36 @@ METHOD = '/youtube.api.v3.V3DataLiveChatMessageService/StreamList'
 EVENT_NAMES = {'TEXT_MESSAGE_EVENT': 'textMessageEvent', 'TOMBSTONE': 'tombstone',
                'CHAT_ENDED_EVENT': 'chatEndedEvent', 'USER_BANNED_EVENT': 'userBannedEvent'}
 
+def _rpc_error(error):
+    code = 'YOUTUBE_GRPC_' + error.code().name
+    failure = ProviderError(code)
+    if code != 'YOUTUBE_GRPC_RESOURCE_EXHAUSTED':
+        return failure
+    # Providers may attach structured retry/quota instructions. Never expose their raw metadata.
+    try:
+        from google.rpc import error_details_pb2, status_pb2
+        from google.protobuf.message import DecodeError
+    except ImportError:
+        return failure
+    for key, value in error.trailing_metadata() or ():
+        if key != 'grpc-status-details-bin' or not isinstance(value, bytes) or len(value) > 65536:
+            continue
+        try:
+            status = status_pb2.Status.FromString(value)
+            if status.code != 8:
+                continue
+            for detail in status.details:
+                info = error_details_pb2.ErrorInfo()
+                retry = error_details_pb2.RetryInfo()
+                if detail.Unpack(info) and info.reason.replace('_','').lower() == 'dailylimitexceeded':
+                    return ProviderError('YOUTUBE_DAILY_LIMIT_EXCEEDED')
+                if detail.Unpack(retry):
+                    delay = retry.retry_delay.seconds + retry.retry_delay.nanos / 1e9
+                    failure.retry_after = max(delay, getattr(failure,'retry_after',0))
+        except DecodeError:
+            continue
+    return failure
+
 
 @contextmanager
 def stream_list(settings, chat, cursor, timeout, stop, *, access_token=None):
@@ -51,7 +81,7 @@ def stream_list(settings, chat, cursor, timeout, stop, *, access_token=None):
                     yield page
             except grpc.RpcError as error:
                 # The remote detail string and debug metadata are never public diagnostics.
-                raise ProviderError('YOUTUBE_GRPC_' + error.code().name) from None
+                raise _rpc_error(error) from None
 
         watcher = threading.Thread(target=cancel_on_stop, daemon=True)
         watcher.start()

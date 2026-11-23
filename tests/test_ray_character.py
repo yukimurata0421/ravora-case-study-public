@@ -1,6 +1,7 @@
 import asyncio
 from dataclasses import replace
 import json
+import random
 from pathlib import Path
 import sqlite3
 import tempfile
@@ -16,13 +17,130 @@ from ravora.database import MIGRATIONS
 from ravora.fast_voice import FastVoiceSession
 from ravora.fast_voice_server import MockVoiceClients
 from ravora.memory_worker import MemoryWorker
-from ravora.ray_character import (TRAITS,CharacterRuntime,CharacterError,InnerState,PublicDecoder,PublicOutput,
+from ravora.ray_character import (OPENING_IDEAS,PROJECTS,TRAITS,CharacterOpening,CharacterRuntime,CharacterError,InnerState,PublicDecoder,PublicOutput,
                                   PublicPlan,initiative_message,public_fixture,public_prompt)
 from ravora.ray_memory import CharacterMemory
-from ravora.settings import ProviderSettings
+from ravora.settings import ProviderSettings, load_settings
 
 
 class StateTests(unittest.TestCase):
+    def test_idle_draws_vary_in_order_and_exclude_recent_aired_topics_and_angles(self):
+        def draw(seed):
+            now = [0.]
+            ray = CharacterRuntime(clock=lambda:now[0],idle_seconds=60,max_initiatives=-1,rng=random.Random(seed))
+            draws = []
+            for i in range(128):
+                now[0] += 60
+                opening = ray.take_followup()
+                self.assertIn(opening.angle,OPENING_IDEAS[opening.topic])
+                self.assertNotIn(opening.topic,[topic for topic,_ in draws[-3:]])
+                self.assertNotIn((opening.topic,opening.angle),draws[-16:])
+                self.assertEqual([ref.turn for ref in opening.previous],[str(n) for n in range(max(0,i-2),i)])
+                epoch = ray.begin(str(i),opening.message,initiative=True,opening=opening)
+                ray.route(epoch,opening.message,[],initiative=True)
+                direction = ray.plan(opening.message,epoch=epoch,initiative=True).instruction()
+                self.assertIn(opening.angle,direction)
+                self.assertFalse(any(fixed in direction for fixed in PROJECTS.values()))
+                ray.played(str(i),str(i),'ray',None,initiative=True)
+                draws.append((opening.topic,opening.angle))
+            self.assertEqual({topic for topic,_ in draws},set(OPENING_IDEAS))
+            self.assertEqual(len(ray.recent_ideas),16)
+            return draws
+        self.assertNotEqual(draw(13),draw(29))
+
+    def test_unheard_idle_opening_is_never_aired_history(self):
+        ray = CharacterRuntime(clock=lambda:0.,idle_seconds=60,max_initiatives=-1)
+        ray.last_activity = -60.
+        opening = ray.take_followup()
+        ray.begin('one',opening.message,initiative=True,opening=opening)
+        ray.cancel(event='one')
+        ray.played('one','turn','ray',None,initiative=True)
+        ray.last_activity = -60.
+        self.assertEqual(ray.take_followup().previous,())
+        self.assertFalse(ray.recent_ideas)
+
+    def test_studio_repeats_after_full_quiet_minutes_until_disabled(self):
+        with tempfile.TemporaryDirectory() as directory:
+            path = Path(directory)/'.env'
+            settings = load_settings(path, live_studio=True, environ={})
+            disabled = load_settings(path, live_studio=True, environ={'RAVORA_CHARACTER_MAX_INITIATIVES':'0'})
+            self.assertEqual(disabled.character_max_initiatives, 0)
+        self.assertEqual((settings.character_idle_seconds,settings.character_max_initiatives), (60,-1))
+        now = [0.]
+        ray = CharacterRuntime(clock=lambda:now[0], idle_seconds=settings.character_idle_seconds,
+                               max_initiatives=settings.character_max_initiatives)
+        topics = []
+        for index in range(7):
+            now[0] += 59
+            self.assertIsNone(ray.take_followup())
+            now[0] += 1
+            candidate = ray.take_followup()
+            self.assertIsInstance(candidate, CharacterOpening)
+            topics.append(candidate.topic)
+            self.assertIsNone(ray.take_followup())
+            event = str(index)
+            ray.begin(event,candidate.message,initiative=True,opening=candidate)
+            now[0] += 8
+            ray.played(event,event,'ray',None,initiative=True)
+        self.assertEqual(len(set(topics[:len(PROJECTS)])),len(PROJECTS))
+        self.assertTrue(all(a != b for a,b in zip(topics,topics[1:])))
+        self.assertEqual(ray.metrics()['followups_played'],7)
+
+        # A real conversation can still leave a follow-up after the old four-turn limit.
+        text = 'I made a puzzle.'
+        epoch = ray.begin('host',text,viewer='host')
+        ray.route(epoch,text,[])
+        ray.plan(text,epoch=epoch,host_speaking=True)
+        ray.played('host','heard','host',(text,'I wonder what makes this puzzle fair.'))
+        now[0] += 60
+        self.assertEqual(ray.take_followup().turn,'heard')
+        now[0] += 600
+        self.assertIsInstance(ray.take_followup(),CharacterOpening)
+        self.assertIsNone(ray.take_followup())
+
+    def test_opening_uses_the_shared_budget_and_only_owns_the_first_silence(self):
+        clock = [0.]
+        self.assertEqual(CharacterRuntime().max_initiatives,ProviderSettings().character_max_initiatives)
+        self.assertEqual(ProviderSettings().character_max_initiatives,4)
+        ray = CharacterRuntime(clock=lambda:clock[0],idle_seconds=45,max_initiatives=1)
+        clock[0] = 44
+        self.assertIsNone(ray.take_followup())
+        clock[0] = 45
+        start = ray.take_followup()
+        self.assertIsInstance(start,CharacterOpening)
+        self.assertIn(start.topic,PROJECTS)
+        epoch = ray.begin('opening',start.message,viewer='ray',initiative=True,opening=start)
+        self.assertEqual(ray.route(epoch,start.message,[],initiative=True).dialogue_policy,'OPEN_TOPIC')
+        self.assertEqual(ray.plan(start.message,initiative=True).project,start.topic)
+        self.assertIsNone(ray.opening_reference(epoch))
+        ray.played('opening','heard','ray',None,initiative=True)
+        self.assertEqual(ray.opening_reference(epoch).turn,'heard')
+        clock[0] += 45
+        self.assertIsNone(ray.take_followup())
+        for text in ('I need a quiet moment.','Wait, I have a question.'):
+            fresh = CharacterRuntime(clock=lambda:clock[0])
+            fresh.begin('human',text)
+            clock[0] += 45
+            self.assertIsNone(fresh.take_followup())
+        disabled = CharacterRuntime(clock=lambda:clock[0],max_initiatives=0)
+        clock[0] += 45
+        self.assertIsNone(disabled.take_followup())
+
+    def test_matching_project_can_continue_from_an_opinion_without_a_catchphrase(self):
+        ray = CharacterRuntime()
+        text = 'I made a puzzle.'
+        epoch = ray.begin('one',text,viewer='host')
+        ray.route(epoch,text,[])
+        self.assertEqual(ray.plan(text,epoch=epoch,host_speaking=True).project,'puzzles')
+        ray.played('one','turn','host',(text,'A puzzle with the answer first changes who has the advantage.'))
+        self.assertEqual(ray.thread.topic,'puzzles')
+        for text in ('What is a puzzle?', 'I am too tired to solve a puzzle.'):
+            epoch = ray.begin(text,text,viewer='host')
+            ray.route(epoch,text,[])
+            self.assertFalse(ray.plan(text,epoch=epoch,host_speaking=True).project)
+            ray.played(text,'next','host',(text,'A puzzle can have more than one solution.'))
+            self.assertIsNone(ray.thread)
+
     def test_emotion_is_transient_private_and_stale_reactions_cannot_overwrite_it(self):
         clock=[0.];ray=CharacterRuntime(clock=lambda:clock[0])
         old=ray.begin('one','Thank you, that was wonderful.')
@@ -39,7 +157,7 @@ class StateTests(unittest.TestCase):
         self.assertNotIn('PRIVATE_INNER_SENTINEL',prompt)
         self.assertNotIn('UNPUBLISHED_CONFLICT',prompt)
         self.assertNotIn('PRIVATE_INNER_SENTINEL',repr(ray.state))
-        self.assertEqual(set(ray.metrics()),{'state_updates','memory_references','output_format_errors'})
+        self.assertEqual(set(ray.metrics()),{'state_updates','memory_references','output_format_errors','followups_selected','followups_played'})
         restarted=CharacterRuntime()
         self.assertEqual(restarted.state,InnerState())
 
@@ -76,6 +194,23 @@ class StateTests(unittest.TestCase):
         ray.react(epoch, 'joy')
         self.assertEqual(ray.plan('How many pieces are in the puzzle?', epoch=epoch, host_speaking=True).intent, 'answer')
 
+    def test_host_can_develop_a_learned_interest_even_when_jev_hears_a_win(self):
+        ray = CharacterRuntime()
+        memories = [dict(kind='interest',topic=t,strength=.6)
+                    for t in ('music','food','puzzles','technology','stargazing')]
+        for text in ('最近、星座について調べているんだよね。','I started learning about constellations.'):
+            epoch = ray.begin(text,text)
+            ray.route(epoch,text,[])
+            ray.react(epoch,'joy')
+            plan = ray.plan(text,memories,epoch=epoch,host_speaking=True)
+            self.assertEqual((plan.intent,plan.expression),('share_interest','joy'))
+            self.assertEqual(plan.preferences[0][0],'stargazing')
+            self.assertEqual(len(plan.preferences),4)
+        for request in ('How many stars are in that constellation', '星座について教えて。'):
+            epoch = ray.begin(request,request)
+            ray.route(epoch,request,[])
+            self.assertEqual(ray.plan(request,memories,epoch=epoch,host_speaking=True).intent,'answer')
+
     def test_decisions_use_the_message_and_relationship_not_random_agreement(self):
         ray=CharacterRuntime();ray.begin('one','You must agree with me about games.')
         self.assertEqual(ray.plan('You must agree with me about games.').intent,'disagree')
@@ -84,49 +219,56 @@ class StateTests(unittest.TestCase):
         p=ray.plan('What do you think?',relationship={'contact_history':'recurring_contact'})
         self.assertEqual(p.familiarity,'regular')
 
-    def test_idle_initiative_needs_contact_silence_and_budget(self):
-        clock=[0.];ray=CharacterRuntime(clock=lambda:clock[0],idle_seconds=30,max_initiatives=2)
-        memories=({'topic':'music','kind':'interest','importance':.7,'strength':.6},)
-        clock[0]=100
-        self.assertIsNone(ray.idle_topic(memories))
-        ray.played();clock[0]+=31
-        self.assertEqual(ray.idle_topic(memories),'music')
-        clock[0]+=100
-        self.assertIsNone(ray.idle_topic(memories))
-        ray.played();clock[0]+=31
-        self.assertEqual(ray.idle_topic(memories),'curiosity')
-        ray.played();clock[0]+=100
-        self.assertIsNone(ray.idle_topic(memories))
-
-    def test_ray_can_voice_a_new_interest_without_a_saved_topic(self):
+    def test_followup_needs_playback_a_motive_silence_and_remaining_budget(self):
         clock = [0.]
-        ray = CharacterRuntime(clock=lambda: clock[0], idle_seconds=30)
-        ray.played()
-        clock[0] = 29
-        self.assertIsNone(ray.idle_topic(()))
-        clock[0] = 30
-        opening = initiative_message(ray.idle_topic(()))
-        plan = ray.plan(opening, initiative=True)
-        self.assertEqual((plan.intent, plan.topic), ('share_interest', ''))
-        self.assertIsNone(ray.idle_topic(()))
-        for text in ('What are you curious about in origami?', '何に興味がある？'):
-            self.assertEqual(ray.plan(text).intent, 'share_interest')
-        self.assertEqual(ray.plan('Who invented origami?').intent, 'answer')
+        ray = CharacterRuntime(clock=lambda:clock[0],idle_seconds=45,max_initiatives=2)
+        for i in range(3):
+            event = str(i)
+            text = '最近、宇宙について考えてる。'
+            epoch = ray.begin(event,text,viewer='host')
+            ray.route(epoch,text,[])
+            clock[0] += 46
+            self.assertIsNone(ray.take_followup())
+            exchange = (text,'宇宙の端があるのか、私はまだ気になる。')
+            ray.played(event,event,'host',exchange)
+            clock[0] += 44
+            self.assertIsNone(ray.take_followup())
+            clock[0] += 1
+            followup = ray.take_followup()
+            if i < 2:
+                self.assertEqual((followup.topic,followup.turn,followup.owner),('science',event,'host'))
+                self.assertNotIn(exchange[1],initiative_message(followup.topic))
+            else:
+                self.assertIsNone(followup)
+            ray.played(event,event,'host',exchange)
+            self.assertIsNone(ray.take_followup())
 
-    def test_public_interest_can_be_volunteered_and_other_interests_get_a_turn(self):
-        clock = [0.]
-        ray = CharacterRuntime(clock=lambda: clock[0], idle_seconds=30)
-        memories = ({'topic':'games','kind':'goal','importance':.85,'strength':.52},
-                    {'topic':'science','kind':'interest','importance':.6,'strength':.52})
+    def test_backchannel_keeps_same_speakers_thread_and_topic_changes_close_it(self):
+        ray=CharacterRuntime()
+        ray.begin('first','A puzzle.',viewer='one')
+        ray.played('first','turn1','one',('A puzzle.','I wonder if reversing the puzzle would help.'))
+        epoch=ray.begin('ack','Yeah.',viewer='one')
+        ray.route(epoch,'Yeah.',[('user','A puzzle.'),('model','Turn the puzzle around.')])
+        self.assertEqual(ray.plan('Yeah.',epoch=epoch).topic,'puzzles')
+        ray.played('ack','turn2','one',('Yeah.','That changes the view.'))
+        self.assertEqual(ray.thread.turn,'turn1')
+        ray.begin('other','Yeah.',viewer='two')
+        self.assertIsNone(ray.thread)
+        for text,speech in [('I need to rest.','I wonder about that.'),
+                            ('A telescope.','What do you think?'),('A telescope.','Nice!')]:
+            ray.begin(text+speech,text,viewer='one')
+            ray.played(text+speech,'turn3','one',(text,speech))
+            self.assertIsNone(ray.thread)
+        self.assertIsNone(CharacterRuntime().thread)
+
+    def test_public_interest_can_be_volunteered_without_an_automatic_monologue(self):
+        ray = CharacterRuntime()
+        memories = ({'topic':'science','kind':'interest','importance':.6,'strength':.52},)
         ray.begin('first', 'A science experiment surprised me.')
         self.assertEqual(ray.plan('A science experiment surprised me.', memories).intent, 'share_interest')
-        for expected_topic, expected_intent in [('games','resume_topic'), ('science','share_interest')]:
-            ray.played()
-            clock[0] += 31
-            topic = ray.idle_topic(memories)
-            self.assertEqual(topic, expected_topic)
-            plan = ray.plan(initiative_message(topic), memories, initiative=True)
-            self.assertEqual((plan.topic, plan.intent), (expected_topic, expected_intent))
+        for text in ('What are you curious about in origami?', '何に興味がある？'):
+            self.assertEqual(ray.plan(text).intent,'share_interest')
+        self.assertEqual(ray.plan('Who invented origami?').intent,'answer')
 
     def test_ten_thousand_events_over_a_simulated_day_keep_bounded_live_state(self):
         clock=[0.];ray=CharacterRuntime(clock=lambda:clock[0])
@@ -145,7 +287,7 @@ class StateTests(unittest.TestCase):
 
 class BoundaryTests(unittest.TestCase):
     def test_semantic_review_does_not_treat_valid_shape_as_a_pass(self):
-        from ravora.character_evaluation import SCENARIOS,REVIEW_FIELDS,review_outputs
+        from scripts.evaluate_character import SCENARIOS,REVIEW_FIELDS,review_outputs
         records=[{'scenario':s[0],'public_output':{'speech':'Tell me a little more.','expression':'thinking','motion':'none'},
                   'review':dict.fromkeys(REVIEW_FIELDS)} for s in SCENARIOS]
         self.assertEqual(review_outputs(records)['status'],'PENDING_HUMAN_SEMANTIC_REVIEW')
@@ -212,21 +354,6 @@ class PersistentTests(unittest.TestCase):
             self.assertEqual(tuple(json.loads(db.execute('SELECT traits FROM character_profiles').fetchone()[0])), TRAITS)
         self.assertEqual(CharacterRuntime().state,InnerState())
 
-    def test_initial_interests_preserve_existing_strength_and_explicit_deletion_on_restart(self):
-        self.repo.seed_initial_interests()
-        initial = {m['topic']: m for m in self.repo.load()}
-        self.assertEqual(set(initial), {'puzzles', 'stargazing', 'technology'})
-        self.assertTrue(all(m['configured'] and m['strength'] == .6 for m in initial.values()))
-        self.repo.set_preference('stargazing', .72, kind='interest')
-        self.repo.delete(initial['puzzles']['id'])
-        reopened = CharacterMemory(MemoryStore(self.store.path), 'offline')
-        reopened.seed_initial_interests()
-        self.assertEqual({m['topic']: m['strength'] for m in reopened.load()}, {'technology': .6, 'stargazing': .72})
-        with self.store.connect() as db:
-            self.assertEqual(db.execute('SELECT count(*) FROM character_preference_history').fetchone()[0], 4)
-            self.assertEqual(db.execute('SELECT count(*) FROM memory_items').fetchone()[0], 0)
-        self.assertEqual(CharacterMemory(self.store, 'cloud').load(), ())
-
     def test_configured_interests_in_self_disclosure_and_japanese_growth(self):
         from ravora.ray_character import topics_in
         self.assertIn('technology', topics_in('ＡＩの声を文字起こししたよ。'))
@@ -253,11 +380,23 @@ class PersistentTests(unittest.TestCase):
         epoch=ray.begin('ask',question); route=ray.route(epoch,question,[])
         self.assertFalse(route.need_knowledge_rag)
         memories=worker.character_memories(comment.viewer,route)
-        self.assertEqual({m['topic'] for m in memories},{'stargazing','puzzles'})
+        self.assertEqual({m['topic'] for m in memories},{'stargazing','puzzles','music'})
         self.assertAlmostEqual(next(m['strength'] for m in memories if m['topic']=='stargazing'),.62)
         plan=ray.plan(question,memories,epoch=epoch)
         self.assertEqual(plan.intent,'share_interest')
         self.assertIn('constellations',plan.instruction())
+        from ravora.dialogue_router import DialogueRoute
+        from ravora.ray_character import owner_hash
+        goal = dict(kind='goal',topic='science',strength=.7,owner_hash=owner_hash('offline',comment.viewer))
+        with worker.lock:
+            worker.character_cache += (goal,dict(goal,topic='food',owner_hash=owner_hash('offline','someone-else')))
+        saturated = DialogueRoute(topic_saturation=.7)
+        for r in (route,saturated,DialogueRoute(need_knowledge_rag=False,dialogue_policy='CONTINUE_TOPIC')):
+            found = worker.character_memories(comment.viewer,r)
+            self.assertEqual({m['topic'] for m in found},{'stargazing','puzzles','music'})
+        recall = worker.character_memories(comment.viewer,saturated,'What did I say last time?')
+        self.assertEqual([m['topic'] for m in recall if m['kind']=='goal'],['science'])
+
 
     def test_existing_ray_gains_the_new_disposition_once_and_keeps_preferences(self):
         legacy = self.root/'v14'
@@ -287,6 +426,8 @@ class PersistentTests(unittest.TestCase):
         self.assertEqual(self.repo.promote(unplayed),0)
         private,_=self.exchange('Keep this off stream: let us talk about games next time.','We can continue next time.')
         self.assertEqual(self.repo.promote(private),0)
+        self.assertIsNone(self.store.followup_exchange(private,comment.viewer,'offline'))
+        self.assertIsNone(self.store.followup_exchange(turn,'other-viewer','offline'))
 
     def test_source_removal_withdraws_the_contribution_and_reset_blocks_replay(self):
         turn,comment=self.exchange('Let us talk about music next time.','Let us continue with music next time.')
@@ -316,6 +457,21 @@ class PersistentTests(unittest.TestCase):
             worker.wake();worker.thread.join(2)
             self.assertFalse(claim.called)
         self.assertIsNone(worker.last_error)
+
+    def test_initial_interests_preserve_existing_strength_and_explicit_deletion_on_restart(self):
+        self.repo.seed_initial_interests()
+        initial = {m['topic']: m for m in self.repo.load()}
+        self.assertEqual(set(initial), {'puzzles', 'stargazing', 'technology'})
+        self.assertTrue(all(m['configured'] and m['strength'] == .6 for m in initial.values()))
+        self.repo.set_preference('stargazing', .72, kind='interest')
+        self.repo.delete(initial['puzzles']['id'])
+        reopened = CharacterMemory(MemoryStore(self.store.path), 'offline')
+        reopened.seed_initial_interests()
+        self.assertEqual({m['topic']: m['strength'] for m in reopened.load()}, {'technology': .6, 'stargazing': .72})
+        with self.store.connect() as db:
+            self.assertEqual(db.execute('SELECT count(*) FROM character_preference_history').fetchone()[0], 4)
+            self.assertEqual(db.execute('SELECT count(*) FROM memory_items').fetchone()[0], 0)
+        self.assertEqual(CharacterMemory(self.store, 'cloud').load(), ())
 
 
 class CapturingClients(MockVoiceClients):
@@ -427,18 +583,22 @@ class PipelineTests(unittest.IsolatedAsyncioTestCase):
         self.assertLess(order.index('reaction'),order.index('pcm'))
 
     async def test_initiative_does_not_interrupt_recording_or_create_viewer_memory(self):
-        self.session.character.last_activity-=1000;self.session.character.user_turns=1
-        self.session.memory.character_cache=({'id':'m','owner_hash':'','kind':'interest','topic':'music','strength':.6,'importance':.8},)
-        self.session.viewer='previous-viewer'
+        async def reply(text,**kwargs):
+            yield public_fixture('I wonder how changing one note changes the music.')
+        reply.ray_public_output=True
+        self.clients.generate=reply
+        await self.generate('I listen to music.')
+        self.assertTrue(self.session.played(self.session.token,self.session.expected_frames))
+        self.session.character.last_activity-=46
         self.session.phase='listening'
         self.assertFalse(await self.session.maybe_initiate())
-        self.session.phase='idle'
+        self.session.phase='played'
         self.assertTrue(await self.session.maybe_initiate())
         await asyncio.wait_for(self.session.task,5)
         self.assertTrue(self.session.played(self.session.token,self.session.expected_frames))
         with self.store.connect() as db:
-            self.assertEqual(db.execute('SELECT platform FROM source_events').fetchone()[0],'ray-initiative')
-            self.assertEqual(db.execute('SELECT COUNT(*) FROM memory_jobs').fetchone()[0],0)
+            self.assertEqual(db.execute("SELECT count(*) FROM source_events WHERE platform='ray-initiative'").fetchone()[0],1)
+            self.assertEqual(db.execute("SELECT COUNT(*) FROM memory_jobs WHERE turn_id=?",(self.session.token['turn_id'],)).fetchone()[0],0)
         self.assertTrue(any(e['kind']=='initiative' for e in self.events))
 
 

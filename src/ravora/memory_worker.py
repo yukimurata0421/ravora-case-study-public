@@ -36,14 +36,13 @@ class MemoryWorker:
     def live_extraction(self):
         return self.s.comment_source in ('youtube', 'developer') and self.s.memory_api_enabled and self.remote
 
-    def character_memories(self,viewer,route=None):
-        if route is not None and route.rag_skip_reason:
-            if route.dialogue_policy != 'SELF_DISCLOSURE' or route.topic_saturation >= .7:
-                return ()
-            with self.lock:
-                return tuple(dict(m) for m in self.character_cache if not m['owner_hash'] and m.get('configured'))
-        owner=owner_hash(self.s.mode,viewer)
-        with self.lock:return tuple(dict(m) for m in self.character_cache if m['owner_hash'] in ('',owner))
+    def character_memories(self,viewer,route=None,query=''):
+        owner = owner_hash(self.s.mode,viewer)
+        include_owner = route is None or not route.rag_skip_reason or route.explicit_recall(query)
+        with self.lock:
+            return tuple(dict(m) for m in self.character_cache
+                         if (not m['owner_hash'] and m['kind'] in ('interest','preference','value'))
+                         or (include_owner and m['owner_hash'] == owner))
 
     def offer_character(self,turn_id):
         if self.character is None or self.stop.is_set():return

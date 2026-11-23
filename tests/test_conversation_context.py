@@ -24,6 +24,7 @@ from ravora.ray_character import public_fixture
 from ravora.providers import GeminiText
 from ravora.settings import ProviderSettings,SettingsError,load_settings
 from support import HTTP,Reaction,Speech
+from legacy_turn import insert_legacy_turn
 
 
 class ContextTests(unittest.TestCase):
@@ -61,7 +62,11 @@ class ContextTests(unittest.TestCase):
         path=self.root/'v12.sqlite3'
         old=MemoryStore(path,migrations=old_dir)
         def add(store,platform,author):
-            c,_=self.turn('I prefer coffee.','Thanks.',platform=platform,author=author,store=store)
+            if store is old:
+                c,turn=self.source('I prefer coffee.',platform=platform,author=author,store=store)
+                insert_legacy_turn(store,c,turn,'Thanks.',played=True)
+            else:
+                c,_=self.turn('I prefer coffee.','Thanks.',platform=platform,author=author,store=store)
             key=store.candidate_memory(c.viewer,'I prefer coffee.',[c.receipt],scope='offline')
             store.approve_memory(key,reviewed_non_sensitive=True)
             return c,key
@@ -203,11 +208,15 @@ class ContextTests(unittest.TestCase):
             if int(path.name[:3])<=5:shutil.copy2(path,directory/path.name)
         path=self.root/'old.sqlite3';Database(path,migrations=directory);old=MemoryStore.existing(path,readonly=False)
         # Seed the v5 fixture using only mechanisms available before the v9 migration.
-        self.turn('Remember espresso?','An existing espresso reply.',store=old,relationships=False)
-        with old.connect() as db:before=db.execute('SELECT * FROM conversation_turns').fetchall()
+        c,turn=self.source('Remember espresso?',store=old,relationships=False)
+        insert_legacy_turn(old,c,turn,'An existing espresso reply.',played=True)
+        with old.connect() as db:
+            cursor=db.execute('SELECT * FROM conversation_turns')
+            columns=','.join(field[0] for field in cursor.description)
+            before=cursor.fetchall()
         upgraded=MemoryStore(path)
         with upgraded.connect() as db:
-            self.assertEqual(before,db.execute('SELECT * FROM conversation_turns').fetchall())
+            self.assertEqual(before,db.execute(f'SELECT {columns} FROM conversation_turns').fetchall())
             self.assertEqual(db.execute("SELECT COUNT(*) FROM conversation_fts WHERE conversation_fts MATCH 'espresso'").fetchone()[0],1)
             self.assertEqual(db.execute('SELECT DISTINCT tier FROM conversation_context ORDER BY tier').fetchall(),[(2,),(3,)])
     def test_private_reply_style_is_refreshed_when_http_controller_changes_speaker(self):

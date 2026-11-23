@@ -1,4 +1,9 @@
-# Ray live studio
+# Live studio and YouTube broadcast
+
+This guide installs the studio, records locally, connects a microphone and
+publishes to YouTube. The [Twitch studio guide](twitch-live.md) builds on the
+same installation. The [studio operations guide](studio-operations.md) covers
+the shared mixer, graphs and persistent user service for both destinations.
 
 The Linux studio mixes the host microphone and Ray's voice into one 1920 by 1080, 30 fps program. It draws chat, expressions and subtitles into the encoded video. The host can speak over Ray, mute the microphone independently, or switch between Japanese and English in the operator console. A local recording exercises the same HEVC and AAC encoder used for Enhanced RTMP over TLS.
 
@@ -81,5 +86,43 @@ RAVORA_API_ENABLED=true YOUTUBE_READ_ENABLED=true .venv/bin/ravora-youtube-live 
 The managed command obtains the video ID, stream destination and chat ID from the authorized channel. OAuth covers chat in this mode. The reader subscribes to gRPC `streamList`, persists resume tokens and deduplicates deliveries. Ray answers selected comments in the program audio and subtitles. The command waits for active ingest before transitioning live and ends the owned event on normal shutdown. An uncertain provider write is reconciled against the stored event before another write. Preserve `state/youtube/` between runs.
 
 The separate Studio-managed route accepts `YOUTUBE_STREAM_KEY`, `YOUTUBE_API_KEY` and either `YOUTUBE_LIVE_CHAT_ID` or `YOUTUBE_VIDEO_ID` with `--publish`. The program summary records encoder-side completion. Use YouTube Studio and the watch player to check actual delivery.
+
+## Configure a new event and chat budget
+
+Set `[youtube_live].latency_preference` to `normal`, `low` or `ultraLow`.
+The default is `ultraLow`. Choose the audience explicitly using
+`made_for_kids` when applicable. In `[youtube_live.metadata]` you can set
+`title`, `description`, `tags`, `default_language` and `category_id`.
+`{date}` in a title uses the JST date. The launcher stores pending settings
+with the new event and checks that the provider has applied them before binding.
+An active event or an unrelated event remains under its existing ownership.
+
+The studio defaults to 240 chat request starts per rolling hour and 4,800
+chat units per Pacific day. A `streamList` call reserves five units and a video
+lookup reserves one. The ledger records attempts before dispatch, including
+attempts that fail. New sessions and restarts preserve that usage. The daily
+limit applies across YouTube chats using the same database. A held chat
+receiver leaves the media sender running. These settings budget chat usage
+by this studio. Check provider quota and other project usage separately.
+[Google method costs](https://developers.google.com/youtube/data/determine_quota_cost)
+
+## Recover the same live event
+
+Stop the prior sender according to your maintenance procedure. Keep the event
+live with automatic stop disabled and verify its current visibility. To attach
+only to that exact owned event, supply the current video ID and visibility.
+Replace the example's variable values with those of your event.
+
+```bash
+RAVORA_API_ENABLED=true YOUTUBE_READ_ENABLED=true .venv/bin/ravora-youtube-live \
+  --mode cloud --auto-broadcast --resume-live "$video_id" \
+  --privacy "$current_visibility" --until-stopped
+```
+
+The command checks the saved broadcast, connected stream, provider lifecycle
+and visibility before reattaching. A recovery or encoder failure can leave
+the remote event live for operator reconciliation. Verify both the sender
+and YouTube ingest before using the public player as a continuity check.
+[Historical recovery](youtube-live-operations-20261124.md)
 
 Recordings can contain room audio, display names, comments and captions. Keep the working directory private. The public tests use a local TLS chat server, a simulated channel and local encoded media.

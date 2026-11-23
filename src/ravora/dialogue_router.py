@@ -4,7 +4,7 @@ import json
 import logging
 import re
 
-from ravora.memory_extraction import acknowledgment, dialogue_terms, historical_reference, reply_cue, session_recap
+from ravora.memory_extraction import acknowledgment, dialogue_terms, explicit_memory_request, historical_reference, reply_cue, session_recap
 
 
 # Public-safe subjects, with the words that identify their use in Japanese or English speech.
@@ -38,9 +38,17 @@ MUSIC_WORDS = re.compile(r'\b(guitars?|rhythms?|melod(?:y|ies)|songs?|chords?|ly
                          r'|ジャズ|ギター|リズム|メロディ|ドラム|バイオリン|楽曲|曲名|作曲|一曲|この曲|曲を|曲って|演奏|旋律|楽譜|歌詞|和音', re.I)
 
 DIRECTIONS = {
+    'OPEN_TOPIC': ('Think aloud about one concrete idea that catches your interest. Invent a fresh example or comparison. '
+                   'Leave room for someone to join. Skip greetings and do not invent a host or audience reaction.'),
+    'RESUME_THREAD': ('Revisit a detail of your own earlier public remark, in the current conversation language. '
+                      'Add a new comparison, hypothesis or way to test it. Describe a physical test hypothetically, '
+                      'or say what a person doing it might notice. Speak from the perspective of an AI receiving words.'),
     'DEEP_DIVE': 'Follow the current point and answer the speaker directly.',
-    'EMPATHY': 'Stay with the speaker and let your reaction to their news stand on its own.',
-    'SELF_DISCLOSURE': 'Volunteer one small curiosity or preference of your own.',
+    'EMPATHY': 'Listen to what the speaker needs. A warm acknowledgment can be enough.',
+    'CONTINUE_TOPIC': ('Pick one object, proposal or example in your last spoken remark. Change one detail, or '
+                       'give one consequence you have not mentioned. Stay with that example even if you have other interests.'),
+    'SELF_DISCLOSURE': ('Volunteer a small preference and the specific thing about it that appeals to you. '
+                        'Present a curiosity as an interest, and finish on your own reason.'),
     'SHIFT_TO_HOOK': 'Make a gentle association from the last detail to a subject outside music. One natural remark is enough.',
 }
 
@@ -79,24 +87,49 @@ class DialogueRoute:
             return 'dialogue_policy'
         return None
 
-    def allow_retrieval(self, metrics):
+    def explicit_recall(self, query):
+        return self.need_knowledge_rag and self.dialogue_policy == 'DEEP_DIVE' and explicit_memory_request(query)
+
+    def allow_retrieval(self, metrics, query=''):
         reason = self.rag_skip_reason
+        if reason == 'saturation' and self.explicit_recall(query):
+            metrics['knowledge_rag'] = 'explicit_recall'
+            return True
         metrics['knowledge_rag'] = 'skipped_' + reason if reason else 'allowed'
         if reason:
             logging.getLogger(__name__).info('knowledge_rag_skipped reason=%s', reason)
         return reason is None
 
 
+KEEP_TOPIC = re.compile(r"(?:don't|do not) change (?:the )?(?:subject|topic)|話題を変えないで", re.I)
+ASSENT = re.compile(r"(?:yeah|yes|yep|yup|right|sure|ok(?:ay)?|i see|uh[ -]huh|m+[ -]?hm+|makes sense|(?:うん)+|はい|ええ|へ[えぇ]+|"
+                   r"なるほど(?:ね)?|そう(?:だね|ですね)|そっか|たしかに|確かに)[.!、。！\s]*", re.I)
+END_OF_TOPIC = re.compile(r"\b(?:goodbye|good ?night|bye|take care|rest well|off[ -]stream|off the record|"
+                          r"gotta go|need (?:a |to )rest|need a quiet moment|leave it there)\b|少し静かに|おやすみ|またね|さようなら|休んで|休みたい|つらい|"
+                          r"内緒|オフレコ|非公開|配信に出さない|配信では話さない", re.I)
+# A generic appraisal can be an opening to shift. A new observation on the same subject stays on that subject.
+APPRAISAL = re.compile(r"(?:I (?:really )?(?:like|love) (?:this |that |the )?[\w-]+|"
+                       r"(?:this |that |the )?[\w-]+(?: in (?:this|that|the) [\w-]+)? (?:is|was) (?:neat|nice|interesting|cool)|"
+                       r"(?:その|この)?[ァ-ヺー一-龯々]{1,12}(?:が好き|は面白い|が面白い|がいい))[.!。！\s]*", re.I)
+
+
 def is_backchannel(text):
-    return acknowledgment(text) or bool(re.fullmatch(r'(?:うん+|へえ+|へぇ+|なるほど|そうだね|そっか|たしかに|確かに)[。、！!\s]*', text.strip()))
+    return acknowledgment(text) or bool(ASSENT.fullmatch(text.strip()))
 
 
 def mentions_hook(speech, hook):
     return any(word in speech.casefold() for word in HOOKS.get(hook, ()))
 
 
+ABOUT_SHOW = re.compile(r"\b(?:what (?:kind|sort) of (?:show|stream)|(?:what is|what.s) (?:your|this show.s) (?:setting|premise))\b"
+                        r"|(?:レイの|この)(?:番組|配信)の(?:設定|趣旨)|どんな(?:番組|配信)に|もしもノートって", re.I)
+
+
 def route_turn(text, history, topics_in, *, initiative=False):
     """Count consecutive same-subject exchanges in this speaker's acknowledged session history."""
+    if initiative:
+        return dict(dialogue_policy='RESUME_THREAD', need_knowledge_rag=False)
+
     def subject(line):
         topics = topics_in(line)
         if topics:
@@ -131,7 +164,7 @@ def route_turn(text, history, topics_in, *, initiative=False):
             break
         repeats += 1
     saturation = min(1., .35 * repeats)
-    hooks = next((values for domain, values in ASSOCIATIONS.items() if domain in current), ()) if not initiative else ()
+    hooks = next((values for domain, values in ASSOCIATIONS.items() if domain in current), ())
     if hooks and 'music' in current:
         specific = [hook for pattern, hook in MUSIC_ASSOCIATIONS if re.search(pattern, text, re.I)]
         hooks = tuple(dict.fromkeys((*specific, *hooks)))[:2]
@@ -142,24 +175,33 @@ def route_turn(text, history, topics_in, *, initiative=False):
         r"\b(?:let['’]s chat|what interests you|what are you (?:curious about|into)|your call|"
         r"your (?:hobbies|interests)|what (?:else )?do you like)\b|雑談しよう|何に興味|"
         r"(?:レイ|Ray|あなた)(?:自身)?(?:の(?:好み|趣味)|は(?:何が好き|何にハマ))|"
-        r"音楽以外(?:に|で|だと|では|だったら|に何か|の)?(?:何が好き|.*趣味)", text, re.I)
+        r"音楽以外(?:に|で|だと|では|だったら|に何か|の)?(?:何が好き|.*趣味)|"
+        r"\b(?:pick (?:a topic|something)|you (?:pick|choose)(?: the topic)?)\b|(?:話題|テーマ)を選んで", text, re.I)
     difficulty = re.search(r'\b(?:sad|hurt|exhausted|upset|lost my|want to rest)\b|つらい|辛い|疲れた|休みたい|悲しい', text, re.I)
     policy, need = 'DEEP_DIVE', True
-    keep_topic = re.search(r"(?:don't|do not) change (?:the )?(?:subject|topic)|話題を変えないで", text, re.I)
-    if keep_topic:
+    if KEEP_TOPIC.search(text):
         policy = 'DEEP_DIVE'
-    elif own_interest and not recall and not initiative:
+    elif (own_interest or ABOUT_SHOW.search(text)) and not recall:
         policy, need = 'SELF_DISCLOSURE', False
-    elif explicit_shift or initiative:
-        policy, need = ('SHIFT_TO_HOOK' if explicit_shift or saturation >= .7 else 'SELF_DISCLOSURE'), False
+    elif explicit_shift:
+        policy, need = 'SHIFT_TO_HOOK', False
+    elif last_reply and re.fullmatch(r"(?:(?:ok(?:ay)?|yeah)[, ]+)?(?:go on|keep going|tell me more)[.! ]*|"
+                                      r"(?:うん[、。 ]*|もう少し(?:だけ)?)?(?:その話を)?続けて[。！ ]*", text.strip(), re.I):
+        closed = any(END_OF_TOPIC.search(line) for _,line in history[-2:])
+        policy, need = ('EMPATHY' if closed else 'CONTINUE_TOPIC'), False
     elif recall or stay:
         policy = 'DEEP_DIVE'
     elif difficulty:
         policy, need = 'EMPATHY', False
-    elif short and (re.search(r'[?？]|(?:ですか|ますか)[。\s]*$', last_reply)
-                    or any(mentions_hook(last_reply, hook) for hook in HOOKS)):
-        policy, need = 'EMPATHY', False
-    elif short or saturation >= .7:
+    elif short:
+        # Only an actual assent invites continuation. Thanks, laughter and farewells can close a turn.
+        last_exchange = history[-2:]
+        has_subject = bool(previous and previous[-1] and last_reply
+                           and any(not is_backchannel(line) for _,line in last_exchange))
+        can_continue = (ASSENT.fullmatch(text.strip()) and has_subject
+                        and not any(END_OF_TOPIC.search(line) for _,line in last_exchange))
+        policy, need = ('CONTINUE_TOPIC' if can_continue else 'EMPATHY'), False
+    elif saturation >= .7 and APPRAISAL.fullmatch(text.strip()):
         policy, need = 'SHIFT_TO_HOOK', False
-    return dict(topic_saturation=saturation, need_knowledge_rag=need and saturation < .7,
+    return dict(topic_saturation=saturation, need_knowledge_rag=need and (saturation < .7 or explicit_memory_request(text)),
                 dialogue_policy=policy, unspoken_hooks=hooks)

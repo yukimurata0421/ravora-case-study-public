@@ -51,13 +51,13 @@ def save_private(path, value):
 
 
 @contextmanager
-def publisher_lock(directory):
+def publisher_lock(directory, *, busy_code='YOUTUBE_PUBLISHER_ALREADY_RUNNING'):
     directory.mkdir(mode=0o700, parents=True, exist_ok=True)
     with (directory / 'publisher.lock').open('a') as lock:
         try:
             fcntl.flock(lock, fcntl.LOCK_EX | fcntl.LOCK_NB)
         except BlockingIOError:
-            raise YouTubeError('YOUTUBE_PUBLISHER_ALREADY_RUNNING') from None
+            raise YouTubeError(busy_code) from None
         yield
 
 
@@ -96,12 +96,15 @@ class ChannelAPI:
                                  'channel_id':self.channel_id, 'refresh_token':self.credentials.refresh_token})
             return self.credentials.token
 
-    def request(self, method, resource, params, body=None):
+    def request(self, method, resource, params, body=None, *, if_match=None):
         import requests
         token = self.access_token()
+        headers = {'Authorization': 'Bearer ' + token}
+        if if_match is not None:
+            headers['If-Match'] = '"' + if_match.strip('"') + '"'
         try:
             with self.http.request(method, API + resource, params=params, json=body,
-                                   headers={'Authorization': 'Bearer ' + token},
+                                   headers=headers,
                                    timeout=(4, 8), allow_redirects=False) as response:
                 if not 200 <= response.status_code < 300:
                     reason = ''
@@ -110,7 +113,9 @@ class ChannelAPI:
                         if code in ('insufficientPermissions', 'liveStreamingNotEnabled', 'livePermissionBlocked',
                                     'quotaExceeded', 'invalidTransition', 'errorStreamInactive',
                                     'redundantTransition', 'liveBroadcastBindingNotAllowed', 'forbidden',
-                                    'invalidScheduledStartTime', 'userBroadcastsExceedLimit'):
+                                    'invalidScheduledStartTime', 'userBroadcastsExceedLimit',
+                                    'invalidCategoryId', 'invalidTitle', 'invalidDescription', 'invalidTags',
+                                    'invalidVideoMetadata'):
                             reason = '_' + code
                     except (ValueError, KeyError, IndexError, TypeError):
                         pass

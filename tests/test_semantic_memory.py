@@ -25,6 +25,7 @@ from ravora.semantic_memory import (EPISODE_POLICY, EPISODE_SCHEMA, EpisodeCandi
     encoded, parse_judgment, semantic_questions, load_speech_background, speech_background, validate_episodes)
 from ravora.settings import ProviderSettings, SettingsError, load_settings
 from test_gemini_memory import HTTP, response
+from legacy_turn import insert_legacy_turn
 
 INTERVIEW='I have a hiring interview next week.'
 
@@ -257,13 +258,20 @@ class EpisodeTests(unittest.TestCase):
         for p in MIGRATIONS.glob('*.sql'):
             if int(p.name[:3])<=10:shutil.copy2(p,legacy/p.name)
         path=self.root/'old.sqlite3';Database(path,migrations=legacy);old=MemoryStore.existing(path,readonly=False)
-        seed(old,policy='local-low-risk-preferences-v1',played=False)
+        turn=uuid.uuid4().hex
+        comment=Comment('semantic-fixture','stream',turn,'viewer','Fixture',INTERVIEW,time.time())
+        inbox=CommentInbox(old,scope='offline')
+        inbox.put(comment);inbox.bind(inbox.take()['receipt'],turn)
+        insert_legacy_turn(old,comment,turn,'Understood.',played=False)
         with old.connect() as db:
             tables=[r[0] for r in db.execute("SELECT name FROM sqlite_master WHERE type='table' AND name NOT LIKE '%fts%' AND name!='schema_migrations'")]
-            before={name:db.execute('SELECT * FROM '+name).fetchall() for name in tables}
+            projections={name:','.join(r[1] for r in db.execute('PRAGMA table_info('+name+')')) for name in tables}
+            queries={name:'SELECT '+columns+' FROM '+name for name,columns in projections.items()}
+            before={name:db.execute(query).fetchall() for name,query in queries.items()}
         migrated=MemoryStore(path)
         with migrated.connect() as db:
-            self.assertEqual(before,{name:db.execute('SELECT * FROM '+name).fetchall() for name in tables})
+            self.assertEqual(before,{name:db.execute(query).fetchall() for name,query in queries.items()})
+            self.assertEqual(db.execute('SELECT usage_session FROM conversation_turns').fetchone(),(inbox.session,))
             self.assertEqual(db.execute('SELECT COUNT(*) FROM memory_episodes').fetchone()[0],0)
             self.assertEqual(db.execute('PRAGMA foreign_key_check').fetchall(),[])
         backup=self.root/'backup.sqlite3';migrated.backup(backup)
@@ -350,8 +358,7 @@ class SemanticVoiceTests(unittest.IsolatedAsyncioTestCase):
     async def asyncSetUp(self):
         self.tmp=tempfile.TemporaryDirectory();self.addCleanup(self.tmp.cleanup);self.root=Path(self.tmp.name)
         self.store=MemoryStore(self.root/'voice.sqlite3');self.events=[];self.prompts=[]
-        # On-time judgments include real SQLite writes on the test runner.
-        self.settings=ProviderSettings(semantic_memory_mode='jev',semantic_wait_ms=500,memory_extractor='local_rules')
+        self.settings=ProviderSettings(semantic_memory_mode='jev',semantic_wait_ms=40,memory_extractor='local_rules')
         async def send(value):self.events.append(value)
         async def pcm(*args):pass
         client=MockVoiceClients();original=client.generate
@@ -381,7 +388,7 @@ class SemanticVoiceTests(unittest.IsolatedAsyncioTestCase):
 
     async def test_recorded_transcripts_get_distinct_listener_instructions_after_abstention(self):
         cases=[
-            ("So that didn't go as planned.",'neutral','declarative acknowledgment'),
+            ("So that didn't go as planned.",'neutral','a detail in their current words'),
             ('That interview in the racing game was hilarious.','joy','Leave the people, dialogue, cause and punchline unspecified'),
         ]
         for transcript,reaction,expected in cases:
@@ -398,7 +405,6 @@ class SemanticVoiceTests(unittest.IsolatedAsyncioTestCase):
             self.assertTrue(self.session.played(self.session.token,self.session.expected_frames))
 
     async def test_slow_judgment_does_not_delay_generation_or_rewrite_prompt(self):
-        self.session.s=replace(self.session.s,semantic_wait_ms=40)
         gate=asyncio.Event()
         async def classify(early,text):
             await gate.wait()
@@ -407,7 +413,7 @@ class SemanticVoiceTests(unittest.IsolatedAsyncioTestCase):
             await self.session.start_text(uuid.uuid4().hex,'It did not work out.')
             await asyncio.wait_for(self.session.task,1)
             self.assertEqual(self.session.phase,'generated',self.events)
-            self.assertIn('declarative acknowledgment',self.prompts[-1]['prompt'])
+            self.assertIn('a detail in their current words',self.prompts[-1]['prompt'])
             for key in ('memories','history','context'):
                 self.assertEqual(self.prompts[-1][key],[])
             await self.session.cancel();gate.set();await asyncio.sleep(.02)

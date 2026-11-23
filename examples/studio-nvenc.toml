@@ -1,3 +1,20 @@
 # NVIDIA HEVC for local recording and live publishing. For CPU encoding, use "libx265".
 [youtube_live]
 video_encoder = "hevc_nvenc"
+latency_preference = "ultraLow"
+# Set made_for_kids only after choosing your broadcast's audience.
+host_trim_db = 0.0
+host_mic_cleanup = true
+ray_reverb_mix = 0.06
+bgm_tracks = []
+bgm_volume_db = -24.0
+
+# Optional publishing and mixer settings. Supply local music files to enable BGM.
+[twitch_live]
+video_encoder = "h264_nvenc"
+
+[youtube_live.metadata]
+title = "Live Chat with Ray | {date}"
+description = "Send a question in the live chat. Ray replies aloud with captions."
+default_language = "en"
+tags = ["Ray", "VTuber"]

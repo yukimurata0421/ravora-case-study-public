@@ -1,12 +1,12 @@
 #!/usr/bin/env python3
-"""Run the headless Ray program locally or publish it to YouTube Studio."""
+"""Run the headless Ray program locally or publish it to YouTube or Twitch."""
 import argparse
 from concurrent.futures import ThreadPoolExecutor
 from contextlib import ExitStack
 from dataclasses import replace
 import errno
-import io
 import json
+import logging
 import os
 from pathlib import Path
 import secrets
@@ -23,7 +23,7 @@ from ravora.input_pipeline import InputPipeline
 from ravora.live_http import LiveHandler
 from ravora.ray_memory import CharacterMemory
 from ravora.safety import TurnFence
-from ravora.settings import load_settings, read_env, SettingsError
+from ravora.settings import boolean, load_settings, read_env, SettingsError
 from ravora.youtube_auth import authorize, ChannelAPI, publisher_lock, YouTubeError
 
 
@@ -35,38 +35,89 @@ def run(args):
     if args.authorize_youtube:
         authorize(directory)
         return
-    from ravora.live_media import DEFAULT_INGEST, FPS, ProgramWriter, Scene, SILENCE, Stage, av, publish_target, validate_video_encoder
-    from ravora.youtube_broadcast import Broadcast
+    from ravora.live_media import (
+        DEFAULT_INGEST, TWITCH_INGEST, FPS, ProgramWriter, Scene, SILENCE, Stage, av,
+        publish_target, twitch_publish_target, validate_video_encoder,
+    )
+    from ravora.youtube_broadcast import Broadcast, DEFAULT_LATENCY_PREFERENCE, validate_latency_preference, video_metadata
     from ravora.live_program import LiveProgram
-    s = load_settings(args.env, mode=args.mode)
-    publishing = args.publish or args.auto_broadcast
+    from ravora.live_bgm import DEFAULT_BGM_DB, LoopingMusic, bgm_tracks, validate_bgm_db
+    from ravora.live_mic import validate_host_trim_db
+    from ravora.live_reverb import DEFAULT_RAY_REVERB_MIX, validate_ray_reverb_mix
+    from ravora.live_metrics import StudioMetrics
+    s = load_settings(args.env, mode=args.mode, live_studio=True)
+    twitch = args.publish_twitch
+    publishing = args.publish or args.auto_broadcast or twitch
+    destination = ('twitch' if twitch else 'youtube') if publishing else None
+    host_input_only = args.host_only or twitch
     if args.host_only and publishing:
         raise SettingsError('HOST_ONLY_CANNOT_PUBLISH')
     config = tomllib.loads(args.config.read_text()) if args.config else {}
-    video_config = config.get('youtube_live', {})
-    if not isinstance(video_config, dict):
+    live_config = config.get('youtube_live', {})
+    if not isinstance(live_config, dict):
         raise SettingsError('INVALID_PROGRAM_VIDEO_ENCODER')
-    video_encoder = validate_video_encoder(video_config.get('video_encoder', 'libx265'))
+    if twitch:
+        twitch_config = config.get('twitch_live', {})
+        if not isinstance(twitch_config, dict):
+            raise SettingsError('INVALID_PROGRAM_VIDEO_ENCODER')
+        video_encoder = validate_video_encoder(twitch_config.get('video_encoder', 'libx264'), twitch=True)
+    else:
+        made_for_kids = live_config.get('made_for_kids')
+        if made_for_kids is not None and type(made_for_kids) is not bool:
+            raise SettingsError('INVALID_YOUTUBE_MADE_FOR_KIDS')
+        latency_preference = validate_latency_preference(live_config.get('latency_preference', DEFAULT_LATENCY_PREFERENCE))
+        video_encoder = validate_video_encoder(live_config.get('video_encoder', 'libx265'))
+    host_trim_db = validate_host_trim_db(live_config.get('host_trim_db', 0.0))
+    playlist = bgm_tracks(live_config, args.config.resolve().parent if args.config else ROOT)
+    bgm_db = validate_bgm_db(live_config.get('bgm_volume_db', DEFAULT_BGM_DB))
+    ray_reverb_mix = validate_ray_reverb_mix(live_config.get('ray_reverb_mix', DEFAULT_RAY_REVERB_MIX))
+    host_mic_cleanup = live_config.get('host_mic_cleanup', True)
+    if type(host_mic_cleanup) is not bool:
+        raise SettingsError('INVALID_HOST_MIC_CLEANUP')
     configured_target = bool(s.youtube_chat_id or s.youtube_video_id)
     managed = args.auto_broadcast or (args.publish and not configured_target)
     if (args.privacy or args.title) and not managed:
         raise SettingsError('YOUTUBE_TITLE_AND_PRIVACY_REQUIRE_AUTO_BROADCAST')
-    title = args.title or 'Ray Live'
+    metadata = video_metadata(live_config.get('metadata', {}), args.title) if managed or (args.check and not twitch) else None
+    twitch_chat = False
     if args.check or publishing:
         # Other services serialize ProviderSettings for their workers. Keep the
         # RTMPS publish credential exclusively in this process.
         values = read_env(args.env)
-        stream_key = os.environ.get('YOUTUBE_STREAM_KEY', values.get('YOUTUBE_STREAM_KEY', ''))
-        base = os.environ.get('YOUTUBE_RTMPS_URL', values.get('YOUTUBE_RTMPS_URL', DEFAULT_INGEST))
+        key_var, url_var, default_ingest = (
+            ('TWITCH_STREAM_KEY', 'TWITCH_RTMPS_URL', TWITCH_INGEST) if twitch
+            else ('YOUTUBE_STREAM_KEY', 'YOUTUBE_RTMPS_URL', DEFAULT_INGEST)
+        )
+        stream_key = os.environ.get(key_var, values.get(key_var, ''))
+        base = os.environ.get(url_var, values.get(url_var, default_ingest))
+        if twitch:
+            try:
+                twitch_chat = boolean(os.environ.get('TWITCH_CHAT_ENABLED', values.get('TWITCH_CHAT_ENABLED', 'true')))
+            except ValueError as exc:
+                raise SettingsError('INVALID_TWITCH_CHAT_ENABLED') from exc
         del values
     if args.check:
-        print(json.dumps({'conversation_api_enabled': s.api_enabled, 'missing_conversation_keys': s.missing(),
-                          'memory_api_enabled': s.memory_api_enabled,
-                          'youtube_read_enabled': s.youtube_read_enabled, 'youtube_api_key_set': bool(s.youtube_key),
-                          'chat_target_set': bool(s.youtube_chat_id or s.youtube_video_id),
-                          'stream_key_set': bool(stream_key), 'video_encoder': video_encoder,
-                          'oauth_client_file': (directory/'client.json').is_file(),
-                          'oauth_token_file': (directory/'token.json').is_file()}))
+        if twitch and stream_key:
+            twitch_publish_target(base, stream_key)
+        report = {'conversation_api_enabled': s.api_enabled, 'missing_conversation_keys': s.missing(),
+                  'stream_key_set': bool(stream_key), 'video_encoder': video_encoder, 'host_trim_db': host_trim_db,
+                  'host_mic_cleanup': host_mic_cleanup, 'ray_reverb_mix': ray_reverb_mix,
+                  'character_initiative_enabled': s.character_enabled and s.character_initiative_enabled and s.character_max_initiatives != 0,
+                  'character_idle_seconds': s.character_idle_seconds, 'character_max_initiatives': s.character_max_initiatives,
+                  'bgm_volume_db': bgm_db, 'bgm_tracks': [track.stem for track in playlist],
+                  'bgm_missing_tracks': [track.stem for track in playlist if not track.is_file()]}
+        if twitch:
+            from ravora.twitch_chat import cli_config_path
+            report.update(publish_destination=destination, chat_input='twitch' if twitch_chat else 'host_only',
+                          twitch_chat_cli_config_exists=cli_config_path().is_file())
+        else:
+            report.update(youtube_read_enabled=s.youtube_read_enabled, youtube_api_key_set=bool(s.youtube_key),
+                          chat_requests_per_hour=s.youtube_chat_requests_per_hour,
+                          chat_daily_unit_limit=s.youtube_chat_daily_units, chat_target_set=configured_target,
+                          broadcast_metadata=metadata, self_declared_made_for_kids=made_for_kids,
+                          latency_preference=latency_preference, oauth_client_file=(directory/'client.json').is_file(),
+                          oauth_token_file=(directory/'token.json').is_file())
+        print(json.dumps(report, ensure_ascii=False))
         return
     if publishing and args.mode != 'cloud':
         raise SettingsError('PUBLISH_REQUIRES_CLOUD_MODE')
@@ -74,45 +125,49 @@ def run(args):
         if not s.api_enabled:
             raise SettingsError('RAVORA_API_ENABLED_REQUIRED')
         s.require_ready()
-        if not args.host_only and not s.youtube_read_enabled:
+        if not host_input_only and not s.youtube_read_enabled:
             raise SettingsError('YOUTUBE_READ_ENABLED_REQUIRED')
-        if not args.host_only and not managed and not (s.youtube_key and configured_target):
+        if not host_input_only and not managed and not (s.youtube_key and configured_target):
             raise SettingsError('CONFIGURE_YOUTUBE_READ_ENABLED_API_KEY_AND_VIDEO_OR_CHAT_ID')
-        s = replace(s, comment_source='developer' if args.host_only else 'youtube',
-                    youtube_read_enabled=False if args.host_only else s.youtube_read_enabled)
+        comment_source = 'twitch' if twitch_chat else ('developer' if host_input_only else 'youtube')
+        s = replace(s, comment_source=comment_source,
+                    youtube_read_enabled=False if host_input_only else s.youtube_read_enabled)
     else:
         s = replace(s, api_enabled=False, memory_api_enabled=False, stt_api_enabled=False,
                     youtube_read_enabled=False, comment_source='developer' if args.host_only else 'youtube-fixture')
     if not s.character_enabled:
         raise SettingsError('RAVORA_CHARACTER_ENABLED_REQUIRED')
-    if not title.strip() or len(title) > 100 or any(c in title for c in '<>\r\n'):
-        raise SettingsError('INVALID_YOUTUBE_TITLE')
-    url = publish_target(base, stream_key) if publishing and not managed else None
+    url = None
+    if publishing and not managed:
+        target_for = twitch_publish_target if twitch else publish_target
+        url = target_for(base, stream_key)
     # Native libav errors can embed its destination. Report stable codes only.
     av.logging.set_level(av.logging.PANIC)
     stop = threading.Event()
-    for sig in (signal.SIGINT, signal.SIGTERM, signal.SIGHUP):
-        signal.signal(sig, lambda *_: stop.set())
+    def request_stop(*_):
+        stop.set()
+    for sig in (signal.SIGINT, signal.SIGTERM):
+        signal.signal(sig, request_stop)
+    signal.signal(signal.SIGHUP, signal.SIG_IGN if args.seconds is None else request_stop)
     runtime = ROOT / '.runtime'
     runtime.mkdir(mode=0o700, exist_ok=True)
-    run_dir = Path(tempfile.mkdtemp(prefix='youtube-live-', dir=runtime))
+    run_dir = Path(tempfile.mkdtemp(prefix='twitch-live-' if twitch else 'youtube-live-', dir=runtime))
     print('Run:', run_dir, flush=True)
     print('Replies:', 'offline English fixture' if args.mode == 'offline' else s.gemini_model, flush=True)
     with ExitStack() as stack:
+        bgm = LoopingMusic(playlist, bgm_db) if playlist else None
+        if bgm is not None:
+            stack.callback(bgm.close)
         broadcast = None
-        if managed:
-            # The managed ingest destination exists only after prepare(). Check the GPU
-            # with the actual stream settings before creating or binding a remote event.
-            if video_encoder == 'hevc_nvenc':
-                try:
-                    with io.BytesIO() as probe:
-                        ProgramWriter(probe, None, video_encoder=video_encoder).close()
-                except Exception:
-                    raise SettingsError(f'PROGRAM_ENCODER_OPEN_FAILED ({video_encoder})') from None
+        if twitch:
+            stack.enter_context(publisher_lock(directory, busy_code='RAY_PUBLISHER_ALREADY_RUNNING'))
+        elif publishing:
             stack.enter_context(publisher_lock(directory))
+        if managed:
             api, channel = ChannelAPI.connect(directory)
             stack.callback(api.http.close)
-            broadcast = Broadcast(api, directory, channel, title, args.privacy or 'unlisted', stop)
+            broadcast = Broadcast(api, directory, channel, args.title, args.privacy or 'unlisted', stop,
+                                  metadata=metadata, made_for_kids=made_for_kids, latency_preference=latency_preference)
         audio = Path(stack.enter_context(tempfile.TemporaryDirectory(dir=run_dir)))
         store = MemoryStore(ROOT / 'state/conversation.sqlite3' if args.mode == 'cloud' else run_dir / 'offline.sqlite3')
         CharacterMemory(store, s.mode).seed_initial_interests()
@@ -138,8 +193,16 @@ def run(args):
         if type(silence) is not int or not 300 <= silence <= 2500:
             raise SettingsError('INVALID_END_SILENCE_MS')
         program = LiveProgram(pipeline, audio, host_language=language, reply_profiles=profiles,
-                              onset_dbfs=onset, silence_ms=silence)
+                              onset_dbfs=onset, silence_ms=silence, host_trim_db=host_trim_db,
+                              host_mic_cleanup=host_mic_cleanup, ray_reverb_mix=ray_reverb_mix, bgm=bgm)
         stack.callback(program.close)
+        print('Host STT:', program.host_stt_provider, flush=True)
+        if program.cloud_stt and language != 'auto':
+            from ravora.providers import ProviderError
+            try:
+                program.cloud_stt.access_token()
+            except ProviderError as exc:
+                print('Host STT authentication:', str(exc), flush=True)
         secret = secrets.token_urlsafe(32)
         try:
             server = DeveloperHTTP(program, secret, args.port, handler=LiveHandler)
@@ -148,6 +211,7 @@ def run(args):
                     else 'HOST_CONSOLE_BIND_FAILED')
             raise SettingsError(f'{code} 127.0.0.1:{args.port} ({errno.errorcode.get(exc.errno, "UNKNOWN")})') from None
         stack.callback(server.server_close)
+        server.metrics = StudioMetrics(program)
         server.dell_mic = None
         if args.dell_mic:
             from ravora.live_dell_mic import DellCapture
@@ -175,23 +239,41 @@ def run(args):
             print('Conversation avatar:', scene.avatar.renderer, flush=True)
             if server.avatar_manifest:
                 print('Avatar model:', server.avatar_manifest['name'], flush=True)
-        if broadcast:
-            url = broadcast.prepare()
-            video_id = broadcast.state['broadcast']
-            print('YouTube watch URL: https://www.youtube.com/watch?v=' + video_id, flush=True)
         if stop.is_set():
             return
+        # Open the selected encoder before a managed broadcast is created or bound.
         try:
-            writer = ProgramWriter(url or run_dir / 'program.flv', scene, publish=publishing, video_encoder=video_encoder)
+            writer = ProgramWriter(url if publishing else run_dir / 'program.flv', scene,
+                                   publish=publishing, video_encoder=video_encoder)
         except Exception:
             raise SettingsError(f'PROGRAM_ENCODER_OPEN_FAILED ({video_encoder})') from None
         stack.callback(writer.close)
+        writer.bgm = bgm
         active_encoder = writer.video.codec_context.name
         print('Video encoder:', active_encoder, flush=True)
+        if twitch:
+            print('Publish destination: Twitch', flush=True)
+        if broadcast:
+            url = broadcast.resume_live(args.resume_live) if args.resume_live else broadcast.prepare()
+            video_id = broadcast.state['broadcast']
+            print('YouTube watch URL: https://www.youtube.com/watch?v=' + video_id, flush=True)
+            if stop.is_set():
+                return
+            writer.start_publish(url)
+        if writer.transport:
+            program.transport = writer.transport
+            def save_transport():
+                (run_dir / 'transport.json').write_text(json.dumps(writer.transport.status(), indent=2) + '\n')
+            stack.callback(save_transport)
+        server.metrics.start(writer)
+        stack.callback(server.metrics.close)
         operator_url = run_dir / 'operator.url'
         console_url = f'http://127.0.0.1:{server.server_port}/#{secret}'
         operator_url.write_text(console_url + '\n')
         stack.callback(operator_url.unlink, missing_ok=True)
+        if args.operator_url_link:
+            args.operator_url_link.symlink_to(operator_url)
+            stack.callback(args.operator_url_link.unlink, missing_ok=True)
         print('Host console URL file:', operator_url, flush=True)
         if sys.stdout.isatty():
             print('Host console URL:', console_url, flush=True)
@@ -203,19 +285,27 @@ def run(args):
         live = False
         if broadcast:
             executor = stack.enter_context(ThreadPoolExecutor(max_workers=1, thread_name_prefix='youtube-start'))
-            startup = executor.submit(broadcast.wait_live)
+            startup = (executor.submit(broadcast.wait_live, resume_only=True) if args.resume_live
+                       else executor.submit(broadcast.wait_live))
             stack.callback(stop.set)
+        elif twitch_chat:
+            from ravora.twitch_chat import TwitchReader
+            reader = TwitchReader(pipeline.inbox, ROOT / 'state/twitch/oauth.json', on_removed=pipeline.check_removed)
+            pipeline.start(args.seconds, twitch_reader=reader)
         else:
             pipeline.start(args.seconds, wait_for_chat=True)
         start = time.monotonic()
+        deadline = start + args.seconds if args.seconds is not None else float('inf')
         max_lag = 0.0
+        finish_event = False
         try:
-            while not stop.is_set() and time.monotonic() < start + args.seconds:
+            while not stop.is_set() and time.monotonic() < deadline:
                 if startup and startup.done():
                     event = startup.result()
                     if event is None:
                         break
                     live = True
+                    writer.bgm = bgm
                     print('YouTube live confirmed:', video_id, flush=True)
                     program.chat_status = {'status':'waiting_for_chat'}
                     chat_lookup = executor.submit(broadcast.chat_id, event)
@@ -228,7 +318,8 @@ def run(args):
                         print('YouTube chat:', str(exc), flush=True)
                     if chat:
                         pipeline.s = replace(s, youtube_video_id='', youtube_chat_id=chat)
-                        pipeline.start(max(1, args.seconds - (time.monotonic() - start)), access_token=api.access_token)
+                        remaining_chat = None if args.seconds is None else max(1, deadline - time.monotonic())
+                        pipeline.start(remaining_chat, access_token=api.access_token)
                     chat_lookup = None
                 stage, pcm = program.next_frame() if not broadcast or live else (Stage(), SILENCE)
                 scene.clip = program.clip
@@ -237,22 +328,33 @@ def run(args):
                 remaining = start + writer.frames / FPS - time.monotonic()
                 max_lag = max(max_lag, -remaining)
                 stop.wait(max(0, remaining))
+            finish_event = live or not args.resume_live
             if broadcast and not live and not stop.is_set():
                 raise YouTubeError('YOUTUBE_DURATION_ENDED_BEFORE_LIVE')
         finally:
+            playout_seconds = time.monotonic() - start
             stop.set()
-            if broadcast:
-                executor.shutdown(wait=True)
-                broadcast.finish()
+            program.stopped.set()
+            pipeline.stop.set()
+            try:
+                writer.close()
+            finally:
+                if broadcast:
+                    executor.shutdown(wait=True)
+                    # Only an operator stop or an explicit session deadline ends an owned event.
+                    if finish_event:
+                        broadcast.finish()
         summary = program.status()
         summary.pop('stage')
         summary.pop('monitor_audio')
         summary.pop('monitor_offset_seconds')
         summary['elapsed_seconds'] = round(time.monotonic() - start, 3)
-        summary['average_fps'] = round(writer.frames / max(summary['elapsed_seconds'], .001), 2)
+        summary['playout_seconds'] = round(playout_seconds, 3)
+        summary['average_fps'] = round(writer.frames / max(playout_seconds, .001), 2)
+        summary['video_encoder'] = active_encoder
         summary['max_encoder_lag_ms'] = round(max_lag * 1000)
         summary['publish'] = publishing
-        summary['video_encoder'] = active_encoder
+        summary['publish_destination'] = destination
         summary['avatar_renderer'] = scene.avatar.renderer if scene.avatar else 'custom_scene'
         if scene.avatar and server.avatar_manifest:
             summary['avatar_name'] = server.avatar_manifest['name']
@@ -270,26 +372,42 @@ def run(args):
 def main():
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument('--mode', choices=('offline', 'cloud'), default='offline')
-    parser.add_argument('--config', type=Path, help='TOML video encoder, microphone and optional portrait configuration')
+    parser.add_argument('--config', type=Path, help='TOML encoders, mixer, microphone and optional portrait settings')
     parser.add_argument('--env', type=Path, default=ROOT / '.env')
-    parser.add_argument('--seconds', type=int, default=180)
+    duration = parser.add_mutually_exclusive_group()
+    duration.add_argument('--seconds', type=int, default=180)
+    duration.add_argument('--until-stopped', dest='seconds', action='store_const', const=None,
+                          help='Publish until explicitly stopped, without a session timer')
+    parser.add_argument('--operator-url-link', type=Path, help=argparse.SUPPRESS)
     parser.add_argument('--port', type=int, default=8790)
     parser.add_argument('--dell-mic', action='store_true', help='Control the configured Dell microphone from the host console')
     parser.add_argument('--host-only', action='store_true', help='Record the conversation locally without YouTube or sample chat')
     parser.add_argument('--host-language', choices=('ja','en','auto'), help='Initial conversation language (auto detects microphone input)')
     parser.add_argument('--check', action='store_true', help='Check configuration without connecting or opening an encoder')
     parser.add_argument('--publish', action='store_true', help='Send the program to the configured YouTube RTMPS ingest')
+    parser.add_argument('--publish-twitch', action='store_true', help='Send the program to Twitch using TWITCH_STREAM_KEY')
     parser.add_argument('--auto-broadcast', action='store_true', help='Create or resume a Ray broadcast, then go live over RTMPS')
+    parser.add_argument('--resume-live', metavar='VIDEO_ID',
+                        help='Reattach only to this already-live managed event, preserving its visibility')
     parser.add_argument('--authorize-youtube', action='store_true', help='Authorize the Ray channel on loopback port 8791')
     parser.add_argument('--privacy', choices=('unlisted', 'private', 'public'), help='Managed broadcast visibility (default: unlisted)')
-    parser.add_argument('--title', help='Managed broadcast title (default: Ray Live)')
+    parser.add_argument('--title', help='Override the configured title for a new managed broadcast')
     parser.add_argument('--scene-dir', type=Path)
     args = parser.parse_args()
-    if not 1 <= args.seconds <= 86400 or not 0 <= args.port <= 65535:
+    if args.publish_twitch and (args.publish or args.auto_broadcast or args.authorize_youtube):
+        parser.error('--publish-twitch cannot be combined with YouTube publishing or authorization')
+    if args.resume_live is not None and (not args.resume_live or not args.auto_broadcast or not args.privacy or args.title):
+        parser.error('--resume-live requires --auto-broadcast and the current --privacy, without --title')
+    if (args.seconds is not None and not 1 <= args.seconds <= 86400) or not 0 <= args.port <= 65535:
         parser.error('invalid duration or port')
+    if args.seconds is None and not (args.auto_broadcast or args.publish or args.publish_twitch):
+        parser.error('--until-stopped requires publishing')
     if args.authorize_youtube and (args.publish or args.auto_broadcast or args.check or args.host_only):
         parser.error('--authorize-youtube runs separately from checking or publishing')
     os.umask(0o077)
+    logging.basicConfig(format='%(message)s')
+    logging.getLogger('ravora.youtube').setLevel(logging.INFO)
+    logging.getLogger('ravora.twitch_chat').setLevel(logging.INFO)
     try:
         run(args)
     except (SettingsError, ModuleNotFoundError) as exc:
@@ -299,8 +417,8 @@ def main():
         sys.exit(code if code.isupper() and len(code) < 100 else 'PROGRAM_CONFIGURATION_FAILED')
     except YouTubeError as exc:
         sys.exit(str(exc))
-    except RuntimeError as exc:
-        sys.exit('PROGRAM_ENCODER_OPEN_FAILED' if str(exc) == 'PROGRAM_ENCODER_OPEN_FAILED' else 'PROGRAM_FAILED')
+    except RuntimeError:
+        sys.exit('PROGRAM_FAILED')
     except Exception:
         sys.exit('PROGRAM_IO_FAILED')
 

@@ -27,6 +27,31 @@ except ImportError:
 
 @unittest.skipUnless(grpc and shutil.which('openssl'), 'requires the youtube-live extra and openssl')
 class StreamListTests(unittest.TestCase):
+    @unittest.skipUnless(find_spec('google.rpc') if grpc else False, 'requires Google RPC details')
+    def test_structured_resource_exhaustion_honors_retry_delay_and_daily_limit(self):
+        from google.protobuf.any_pb2 import Any
+        from google.rpc import error_details_pb2, status_pb2
+        from unittest.mock import Mock
+        from ravora.youtube_stream import _rpc_error
+
+        status = status_pb2.Status(code=8,message='sensitive detail')
+        retry = error_details_pb2.RetryInfo()
+        retry.retry_delay.seconds = 145
+        packed = Any()
+        packed.Pack(retry)
+        status.details.append(packed)
+        error = Mock()
+        error.code.return_value = grpc.StatusCode.RESOURCE_EXHAUSTED
+        error.trailing_metadata.return_value = [('grpc-status-details-bin',status.SerializeToString())]
+        result = _rpc_error(error)
+        self.assertEqual((str(result),result.retry_after),('YOUTUBE_GRPC_RESOURCE_EXHAUSTED',145))
+        packed.Pack(error_details_pb2.ErrorInfo(reason='DAILY_LIMIT_EXCEEDED'))
+        status.details.append(packed)
+        error.trailing_metadata.return_value = [('grpc-status-details-bin',status.SerializeToString())]
+        self.assertEqual(str(_rpc_error(error)),'YOUTUBE_DAILY_LIMIT_EXCEEDED')
+        error.trailing_metadata.return_value = [('grpc-status-details-bin',b'bad metadata')]
+        self.assertEqual(str(_rpc_error(error)),'YOUTUBE_GRPC_RESOURCE_EXHAUSTED')
+
     def setUp(self):
         tmp = tempfile.TemporaryDirectory()
         self.addCleanup(tmp.cleanup)
@@ -139,6 +164,21 @@ class StreamListTests(unittest.TestCase):
 
     @unittest.skipUnless(find_spec('av') and find_spec('PIL'), 'media extras required')
     def test_managed_launcher_encodes_before_transition_and_uses_oauth_chat(self):
+        self._managed_launcher('timer')
+
+    @unittest.skipUnless(find_spec('av') and find_spec('PIL'), 'media extras required')
+    def test_continuous_launcher_completes_only_its_own_event_on_operator_stop(self):
+        self._managed_launcher('operator')
+
+    @unittest.skipUnless(find_spec('av') and find_spec('PIL'), 'media extras required')
+    def test_continuous_launcher_preserves_live_event_on_encoder_failure(self):
+        self._managed_launcher('failure')
+
+    @unittest.skipUnless(find_spec('av') and find_spec('PIL'), 'media extras required')
+    def test_pinned_launcher_resumes_the_live_event_and_receives_chat(self):
+        self._managed_launcher('resume')
+
+    def _managed_launcher(self, ending):
         import contextlib
         import importlib.util
         import io
@@ -149,6 +189,12 @@ class StreamListTests(unittest.TestCase):
         from test_youtube_broadcast import FakeChannel
 
         api = FakeChannel()
+        studio_event = {'id':'manual', 'status':{'lifeCycleStatus':'live'},
+                        'contentDetails':{'boundStreamId':'studio-input'}}
+        api.rows[BROADCAST]['manual'] = studio_event.copy()
+        signals = {}
+        duration = ['--seconds','2'] if ending == 'timer' else ['--until-stopped']
+        console_link = self.root/'operator.url'
         received = []
         def handler(request, context):
             received.append((request.live_chat_id, dict(context.invocation_metadata())))
@@ -161,31 +207,76 @@ class StreamListTests(unittest.TestCase):
                        'GOOGLE_TTS_API_KEY=c\nRAVORA_CHARACTER_INITIATIVE_ENABLED=false\n')
         env.chmod(0o600)
         media = self.root/'program.flv'
+        (self.root/'config.toml').write_text('[youtube_live]\nvideo_encoder = "hevc_nvenc"\nmade_for_kids = false\n'
+            '[youtube_live.metadata]\ntitle = "ライブ｜{date}"\ndescription = "Rayと話そう"\n'
+            'tags = ["Ray", "AI VTuber"]\ncategory_id = "24"\n')
+        if ending == 'resume':
+            import tomllib
+            from ravora.youtube_broadcast import video_metadata
+            metadata = video_metadata(tomllib.loads((self.root/'config.toml').read_text())['youtube_live']['metadata'])
+            (self.root/'state/youtube').mkdir(parents=True)
+            existing = Broadcast(api, self.root/'state/youtube', 'owner', None, 'unlisted', threading.Event(),
+                                 metadata=metadata, made_for_kids=False)
+            existing.prepare()
+            row = api.rows[BROADCAST][existing.state['broadcast']]
+            row['status'].update(lifeCycleStatus='live', privacyStatus='public')
+            row['snippet']['liveChatId'] = 'test-chat'
+            duration += ['--resume-live', row['id'], '--privacy', 'public']
         class LocalOutput(ProgramWriter):
             def __init__(writer, target, scene, *, publish, video_encoder):
                 self.assertTrue(publish)
+                self.assertIsNone(target)
+                self.assertEqual(video_encoder, 'hevc_nvenc')
+                super().__init__(media, scene)
+            def start_publish(writer, target):
                 self.assertEqual(target, 'rtmps://a.rtmps.youtube.com/live2/fake-test-key')
-                self.assertEqual(video_encoder, 'libx265')
-                super().__init__(media, scene, video_encoder=video_encoder)
+                video, = api.rows['videos'].values()
+                self.assertEqual(api.rows[BROADCAST][video['id']]['contentDetails']['latencyPreference'], 'ultraLow')
+                self.assertIs(api.rows[BROADCAST][video['id']]['status']['selfDeclaredMadeForKids'], False)
+                self.assertNotIn('selfDeclaredMadeForKids', api.rows[BROADCAST]['manual']['status'])
+                self.assertRegex(video['snippet']['title'], r'^ライブ｜\d{4}-\d{2}-\d{2}$')
+                self.assertEqual(video['snippet']['description'], 'Rayと話そう')
+                self.assertCountEqual(video['snippet']['tags'], ['Ray', 'AI VTuber'])
+                self.assertEqual(video['snippet']['categoryId'], '24')
             def write(writer, stage, pcm):
                 super().write(stage, pcm)
                 api.receiving = True
+                if ending != 'timer':
+                    self.assertLess(writer.frames, 180, 'continuous startup timed out')
+                    if received:
+                        self.assertTrue(console_link.is_file())
+                        if ending == 'failure':
+                            raise RuntimeError('simulated encoder failure')
+                        signals[launcher.signal.SIGTERM]()
         wait, finish = Broadcast.wait_live, Broadcast.finish
         stdout = io.StringIO()
-        from PIL import Image
-        Image.new('RGB', (1920, 1080)).save(self.root/'neutral.png')
-        with (patch.object(launcher, 'ROOT', self.root), patch.object(launcher.signal, 'signal'),
+        with (patch.object(launcher, 'ROOT', self.root), patch.object(launcher.signal, 'signal', side_effect=signals.__setitem__),
               patch.object(launcher.ChannelAPI, 'connect', return_value=(api, 'owner')),
-              patch.object(sys, 'argv', ['ravora-youtube-live','--env',str(env),'--mode','cloud','--auto-broadcast',
-                                         '--seconds','2','--port','0','--scene-dir',str(self.root)]),
+              patch.object(sys, 'argv', ['ravora-youtube-live','--config',str(self.root/'config.toml'),'--env',str(env),'--mode','cloud','--auto-broadcast',
+                                         *duration,'--port','0','--operator-url-link',str(console_link)]),
               patch('ravora.live_media.ProgramWriter', LocalOutput),
-              patch.object(Broadcast, 'wait_live', lambda b: wait(b, interval=.02)),
+              patch.object(Broadcast, 'wait_live', lambda b, **kwargs: wait(b, interval=.02, **kwargs)),
               patch.object(Broadcast, 'finish', lambda b: finish(b, interval=.02)),
               contextlib.redirect_stdout(stdout)):
-            launcher.main()
+            with (patch('ravora.live_media.ProgramWriter', side_effect=RuntimeError('unavailable')),
+                  patch.object(Broadcast, 'prepare') as prepare):
+                with self.assertRaisesRegex(SystemExit, 'PROGRAM_ENCODER_OPEN_FAILED .*hevc_nvenc'):
+                    launcher.main()
+                prepare.assert_not_called()
+            if ending == 'failure':
+                with self.assertRaisesRegex(SystemExit,'PROGRAM_FAILED'):
+                    launcher.main()
+            else:
+                launcher.main()
+        self.assertFalse(console_link.is_symlink())
+        self.assertEqual(api.rows[BROADCAST]['manual']['status']['lifeCycleStatus'], 'live')
+        if ending == 'failure':
+            owned, = [row for key,row in api.rows[BROADCAST].items() if key != 'manual']
+            self.assertEqual(owned['status']['lifeCycleStatus'], 'live')
+            return
         result = json.loads(next((self.root/'.runtime').glob('youtube-live-*/summary.json')).read_text())
         self.assertTrue(result['live_confirmed'])
-        self.assertEqual(result['video_encoder'], 'libx265')
+        self.assertEqual(result['video_encoder'], 'libx265')  # The local test writer actually opened this codec.
         self.assertEqual(result['live_chat_id'], 'test-chat')
         self.assertEqual(api.rows[BROADCAST][result['video_id']]['status']['lifeCycleStatus'], 'complete')
         self.assertEqual([(chat, md.get('authorization'), md.get('x-goog-api-key')) for chat, md in received],
@@ -227,7 +318,7 @@ class StreamListTests(unittest.TestCase):
             return iter(())
         self.serve(handler)
         reader=YouTubeReader(self.settings,self.inbox,transport=self.no_http)
-        thread=threading.Thread(target=reader.run,args=(stop,),kwargs={'seconds':30})
+        thread=threading.Thread(target=reader.run,args=(stop,),kwargs={'seconds':None})
         thread.start()
         try:
             self.assertTrue(opened.wait(3))

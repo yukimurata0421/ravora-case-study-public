@@ -51,7 +51,11 @@ def main():
                 if header[4:8] != b'ftyp' or (path.suffix == '.m4a' and header[8:12] != b'M4A '):
                     raise ValueError('INVALID_PUBLIC_MEDIA_CONTAINER')
             continue
-        if path.suffix.lower() in ('.sqlite3','.db','.wav','.m4a','.mp3','.vrm','.vroid','.mp4','.webm','.log') or path.name in ('.env','settings.json'):raise ValueError('PRIVATE_ARTIFACT_IN_PAYLOAD')
+        private_extensions = ('.sqlite3', '.db', '.wav', '.m4a', '.mp3', '.pcm', '.aac',
+                              '.ogg', '.flac', '.vrm', '.vroid', '.mp4', '.flv', '.webm', '.log', '.jsonl')
+        if (path.suffix.lower() in private_extensions or path.name in ('.env','settings.json')
+                or relative.startswith(('state/', '.runtime/'))):
+            raise ValueError('PRIVATE_ARTIFACT_IN_PAYLOAD')
         if path.suffix.lower()=='.png':continue
         text=path.read_text()
         if any(pattern.search(text) for pattern in forbidden):raise ValueError('PRIVATE_DEFAULT_IN_PAYLOAD:'+relative)

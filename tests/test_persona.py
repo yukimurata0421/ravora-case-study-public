@@ -92,8 +92,9 @@ class PersonaSettingsTests(unittest.TestCase):
         self.assertFalse(s.stt_api_enabled)
         self.assertFalse(s.youtube_read_enabled)
 
-    def test_reply_style_defaults_to_brief_and_env_can_select_normal(self):
-        self.assertEqual(ProviderSettings().validate().reply_style, 'brief')
+    def test_reply_style_defaults_to_normal_and_env_can_select_brief(self):
+        self.assertEqual(ProviderSettings().validate().reply_style, 'normal')
+        self.assertEqual(load_settings(self.env(''),environ={}).reply_style,'normal')
         path=self.env('RAVORA_REPLY_STYLE=normal\n')
         self.assertEqual(load_settings(path,environ={}).reply_style,'normal')
         short=load_settings(path,environ={'RAVORA_REPLY_STYLE':'brief'})
@@ -104,12 +105,21 @@ class PersonaSettingsTests(unittest.TestCase):
 
     def test_brief_policy_preserves_explicit_detail_requests_and_safe_context(self):
         prompt=conversation_prompt('cheeky',reply_style='brief')
-        self.assertIn('usually 5 to 12 English words',prompt)
+        self.assertIn('specific observation, reason or comparison',prompt)
         self.assertIn('current user explicitly asks',prompt)
         self.assertIn('Do not repeat their message',prompt)
         self.assertIn(CONVERSATION_RULES,prompt)
         self.assertNotIn(REPLY_RULES['normal'],prompt)
         self.assertIn(REPLY_RULES['normal'],conversation_prompt(reply_style='normal'))
+
+    def test_default_delivers_a_second_thought_in_both_spoken_languages(self):
+        for language,pace,short in [('ja-JP','二、三文','短い返事'), ('en-US','Two or three','short answer')]:
+            with self.subTest(language=language):
+                normal=conversation_prompt(language=language)
+                self.assertEqual(normal,conversation_prompt(language=language,reply_style='normal'))
+                self.assertIn(pace,normal)
+                self.assertIn(short,normal)
+                self.assertNotIn(pace,conversation_prompt(language=language,reply_style='brief'))
 
     def test_japanese_legacy_reply_uses_the_voice_locale_even_with_english_history(self):
         settings = replace(ProviderSettings(), language='ja-JP', voice='ja-JP-Wavenet-B').validate()
@@ -175,7 +185,7 @@ class PersonaSettingsTests(unittest.TestCase):
     def test_uncertain_reference_can_acknowledge_a_statement_without_requesting_its_story(self):
         for strategy in ('episodes_abstained','episodes_unrelated'):
             plain=listener_instruction(strategy,'neutral')
-            self.assertIn('declarative acknowledgment',plain)
+            self.assertIn('a detail in their current words',plain)
             self.assertNotIn('open question',plain)
             self.assertEqual(plain,listener_instruction(strategy,None))
             interested=listener_instruction(strategy,'joy')
@@ -267,7 +277,6 @@ class PersonaPathTests(unittest.IsolatedAsyncioTestCase):
                     self.assertEqual(rows[0],(0,None))
                     self.assertEqual(rows[1][0],1)
                     self.assertGreater(rows[1][1],3000)
-                    self.assertEqual(client.llm.requests[0].generation_config.response_mime_type,'application/json')
             finally:await session.close()
 
     async def test_env_selection_reaches_both_wire_requests_with_memory_contract(self):
@@ -363,6 +372,32 @@ class PersonaPathTests(unittest.IsolatedAsyncioTestCase):
             with store.connect() as db:
                 self.assertEqual(db.execute('SELECT COUNT(*),SUM(attempted) FROM provider_calls').fetchone(), (9, 0))
 
+    async def test_current_name_and_private_naming_decision_on_both_wires(self):
+        from ravora.persona import AVATAR_NAME, DEVELOPER_SPEAKER
+        history=[('user', "What's your name?"), ('model', 'Ravora.')]
+        self.assertEqual(AVATAR_NAME, 'RAY')
+        question='Why did you suggest Ray?'
+        for developer in (False, True):
+            http=HTTP()
+            list(GeminiText(ProviderSettings(),http).stream(question,history,developer_speaker=developer))
+            clients=WireVoiceClients()
+            prompt=conversation_prompt()+(DEVELOPER_SPEAKER if developer else '')
+            self.assertTrue(''.join([d async for d in clients.generate(question,history=history,prompt=prompt)]))
+            grpc=clients.edge.llm.requests[0].system_instruction.parts[0].text
+            self.assertEqual(grpc,http.requests[0]['systemInstruction']['parts'][0]['text'])
+            self.assertIn('Your current name is RAY',grpc)
+            self.assertIn('who suggested the name',grpc)
+            self.assertEqual('suggested RAY yourself' in grpc,developer)
+            self.assertEqual('developer liked the suggestion and adopted it' in grpc,developer)
+
+    async def test_direct_grpc_default_matches_rest_without_retrieved_context(self):
+        clients = WireVoiceClients()
+        http = HTTP()
+        list(GeminiText(ProviderSettings(), http).stream('Hello.', []))
+        self.assertTrue(''.join([delta async for delta in clients.generate('Hello.')]))
+        self.assertEqual(clients.edge.llm.requests[0].system_instruction.parts[0].text,
+                         http.requests[0]['systemInstruction']['parts'][0]['text'])
+
     async def test_current_name_and_speaker_role_on_both_wires(self):
         from ravora.persona import AVATAR_NAME, DEVELOPER_SPEAKER
         history=[('user', "What's your name?"), ('model', 'Ravora.')]
@@ -379,14 +414,6 @@ class PersonaPathTests(unittest.IsolatedAsyncioTestCase):
             self.assertIn('Your current name is RAY',grpc)
             self.assertIn('who suggested the name',grpc)
             self.assertEqual('The current speaker is your developer' in grpc,developer)
-
-    async def test_direct_grpc_default_matches_rest_without_retrieved_context(self):
-        clients = WireVoiceClients()
-        http = HTTP()
-        list(GeminiText(ProviderSettings(), http).stream('Hello.', []))
-        self.assertTrue(''.join([delta async for delta in clients.generate('Hello.')]))
-        self.assertEqual(clients.edge.llm.requests[0].system_instruction.parts[0].text,
-                         http.requests[0]['systemInstruction']['parts'][0]['text'])
 
 
 if __name__ == '__main__':

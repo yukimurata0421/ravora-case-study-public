@@ -4,7 +4,7 @@ from pathlib import Path
 import os
 import re
 
-from ravora.persona import DEFAULT_PERSONA, REPLY_STYLES, PersonaError, load_persona
+from ravora.persona import DEFAULT_PERSONA, DEFAULT_REPLY_STYLE, REPLY_STYLES, PersonaError, load_persona
 
 DEFAULT_STREAMING_VOICE = 'en-US-Chirp3-HD-Zephyr'
 CONVERSATION_LANGUAGES = ('en-US', 'ja-JP')
@@ -89,6 +89,8 @@ class ProviderSettings:
     youtube_chat_id: str = field(default='', repr=False)
     youtube_poll_seconds: float = 5.
     youtube_max_requests: int = 40
+    youtube_chat_requests_per_hour: int | None = None
+    youtube_chat_daily_units: int = 4800
     youtube_key: str = field(default='', repr=False)
     llm_provider: str = 'gemini'
     reaction_provider: str = 'jev'
@@ -96,7 +98,7 @@ class ProviderSettings:
     gemini_model: str = 'gemini-3.5-flash-lite'
     persona: str = DEFAULT_PERSONA
     persona_file: str = field(default='', repr=False)
-    reply_style: str = 'brief'
+    reply_style: str = DEFAULT_REPLY_STYLE
     jev_model: str = 'jev-1.14.0'
     voice: str = 'en-US-Wavenet-F'
     language: str = 'en-US'
@@ -158,13 +160,13 @@ class ProviderSettings:
     handsfree_onset_dbfs: float = -38
     character_enabled: bool = True
     character_initiative_enabled: bool = True
-    character_idle_seconds: int = 120
-    character_max_initiatives: int = 2
+    character_idle_seconds: int = 45
+    character_max_initiatives: int = 4
 
     def validate(self):
         if (type(self.character_enabled) is not bool or type(self.character_initiative_enabled) is not bool
                 or type(self.character_idle_seconds) is not int or not 30<=self.character_idle_seconds<=1800
-                or type(self.character_max_initiatives) is not int or not 0<=self.character_max_initiatives<=4):
+                or type(self.character_max_initiatives) is not int or not -1<=self.character_max_initiatives<=4):
             raise SettingsError('INVALID_CHARACTER_SETTINGS')
         validate_handsfree_onset_dbfs(self.handsfree_onset_dbfs)
         if type(self.monthly_reply_llm_usd) is not int or self.monthly_reply_llm_usd < 0:
@@ -197,10 +199,15 @@ class ProviderSettings:
         if self.cloud_project and not re.fullmatch(r'[a-z][a-z0-9-]{4,28}[a-z0-9]',self.cloud_project):raise SettingsError('INVALID_CLOUD_PROJECT')
         if any(type(x) is not bool for x in (self.api_enabled,self.youtube_read_enabled,self.memory_enabled,self.memory_api_enabled,self.stt_api_enabled)):
             raise SettingsError('INVALID_API_SWITCH')
-        if self.comment_source not in ('fixture','youtube-fixture','memory-fixture','youtube','developer'):
+        if self.comment_source not in ('fixture','youtube-fixture','memory-fixture','youtube','twitch','developer'):
             raise SettingsError('INVALID_COMMENT_SOURCE')
         if not 1<=self.comment_queue_size<=20 or not 5<=self.comment_ttl<=180 or not 1<=self.youtube_poll_seconds<=60 or not 1<=self.youtube_max_requests<=100:
             raise SettingsError('INVALID_COMMENT_LIMITS')
+        rate = self.youtube_chat_requests_per_hour
+        if rate is not None and (type(rate) is not int or not 1 <= rate <= 400):
+            raise SettingsError('INVALID_YOUTUBE_CHAT_HOURLY_LIMIT')
+        if type(self.youtube_chat_daily_units) is not int or not 5 <= self.youtube_chat_daily_units <= 10000:
+            raise SettingsError('INVALID_YOUTUBE_CHAT_DAILY_LIMIT')
         if self.youtube_video_id and not re.fullmatch(r'[A-Za-z0-9_-]{11}',self.youtube_video_id):
             raise SettingsError('INVALID_YOUTUBE_VIDEO_ID')
         if self.youtube_chat_id and (len(self.youtube_chat_id)>1024 or any(ord(c)<33 or ord(c)>126 for c in self.youtube_chat_id)):
@@ -227,13 +234,18 @@ class ProviderSettings:
             raise SettingsError('INVALID_STT_LIMITS')
         if self.stt_provider!='local_cpu' or not re.fullmatch(r'assets/stt/[A-Za-z0-9_./-]{1,180}',self.stt_model_path) or '..' in Path(self.stt_model_path).parts:
             raise SettingsError('INVALID_LOCAL_STT_PROVIDER_OR_PATH')
-        if not (100<=self.stt_min_speech_ms<=600 and 150<=self.stt_silence_ms<=1000 and 50<=self.stt_pad_ms<=300):
-            raise SettingsError('INVALID_LOCAL_VAD_SETTINGS')
         if not (.3<=self.stt_vad_probability<=.8 and .2<=self.stt_no_speech<=.9 and -2<=self.stt_log_probability<=-.1 and 1.5<=self.stt_compression<=3.5 and 0<=self.stt_language_probability<=1):raise SettingsError('INVALID_LOCAL_STT_THRESHOLDS')
+        try:self.vad_config().validate()
+        except ValueError:raise SettingsError('INVALID_LOCAL_VAD_SETTINGS') from None
         if not re.fullmatch(r'[A-Za-z0-9._-]{1,64}',self.developer_id):raise SettingsError('INVALID_DEVELOPER_ID')
         if any(any(c in value for c in '\r\n\0') for value in (self.gemini_key,self.jev_key,self.tts_key,self.gcp_access_token,self.quota_project,self.youtube_key)):
             raise SettingsError('INVALID_CREDENTIAL_FORMAT')
         return self
+
+    def vad_config(self):
+        from ravora.airband_vad import VadConfig
+        return VadConfig(self.stt_noise_percentile,self.stt_margin_db,self.stt_floor_db,self.stt_min_speech_ms,
+            self.stt_silence_ms,self.stt_pad_ms,self.stt_min_output_ms)
 
     def missing(self):
         return [name for name, present in [('GEMINI_API_KEY',self.gemini_key),('JEV_API_KEY',self.jev_key),('GOOGLE_TTS_API_KEY or GOOGLE_CLOUD_ACCESS_TOKEN',self.tts_key or self.gcp_access_token)] if not present]
@@ -245,7 +257,7 @@ class ProviderSettings:
 
     def public(self):
         names=('mode','api_enabled','comment_source','comment_queue_size','comment_ttl','youtube_read_enabled','youtube_poll_seconds','youtube_max_requests','llm_provider','reaction_provider','tts_provider','gemini_model','jev_model','voice','language','speaking_rate','pitch','timeout','turn_timeout','max_reply_chars','sentence_chars','max_chunks','monthly_tts_chars','memory_turns','memory_enabled','memory_ttl_days','memory_queue_size','memory_wait_seconds','memory_extractor','memory_api_enabled','memory_model','memory_api_timeout','memory_min_confidence','stt_api_enabled','stt_model','stt_language','stt_timeout','stt_max_seconds','stt_monthly_audio_seconds','stt_session_requests','stt_min_rms')
-        return {name:getattr(self,name) for name in (*names,'persona','reply_style','early_reaction_enabled','early_reaction_stability',
+        return {name:getattr(self,name) for name in (*names,'youtube_chat_requests_per_hour','youtube_chat_daily_units','persona','reply_style','early_reaction_enabled','early_reaction_stability',
             'character_enabled','character_initiative_enabled','character_idle_seconds','character_max_initiatives',
             'early_reaction_debounce_ms','early_reaction_cooldown_ms','early_reaction_max_requests',
             'monthly_reply_llm_usd','context_enabled','context_max_items','context_max_chars','relationship_enabled','voice_profile','voice_stt_region','voice_stt_model','voice_input_language',
@@ -254,11 +266,14 @@ class ProviderSettings:
             'stt_vad_probability','stt_no_speech','stt_log_probability','stt_compression','stt_language_probability')}
 
 
-def load_settings(path: Path, *, mode=None, environ=None):
+def load_settings(path: Path, *, mode=None, environ=None, live_studio=False):
     values = read_env(path)
     values.update(os.environ if environ is None else environ)
     spec = {'api_enabled':('RAVORA_API_ENABLED',boolean),'comment_source':('RAVORA_COMMENT_SOURCE',str),'comment_queue_size':('RAVORA_COMMENT_QUEUE_SIZE',int),'comment_ttl':('RAVORA_COMMENT_TTL_SECONDS',int),'youtube_read_enabled':('YOUTUBE_READ_ENABLED',boolean),'youtube_video_id':('YOUTUBE_VIDEO_ID',str),'youtube_chat_id':('YOUTUBE_LIVE_CHAT_ID',str),'youtube_poll_seconds':('YOUTUBE_MIN_POLL_SECONDS',float),'youtube_max_requests':('YOUTUBE_MAX_REQUESTS',int),'youtube_key':('YOUTUBE_API_KEY',str),'mode':('RAVORA_MODE',str),'llm_provider':('RAVORA_LLM_PROVIDER',str),'reaction_provider':('RAVORA_REACTION_PROVIDER',str),'tts_provider':('RAVORA_TTS_PROVIDER',str),'gemini_model':('GEMINI_MODEL',str),'jev_model':('JEV_MODEL',str),'voice':('GOOGLE_TTS_VOICE',str),'language':('GOOGLE_TTS_LANGUAGE',str),'speaking_rate':('GOOGLE_TTS_SPEAKING_RATE',float),'pitch':('GOOGLE_TTS_PITCH',float),'timeout':('RAVORA_API_TIMEOUT_SECONDS',float),'turn_timeout':('RAVORA_TURN_TIMEOUT_SECONDS',float),'max_reply_chars':('RAVORA_MAX_REPLY_CHARS',int),'sentence_chars':('RAVORA_SENTENCE_CHARS',int),'max_chunks':('RAVORA_MAX_SPEECH_CHUNKS',int),'monthly_tts_chars':('RAVORA_MONTHLY_TTS_CHAR_LIMIT',int),'memory_turns':('RAVORA_MEMORY_TURNS',int),'gemini_key':('GEMINI_API_KEY',str),'jev_key':('JEV_API_KEY',str),'tts_key':('GOOGLE_TTS_API_KEY',str),'gcp_access_token':('GOOGLE_CLOUD_ACCESS_TOKEN',str),'quota_project':('GOOGLE_CLOUD_QUOTA_PROJECT',str)}
-    kwargs={}
+    kwargs = {'character_idle_seconds': 60, 'character_max_initiatives': -1, 'youtube_chat_requests_per_hour': 240} if live_studio else {}
+    if live_studio:
+        spec['youtube_chat_requests_per_hour'] = ('YOUTUBE_CHAT_REQUESTS_PER_HOUR', int)
+    spec['youtube_chat_daily_units'] = ('YOUTUBE_CHAT_DAILY_UNITS', int)
     spec.update({'monthly_reply_llm_usd':('RAVORA_MONTHLY_REPLY_LLM_USD',int),
         'context_enabled':('RAVORA_CONTEXT_ENABLED',boolean),'context_max_items':('RAVORA_CONTEXT_MAX_ITEMS',int),
         'relationship_enabled':('RAVORA_RELATIONSHIP_ENABLED',boolean),

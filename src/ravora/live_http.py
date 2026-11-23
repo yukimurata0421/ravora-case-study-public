@@ -11,12 +11,16 @@ class LiveHandler(Handler):
         path = self.path
         files = {'/': (WEB / 'live-host.html', 'text/html; charset=utf-8'),
                  '/host.js': (WEB / 'live-host.js', 'application/javascript'),
-                 '/mic-stream.js': (WEB / 'mic-stream.js', 'application/javascript')}
+                 '/live-monitor.js': (WEB / 'live-monitor.js', 'application/javascript'),
+                 '/live-metrics.js': (WEB / 'live-metrics.js', 'application/javascript'),
+                 '/live-metrics.css': (WEB / 'live-metrics.css', 'text/css; charset=utf-8'),
+                 '/mic-stream.js': (WEB / 'mic-stream.js', 'application/javascript'),
+                 '/recorder.js': (WEB / 'recorder.js', 'application/javascript')}
         live = WEB.parent/'live'
         files.update({'/overlay':(live/'overlay.html','text/html; charset=utf-8'),
                       '/overlay.js':(live/'overlay.js','application/javascript'),
                       '/overlay.css':(live/'overlay.css','text/css; charset=utf-8')})
-        if hasattr(self.server, 'avatar_assets'):
+        if getattr(self.server, 'avatar_assets', None) is not None:
             files.update({'/program-avatar':(live/'avatar.html','text/html; charset=utf-8'),
                           '/program-avatar.js':(live/'avatar.js','application/javascript')})
             files['/talk-avatar.js'] = WEB/'talk-avatar.js', 'application/javascript'
@@ -50,9 +54,19 @@ class LiveHandler(Handler):
             with program.lock:
                 stage = asdict(program.stage)
             self.reply(200, stage)
+        elif path == '/v1/host/metrics':
+            self.reply(200, self.server.metrics.snapshot())
         elif path == '/v1/status':
             self.reply(200, {**program.status(), 'mic_source': 'dell' if getattr(self.server, 'dell_mic', None) else 'browser'})
-        elif re.fullmatch(r'/v1/monitor/[0-9a-f]{32}-[0-9]{1,2}\.wav', path):
+        elif path == '/v1/monitor/next':
+            after = self.headers.get('X-Ray-After')
+            if after is not None and not re.fullmatch(r'[0-9]{1,15}', after):
+                raise RequestError('INVALID_MONITOR_CURSOR')
+            sequence, generation, frame, offset, join, data = program.monitor_packet(int(after) if after is not None else None)
+            self.reply(200, data, 'audio/wav' if data else 'application/octet-stream', headers={
+                'X-Ray-Sequence': sequence, 'X-Ray-Generation': generation, 'X-Ray-Frame': frame,
+                'X-Ray-Offset-Samples': offset, 'X-Ray-Join': int(join)})
+        elif re.fullmatch(r'/v1/monitor/[0-9a-f]{32}-[0-9]{1,2}(?:-p[0-9]{1,4})?\.wav', path):
             with program.lock:
                 monitor = program.monitor
                 if not monitor or path != '/v1/monitor/' + monitor[0] or not program.bridge.fence.current(program.token):
@@ -71,6 +85,15 @@ class LiveHandler(Handler):
         if self.path == '/v1/host/language':
             request = self.object(('language',))
             self.reply(200, program.select_language(request['language']))
+        elif self.path == '/v1/host/mic/volume':
+            request = self.object(('host_trim_db',))
+            db = program.mic.set_host_trim_db(request['host_trim_db'])
+            self.reply(200, {'host_trim_db': db})
+        elif self.path == '/v1/host/bgm/volume':
+            request = self.object(('volume_db',))
+            if program.bgm is None:
+                raise RequestError('BGM_NOT_CONFIGURED', 409)
+            self.reply(200, {'volume_db': program.bgm.set_volume(request['volume_db'])})
         elif self.path in ('/v1/host/mic/open', '/v1/host/mic/open-auto'):
             self.object(())
             self.reply(200, {'session': mic.open(automatic=self.path.endswith('open-auto'))})

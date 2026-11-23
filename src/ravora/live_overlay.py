@@ -1,6 +1,7 @@
 """1920×1080 Ray broadcast artwork, shared by the encoder and browser preview."""
 from dataclasses import dataclass
 from functools import lru_cache
+from itertools import islice
 import hashlib
 import re
 
@@ -16,6 +17,12 @@ PALETTE = (('#6E5A8A','#C9B8E8'), ('#3F6E66','#9FD6C9'), ('#8A5A3F','#F2C3A6'),
            ('#835763','#EDB8C9'), ('#446D80','#AEDAEA'))
 FACES = ('neutral', 'joy', 'surprise', 'thinking', 'concerned')
 CJK = re.compile(r'[^\x00-\u024f\u2000-\u206f]')
+CAPTION_WIDTH = 1170
+CAPTION_PROFILES = ((38, 2), (34, 4), (32, 5))
+LATIN_WORD_END = re.compile(r"[A-Za-z0-9_'’-]+$")
+FULL_WIDTH = re.compile(r'[\u3000-\u30ff\u3400-\u9fff\uff01-\uff60]+')
+NO_LINE_START = '。、！？：；，．」』】）》〉,.!?;:%)]'
+NO_LINE_END = '「『【（《〈(['
 
 
 @dataclass(frozen=True)
@@ -34,6 +41,72 @@ def font(size, bold=False, cjk=False):
 
 def typeface(text, size, bold=False):
     return font(size,bold,bool(CJK.search(text)))
+
+
+def _caption_rows(text, face, width, *, prefer_phrases=False):
+    """Break at measured widths, keeping words and Japanese punctuation together."""
+    start = 0
+    while start < len(text):
+        # Bound the width probes to roughly one row, even for a very long cue.
+        cells = max(1, width // face.size)
+        high = min(len(text), start + cells)
+        low = start
+        if FULL_WIDTH.fullmatch(text, start, high):
+            # A full-width row only needs one measurement in the usual case.
+            if face.getlength(text[start:high]) <= width:
+                low = high
+        else:
+            while face.getlength(text[start:high]) <= width:
+                low = high
+                if high == len(text):
+                    break
+                high = min(len(text), high + cells)
+        while low + 1 < high:
+            mid = (low + high) // 2
+            if face.getlength(text[start:mid]) <= width:
+                low = mid
+            else:
+                high = mid
+        end = max(start + 1, low)
+        if end < len(text):
+            while end > start + 1 and (text[end] in NO_LINE_START or text[end-1] in NO_LINE_END):
+                end -= 1
+            if LATIN_WORD_END.fullmatch(text[end]):
+                word = LATIN_WORD_END.search(text[start:end])
+                if word and word.start():
+                    end = start + word.start()
+            if prefer_phrases:
+                tail = start + (end - start) // 2
+                stop = max(text.rfind(mark, tail, end) for mark in '。、！？')
+                if stop >= tail and text[stop+1] not in NO_LINE_START:
+                    end = stop + 1
+        yield text[start:end].rstrip()
+        start = end
+        while start < len(text) and text[start].isspace():
+            start += 1
+
+
+def caption_layout(text, *, host_transcript=False):
+    text = ' '.join(text.split())
+    cjk = host_transcript or bool(CJK.search(text))
+    profiles = ((22, 3),) if host_transcript else CAPTION_PROFILES
+    for size, count in profiles:
+        face = font(size, not host_transcript, cjk)
+        rows = _caption_rows(text, face, CAPTION_WIDTH)
+        first = list(islice(rows, count + 1))
+        if len(first) <= count:
+            if len(first) > 1 and any(mark in text for mark in '。、！？'):
+                natural = list(islice(_caption_rows(text, face, CAPTION_WIDTH, prefer_phrases=True), len(first)+1))
+                if len(natural) == len(first):
+                    first = natural
+            if len(first) > 1 and len(first[-1]) < len(first[-2]) / 3:
+                average_width = sum(face.getlength(row) for row in first) / len(first)
+                balanced = list(_caption_rows(text, face, min(CAPTION_WIDTH, round(average_width * 1.06))))
+                if len(balanced) == len(first):
+                    first = balanced
+            return (size, cjk), ('\n'.join(first),)
+    all_rows = [*first, *rows]
+    return (size, cjk), tuple('\n'.join(all_rows[i:i+count]) for i in range(0, len(all_rows), count))
 
 
 def lines(text, face, width, limit=None):
@@ -163,21 +236,34 @@ class Overlay:
         picked = stage.chat[stage.selected] if 0<=stage.selected<len(stage.chat) else None
         if not (stage.caption or stage.thinking or stage.previous or stage.host_caption):
             return None
-        text = stage.caption or ('“'+picked.text+'”' if picked and stage.thinking else '')
-        face = typeface(text,38,True)
-        body = text.split('\n') if stage.caption else lines(text,face,1275,limit=2)
-        height = (53*len(body) + 54 + (42 if stage.previous or stage.host_caption else 0)
+        lingering = bool(stage.previous and not stage.caption and not stage.thinking)
+        text = stage.previous if lingering else stage.caption
+        size, cjk = stage.caption_font
+        face = font(size, True, cjk or bool(CJK.search(text)))
+        if text:
+            body = text.split('\n')
+        else:
+            quote = '“'+picked.text+'”' if picked and stage.thinking else ''
+            face = typeface(quote, size, True)
+            body = lines(quote,face,1275,limit=2)
+        leading = size + 15
+        host_rows = stage.host_caption.splitlines()
+        recap = bool(stage.previous and not lingering and not host_rows)
+        host_height = 32*len(host_rows) + 10 if host_rows else 0
+        height = (leading*len(body) + 54 + host_height + (42 if recap else 0)
                   + (40 if picked else 0) + (48 if stage.thinking else 0))
         panel = Image.new('RGBA',(1360,height))
         d = ImageDraw.Draw(panel)
         d.rounded_rectangle((0,0,1359,height-1),radius=24,fill=(20,15,13,224),outline=(255,240,225,32))
         y = 26
-        if stage.host_caption:
+        if host_rows:
             width = badge(d, 36, y - 3, 'HOST', BLUE, size=14)
-            face_host = typeface(stage.host_caption, 22)
-            ink(d, (52 + width, y), ellipsize(stage.host_caption, face_host, 1180), 22, CREAM)
-            y += 42
-        elif stage.previous:
+            face_host = font(22, False, True)
+            for line in host_rows:
+                d.text((52 + width, y), line, font=face_host, fill=CREAM, anchor='lt')
+                y += 32
+            y += 10
+        elif recap:
             previous = ' '.join(stage.previous.split())
             f = typeface(previous,22)
             ink(d,(36,y),ellipsize(previous,f,1270),22,DIM)
@@ -186,25 +272,30 @@ class Overlay:
             width = badge(d,36,y-4,'FROM CHAT',BLUE,'#10202F',13)
             ink(d,(52+width,y+1),ellipsize(picked.name,typeface(picked.name,16,True),700),16,author_colors(picked.name)[1],True)
             y+=40
-        if stage.caption:
-            badge(d,36,y+1,stage.speaker.upper(),AMBER if stage.speaker=='Ray' else BLUE)
+        if text:
+            speaker = 'Ray' if lingering else stage.speaker
+            badge(d,36,y+1,speaker.upper(),AMBER if speaker=='Ray' else BLUE)
         offset=0
         for line in body:
-            x=138 if stage.caption else 36
+            x=138 if text else 36
             begin,end = stage.highlight
             a,b = max(0,min(len(line),begin-offset)), max(0,min(len(line),end-offset))
-            if begin<0:
-                d.text((x,y),line,font=face,fill=CREAM,anchor='lt')
+            baseline = y + size + 2
+            if begin<0 or lingering:
+                d.text((x,baseline),line,font=face,fill=MUTED if lingering else CREAM,anchor='ls')
+            elif end<=offset or begin>=offset+len(line):
+                color = '#A6988B' if end<=offset else CREAM
+                d.text((x,baseline),line,font=face,fill=color,anchor='ls')
             else:
                 # A single baseline keeps kana and Latin aligned across color runs.
-                for string,color in ((line[:a],CREAM),(line[a:b],AMBER),(line[b:],'#A6988B')):
-                    d.text((x,y+40),string,font=face,fill=color,anchor='ls')
-                    width=face.getlength(string)
-                    if string and color==AMBER:
-                        d.line((x,y+47,x+width,y+47),fill=AMBER,width=3)
-                    x+=width
+                d.text((x,baseline),line[:a],font=face,fill=CREAM,anchor='ls')
+                x += face.getlength(line[:a])
+                d.text((x,baseline),line[a:b],font=face,fill=AMBER,anchor='ls')
+                right = x + face.getlength(line[a:b])
+                d.line((x,baseline+7,right,baseline+7),fill=AMBER,width=3)
+                d.text((right,baseline),line[b:],font=face,fill='#A6988B',anchor='ls')
             offset+=len(line)+1
-            y+=53
+            y+=leading
         if stage.thinking:
             badge(d,36,y,'RAY')
             for i, color in enumerate((AMBER,'#AA804F','#745A41')):
@@ -227,7 +318,7 @@ class Overlay:
             self._base.paste(cards,(64,181),cards)
             self._chat_key=chat_key
         panel_key=(stage.chat[stage.selected] if 0<=stage.selected<len(stage.chat) else None,
-                   stage.caption,stage.speaker,stage.highlight,stage.previous,stage.thinking,stage.host_caption)
+                   stage.caption,stage.caption_font,stage.speaker,stage.highlight,stage.previous,stage.thinking,stage.host_caption)
         if panel_key!=self._panel_key:
             self._panel=self._subtitles(stage)
             self._panel_key=panel_key

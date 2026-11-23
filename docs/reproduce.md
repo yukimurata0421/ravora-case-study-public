@@ -39,7 +39,7 @@ Schema files are packaged with the module, so replay does not depend on a source
 checkout. The validation record also covers running the installed wheel from an
 unrelated working directory.
 
-The provisional-reaction replay uses the same controller, the packaged version-13
+The provisional-reaction replay uses the same controller, the packaged
 schema, low-stability synthetic transcript updates, and the two stage reservations.
 Its waits advance a fixture; no latency result is claimed. The
 packaged character presets are checked by the request-assembly tests.
@@ -51,7 +51,10 @@ alignment test uses a locally synthesized utterance and requires the
 
 ## Test results
 
-The November 23 media snapshot (`b1ea343`) has the following recorded results.
+The latest local checkout and installed-wheel results are in the
+[publication validation record](../publication/validation.json).
+
+The preceding November 23 media snapshot (`b1ea343`) has the following recorded results.
 The Python total includes skips. Each listed run finished with zero failures and
 zero errors.
 

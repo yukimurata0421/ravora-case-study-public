@@ -1,0 +1,13 @@
+[Unit]
+Description=Ray live studio (%i)
+After=network-online.target
+
+[Service]
+Type=exec
+WorkingDirectory=%h/ray-studio
+RuntimeDirectory=ray-studio-%i
+RuntimeDirectoryMode=0700
+UMask=0077
+ExecStart=/bin/sh %h/ray-studio/ray-studio-service.sh %i
+TimeoutStopSec=60
+NoNewPrivileges=true

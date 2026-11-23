@@ -23,11 +23,13 @@ def live_reply_profiles(settings):
 
 
 class LiveChirpSpeech:
+    streams_program_pcm = True
+
     def __init__(self, settings):
         self.s = settings
         self.voice = streaming_voice(settings.voice_tts_voice, settings.language)
 
-    async def _pcm(self, text):
+    async def _pcm(self, text, on_pcm):
         import grpc
         from google.auth.credentials import AnonymousCredentials
         from google.cloud import texttospeech_v1 as tts
@@ -49,16 +51,20 @@ class LiveChirpSpeech:
             sound = bytearray()
             async with aclosing(engine.synthesize_stream(sentences())) as packets:
                 async for packet in packets:
-                    sound.extend(packet)
-                    if len(sound) > 60 * 24000 * 2:
+                    if len(packet) % 2:
+                        raise ProviderError('INVALID_TTS_RESULT')
+                    if len(sound) + len(packet) > 60 * 24000 * 2:
                         raise ProviderError('PROGRAM_AUDIO_TOO_LONG')
+                    sound.extend(packet)
+                    if packet and on_pcm:
+                        on_pcm(packet)
             if not sound:
                 raise ProviderError('INVALID_TTS_RESULT')
             return sound
 
-    def create(self, text, output):
+    def create(self, text, output, *, on_pcm=None):
         try:
-            pcm = asyncio.run(self._pcm(text))
+            pcm = asyncio.run(self._pcm(text, on_pcm))
         except Exception as exc:
             raise ProviderError(error_code(exc)) from None
         Path(output).write_bytes(pcm_wave(pcm, 24000))

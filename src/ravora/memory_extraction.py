@@ -128,7 +128,20 @@ def reply_cue(text):
     return None
 
 
+def explicit_memory_request(text):
+    return bool(re.search(
+        r"\b(?:do you remember|can you (?:remember|recall)|remind me|do you recall)\b|"
+        r"\b(?:what|which|who|where|when)\b.{0,100}\b(?:did (?:I|we|you) (?:say|mention|recommend|play)|"
+        r"last (?:time|week|session)|previously|earlier|yesterday)\b|"
+        r"(?:覚えて(?:る|いる|ます)|思い出せる)(?:[?？]|(?:かな|かしら|か|っけ)[。?？\s]*$)|"
+        r"思い出して(?:ほしい|ください|くれる)?[。?？!！\s]*$|"
+        r"(?:この前|前回|以前|前に|先週|昨日).{0,80}(?:何だっけ|なんだっけ|だったっけ|"
+        r"どれ[?？]|教えて|(?:覚えてる|覚えています)[。\s]*$|(?:何を|どんな).{0,30}[?？])", text, re.I))
+
+
 def historical_reference(text):
+    if explicit_memory_request(text):
+        return True
     return bool(re.search(r"\b(?:remember|recall|remind me|earlier|previously|ago|used to|last (?:time|session|week|month)|"
                           r"yesterday|previous (?:chat|session|conversation)|(?:other|another) (?:day|session))\b|"
                           r"\b(?:told|mentioned|discussed|asked|talked about)\b.{0,35}\bbefore\b", text, re.I))

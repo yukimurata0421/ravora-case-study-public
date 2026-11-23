@@ -28,8 +28,9 @@ take. The panel on the right shows what the system decided and when.
 - **Visible reaction.** Around **0:17–0:19**, Ray smiles as she answers
   “That freezer find is pure magic.”
 
-At the first reply onset, the browser recorded an **83.3 ms** gap between draws,
-so that reply failed its frame-spacing check. [Later jaw revision and same-audio comparison](docs/audio-timing.md#current-mouth-and-jaw) ·
+This take has a known defect: at the first reply onset the browser recorded an
+**83.3 ms** gap between draws, so that reply failed its frame-spacing check.
+[Later jaw revision and same-audio comparison](docs/audio-timing.md#current-mouth-and-jaw) ·
 [Earlier recordings and their measurements](docs/recording-history.md)
 
 ## What this demonstrates, and how to check it
@@ -49,7 +50,7 @@ The video shows how the result looks and sounds. The commands check the
 mechanisms. Live timing figures describe specific finite runs, not general
 latency guarantees.
 
-## Start here
+## Run the offline checks
 
 ```bash
 python3 scripts/demo.py replay
@@ -58,40 +59,18 @@ python3 scripts/demo.py relationships
 python3 scripts/demo.py media-timing
 ```
 
-Python 3.11+ with SQLite FTS5 and JSON support is sufficient. The replay uses only
-the standard library, makes no cloud requests, and removes its temporary database
+Python 3.11+ with SQLite FTS5 and JSON support is sufficient. The replays use only
+the standard library, make no cloud requests, and remove their temporary database
 and generated audio on exit. All sample conversations are fictional.
 
-The replay checks:
+| Command | What it checks | What it does not show | Sample result |
+| --- | --- | --- | --- |
+| `replay` | PCM reaches the output sink before text generation finishes. Acknowledged replies become retrievable, in the order developer dialogue, comment exchanges, prior answers. A public reply receives only a reviewed developer summary, and revoking it removes the summary. Cancellation rejects late audio and the playback acknowledgement. | Acknowledgements are simulated, so it cannot prove that a person heard audio or that an animation stayed synchronized. | [replay](examples/replay-report.json) |
+| `early-reaction` | Low-stability hypotheses pass through the real controller. A provisional reaction arrives while input is open, generation receives only the final transcript, and each reaction stage uses its own durable reservation. | No API requests and no real transcription latency. | [early reaction](examples/early-reaction-report.json) |
+| `relationships` | Fictional new, regular and returning contacts. Daily caps, receipt and playback idempotency, unplayed replies, owner/scope separation. | No reply is generated, so it makes no claim about conversation quality. | [relationships](examples/relationship-report.json) |
+| `media-timing` | A fictional phone sequence and PCM sample positions produce mouth cues and video timestamps. A missing frame checks that later frames keep their original audio clock. | No avatar is drawn. | [media timing](examples/media-timing-report.json) |
 
-- PCM reaches the output sink before text generation finishes;
-- completed, acknowledged replies become eligible for later retrieval;
-- developer dialogue, comment exchanges, and prior answers are retrieved in that order;
-- a public reply receives only a reviewed developer summary;
-- revoking that review removes the summary from subsequent retrieval;
-- cancelling a turn invalidates late audio and prevents a playback acknowledgement.
-
-Playback acknowledgements in the command-line replay are simulated. This does not
-prove that a person heard audio or that a character animation stayed synchronized.
-See the [sample result](examples/replay-report.json).
-
-The second replay sends repeated low-stability transcript hypotheses through the
-real controller. It checks that a provisional reaction arrives while the input is
-still open, generation receives only the final transcript, and each of the two
-reaction stages uses a distinct durable reservation. It makes no API requests and does
-not measure real transcription latency. See the
-[early-reaction result](examples/early-reaction-report.json).
-
-The `relationships` replay builds fictional new, regular, and returning contacts.
-It checks daily caps, receipt and playback idempotency, unplayed replies, and
-owner/scope separation. It shows qualitative model background without generating
-a reply or claiming conversation quality. See the
-[relationship result](examples/relationship-report.json).
-
-The `media-timing` replay uses a fictional phone sequence and PCM sample
-positions to produce mouth cues and video timestamps. It includes a missing
-frame so that the later frames can be checked against their original audio clock.
-See the [timing result](examples/media-timing-report.json).
+[Full reproduction, installed-package tests and test results](docs/reproduce.md)
 
 ## How it works
 
@@ -128,48 +107,53 @@ disable retention. See [automatic voice evaluation](docs/voice-evaluation.md).
 
 ### Live studio
 
-Record Ray and a host microphone with synchronized subtitles, or create an unlisted
-YouTube broadcast with channel OAuth. The studio supports Japanese and English
-conversation tabs, hands-free input, microphone mute and automatic gain matching.
-Chat arrives through gRPC `streamList`. The studio can record or publish 1080p30
-HEVC using NVIDIA NVENC. Start with the local HEVC/AAC preview in the
-[live studio guide](docs/youtube-live.md).
+Record Ray and a host microphone with synchronized subtitles, or publish a
+1080p30 program to YouTube in HEVC or to Twitch in H.264. The studio receives
+YouTube chat through gRPC `streamList` and Twitch chat through EventSub.
+The authenticated operator console controls the audio mix and reports
+sender progress and API usage.
+[Live studio guide](docs/youtube-live.md) · [Twitch](docs/twitch-live.md) ·
+[Operator setup](docs/studio-operations.md)
 
-Ray starts with an interest in stargazing, puzzles and speech technology. The cloud
-studio can remember source-backed details from Japanese and English conversations
-when the operator enables memory extraction. Ray can follow up on a co-host's news
-and shift a repeated topic through a related detail.
-[Character interests and viewer memory](docs/conversation-controls.md#rays-interests-and-viewer-memories) ·
-[Topic changes and recall](docs/conversation-controls.md#topic-changes-and-recall) ·
-[Voice selection and the six-voice audition](docs/conversation-controls.md)
+Ray starts with interests in stargazing, puzzles and speech technology. When the
+operator enables memory extraction, the cloud studio can remember source-backed
+details from Japanese and English conversations.
+[Interests, memory, topic changes and voice selection](docs/conversation-controls.md)
 
 ## Read further
 
-**Overview**
+**Design**
 
 - [Problem, architecture, and decisions](docs/case-study.md)
-- [Implementation history: causes, decisions, and outcomes](docs/implementation-history.md)
+- [Implementation history through November 18: causes, decisions, and outcomes](docs/implementation-history.md)
 
 **Mechanisms**
 
 - [Provisional and final reaction stages](docs/early-reactions.md)
 - [Memory ownership and sharing](docs/privacy.md)
 - [Viewer relationships and deterministic contact state](docs/relationships.md)
-- [Voice, memory, topic and budget controls](docs/conversation-controls.md)
+- [Voice, turn-taking, topic, memory and budget controls](docs/conversation-controls.md)
 - [Speech articulation and audio-clock capture](docs/audio-timing.md)
 
-**Evaluation**
-
-- [Historical measurements and their limits](docs/measurements.md)
-- [Live relationship, expression, and latency evaluation](docs/live-evaluation-20261117.md)
-- [Automatic voice timing and human-reviewed transcription errors](docs/voice-evaluation.md)
-- [Earlier recordings and their measurements](docs/recording-history.md)
-
-**Operation**
+**Running it**
 
 - [Reproduction and validation](docs/reproduce.md)
 - [Live studio and YouTube broadcast](docs/youtube-live.md)
-- [What was ported](publication/README.md)
+- [Twitch studio and EventSub chat](docs/twitch-live.md)
+- [Shared studio operations and Windows launcher](docs/studio-operations.md)
+- [Automatic voice timing and human-reviewed transcription errors](docs/voice-evaluation.md)
+
+**Evidence from finite runs**
+
+- [Historical measurements and their limits](docs/measurements.md) (November 16–17)
+- [Live relationship, expression, and latency evaluation](docs/live-evaluation-20261117.md) (November 17)
+- [Earlier recordings and their measurements](docs/recording-history.md) (November 18–22)
+- [YouTube same-event recovery and chat budget](docs/youtube-live-operations-20261124.md) (November 23–24)
+- [Twitch delivery and 4.44-second watch-player measurement](docs/twitch-live-operations-20261124.md) (November 24)
+
+**Publication**
+
+- [What was ported, what was excluded, and validation records](publication/README.md)
 
 ## Scope
 
@@ -178,14 +162,16 @@ environment are excluded from this snapshot.
 
 The portable slice retains the schema, turn fencing, provider boundaries, mock
 streaming, up to one reservation per reaction stage, character and reply-length policies,
-sharing approvals, and retrieval provenance. Its sixteen schema migrations retain
-earlier reaction attempts and add source-bound contact accounting. The reference API adapters
+sharing approvals, and retrieval provenance. Its nineteen schema migrations preserve
+earlier reaction attempts and add source-bound contact accounting, dialogue routing,
+and session and chat usage ledgers. The reference API adapters
 are available for inspection. The replay commands and console use mock providers
 and ignore dotenv files and inherited API credentials.
 
-Device-specific storage checks, production-stream supervision, cloud deployment,
-CPU recognizer installation, and avatar rendering remain outside this snapshot.
-No production system or remote service is controlled by these entrypoints.
+The optional live studio uses an operator's own configuration, credentials
+and output directory. The repository supplies portable user-service examples,
+an offline preview and synthetic fixtures. Operators provide local recognizer
+weights and any portrait or music they want to use.
 
 The additional retrieved context is capped at eight items and 3,600 serialized
 characters. Short-term conversation history and the system prompt are separate

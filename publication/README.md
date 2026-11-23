@@ -4,9 +4,9 @@ This directory records an allowlisted source port, not a wholesale copy of the
 development workspace. [source-map.json](source-map.json) lists exact, adapted, and
 extracted source files with hashes. Generated case-study files are also listed.
 
-Included:
+## Included
 
-- source-backed SQLite memory and its sixteen schema migrations;
+- source-backed SQLite memory, session usage and chat admission across nineteen schema migrations;
 - three-tier retrieval, explicit summary sharing, and revocation;
 - deterministic viewer contact state, daily caps, and qualitative request background;
 - streaming orchestration, input ledgers, and session-bound playback fences;
@@ -19,77 +19,61 @@ Included:
 - automatic local evaluation capture, condition-specific latency percentiles,
   human review labels, transcription edit counts, and an installed review command;
 - aggregate historical observations with explicit measurement limits;
-- a rendered [public conversation](../README.md#see-it-in-30-seconds) with both voices, a same-audio comparison of jaw motion, and [dated earlier recordings](../docs/recording-history.md);
-- the prepared-audio adapter and the live renderer's default articulation, with [measurements](../docs/recording-history.md#concept-02-default-motion).
+- sanitized operations records for the YouTube and Twitch studio runs;
+- portable, opt-in user-service and launcher examples.
 
-The reaction replay and tests cover provisional and final results, prefix
-agreement, correction, late completion, cancellation, and preservation of prior
-reservations during migration. The implementation history documents causes,
-decisions, outcomes, and the separately maintained v13 rendering change.
+The working tree keeps three media files: the
+[README conversation](../README.md#see-it-in-30-seconds), a same-audio
+[jaw comparison](../docs/audio-timing.md#current-mouth-and-jaw), and the six-voice
+[audition](../docs/media/voice-audition.m4a), which is the only audio-only file.
+Earlier recordings are linked from the [recording history](../docs/recording-history.md)
+at commit `9af86c6` instead of being kept in the clone.
 
-Excluded:
+## Excluded
 
 - dotenv secrets, existing databases, raw evidence, caches, and virtual environments;
 - avatar source assets, model weights, raw capture files, private recordings, and renderer vendor bundles;
-- host storage identifiers, private project defaults, deployment tooling, and
-  production-stream observation/control paths.
+- microphone recordings, personal transcripts and local evaluation directories;
+- host storage identifiers, private project defaults, installed production
+  units, operator credentials, and production-only controls.
 
-The dated [local validation record](validation.json) describes the archive-stage
-checks. The repository's Actions tab shows the status of remote workflow runs.
-The recorded measurements describe a finite development run. The package provides
-the replay and reference modules for separate reproduction.
+## Check the payload
 
-The [previous validation record](history/2026-11-16-validation.json) is retained
-unchanged. The current local record describes checks before delivery and does not
-assert the outcome of a later push or remote workflow. Historical runtime test
-counts and API measurements are not substituted for portable-package validation.
+```bash
+python3 scripts/validate_public.py
+```
 
-The [earlier reaction-port validation](history/2026-11-17-early-reaction-validation.json)
-and [relationship-port validation](history/2026-11-17-relationship-port-validation.json)
-record the earlier snapshot boundaries. The
-[two-stage and media timing validation](history/2026-11-18-reaction-and-media-timing-validation.json)
-records the initial public snapshot. The
-[reaction policy update](../docs/early-reactions.md#expression-selection) originally added
-speaker-grounded classification and an explicit rule for retaining a provisional
-expression. The original artwork and recordings are excluded from the package.
+The script validates local files, hashes, private-path patterns and local
+Markdown links. It does not contact the development workspace.
 
-The [November 18 expression-policy validation](history/2026-11-18-expression-policy-validation.json) records the checks before the dinner recording was added.
+## Validation records
 
-The [previous dinner recording validation](history/2026-11-19-thinking-conversation-validation.json) covers the earlier mouth motion.
+Each record describes the local checks made before that snapshot was delivered.
+It does not assert the outcome of a later push or remote workflow; the
+repository's Actions tab shows those. Historical runtime test counts and API
+measurements are kept separate from portable-package validation. Older records
+are retained unchanged.
 
-Run `python3 scripts/validate_public.py` to check the declared public payload.
-It validates local files and hashes; it does not contact the development workspace.
+| Validated (JST) | Snapshot | Record |
+| --- | --- | --- |
+| 2026-11-24 | Progressive studio PCM, program audio and subtitle controls, transport and API graphs, conversational initiative and recall, YouTube same-event recovery and chat admission. [Studio operations](../docs/studio-operations.md) | [Current](validation.json) |
+| 2026-11-24 | Twitch H.264 output, bounded RTMPS reconnect, EventSub chat and bilingual program replies. [Operations record](../docs/twitch-live-operations-20261124.md) | [Record](history/2026-11-24-twitch-studio-validation.json) |
+| 2026-11-23 | Media consolidation: one conversation, one same-audio comparison and the audition. No source code or new recordings. | [Record](history/2026-11-23-media-consolidation-validation.json) |
+| 2026-11-23 | Japanese topic-tag retrieval, opt-out checks and three initial character interests. [Settings](../docs/conversation-controls.md#rays-interests-and-viewer-memories) | [Record](history/2026-11-23-bilingual-memory-validation.json) |
+| 2026-11-22 | Portrait mesh, texture registration, jaw articulation and selectable NVIDIA or CPU HEVC encoding. [Encoder](../docs/youtube-live.md#select-the-hevc-encoder) | [Record](history/2026-11-22-avatar-hevc-validation.json) |
+| 2026-11-22 | Topic saturation, per-turn retrieval control and source-linked topic suggestions. [Routing](../docs/conversation-controls.md#topic-changes-and-recall) | [Record](history/2026-11-22-dialogue-routing-validation.json) |
+| 2026-11-22 | Live studio, channel authorization, chat streaming, microphone mixing, local STT with a model digest manifest. [Studio guide](../docs/youtube-live.md) | [Record](history/2026-11-22-live-studio-validation.json) |
+| 2026-11-21 | Listener-centered questions, persona cues at playback onset and independent microphone mute. [Controls](../docs/conversation-controls.md#listening-speaking-and-muting) | [Record](history/2026-11-21-listener-and-mute-validation.json) |
+| 2026-11-21 | Evaluation recorder, authenticated browser review and installed command. [Voice evaluation](../docs/voice-evaluation.md) | [Record](history/2026-11-21-voice-evaluation-validation.json) |
+| 2026-11-21 | Registered upper-lip renderer, manifest validation and the dinner recording with its frame-spacing result. [Conversational smile](../docs/audio-timing.md#conversational-smile) | [Record](history/2026-11-21-upper-lip-validation.json) |
+| 2026-11-20 | Speaker audition, hands-free input, caller-supplied avatar binding, source-backed episodes, developer ownership and transactional reply reservations. | [Record](history/2026-11-20-conversation-and-voice-validation.json) |
+| 2026-11-20 | Prepared-audio adapter and the live renderer's default articulation. [Measurements](../docs/recording-history.md#concept-02-default-motion) | [Record](history/2026-11-20-default-motion-validation.json) |
+| 2026-11-19 | The earlier dinner recording and its mouth motion. | [Record](history/2026-11-19-thinking-conversation-validation.json) |
+| 2026-11-18 | Speaker-grounded expression classification and the rule for keeping a provisional expression. [Expression selection](../docs/early-reactions.md#expression-selection) | [Record](history/2026-11-18-expression-policy-validation.json) |
+| 2026-11-18 | Two-stage reactions and media timing; the initial public snapshot. | [Record](history/2026-11-18-reaction-and-media-timing-validation.json) |
+| 2026-11-17 | Viewer relationship port. | [Record](history/2026-11-17-relationship-port-validation.json) |
+| 2026-11-17 | Provisional reaction port. | [Record](history/2026-11-17-early-reaction-validation.json) |
+| 2026-11-16 | Original archive stage. | [Record](history/2026-11-16-validation.json) |
 
-The November 20 port includes the speaker audition, rendered lip comparison,
-hands-free input, caller-supplied avatar binding, source-backed episodes,
-developer ownership, and transactional reply reservations. The six-voice audio
-file contains one scripted audition line and is the only audio-only media
-exception. The newly rendered conversation uses the same scripted input as
-the dinner demo. Original portraits, microphone recordings and database
-contents remain private. [Previous motion snapshot](history/2026-11-20-default-motion-validation.json)
-
-The November 21 snapshot includes the registered upper-lip renderer, manifest
-validation, and two finished clips of the scripted dinner conversation.
-The current reference and the frame-spacing result are documented together.
-[Conversational smile](../docs/audio-timing.md#conversational-smile) · [Previous voice and conversation validation](history/2026-11-20-conversation-and-voice-validation.json)
-
-The voice-evaluation port adds the recorder, authenticated browser review,
-startup defaults and installed command described in [voice evaluation](../docs/voice-evaluation.md).
-Only code, synthetic tests and documentation are included. No microphone recordings,
-personal transcripts or local evaluation directories were copied.
-The [previous upper-lip validation](history/2026-11-21-upper-lip-validation.json)
-retains the earlier media results and their frame-spacing limitation.
-
-The current port adds listener-centered questions, validated persona cues at
-playback onset, and independent microphone mute. The installed console exercises
-the handoff with synthetic inputs. [Conversation controls](../docs/conversation-controls.md#listening-speaking-and-muting) · [Previous voice evaluation validation](history/2026-11-21-voice-evaluation-validation.json)
-
-The [live studio guide](../docs/youtube-live.md) covers channel authorization, chat streaming, microphone mixing and bilingual playout. The package ships the character runtime, a local STT adapter and a model digest manifest. Operators supply their own weights, credentials and optional avatar artwork. [Previous validation](history/2026-11-21-listener-and-mute-validation.json)
-
-The dialogue router adds topic saturation, per-turn retrieval control and source-linked topic suggestions. The installed package contains the two migrations and synthetic tests. [Routing behavior](../docs/conversation-controls.md#topic-changes-and-recall) · [Previous live studio validation](history/2026-11-22-live-studio-validation.json)
-
-The November 22 avatar and encoder port includes the mesh, texture registration, articulation changes and two finished reference renders. The studio accepts an NVIDIA or CPU encoder in the same configuration file as the portrait. [Render comparison](../docs/audio-timing.md#current-mouth-and-jaw) · [Recording settings](../docs/youtube-live.md#select-the-hevc-encoder) · [Previous dialogue routing validation](history/2026-11-22-dialogue-routing-validation.json)
-
-The bilingual memory port includes Japanese topic-tag retrieval, opt-out checks and three initial character interests. Its tests use fictional exchanges. [Conversation settings](../docs/conversation-controls.md#rays-interests-and-viewer-memories) · [Previous avatar and encoder validation](history/2026-11-22-avatar-hevc-validation.json)
-
-The November 23 media consolidation keeps one conversation, one same-audio comparison and the voice audition in the working tree. It adds no source code or new recordings. Earlier recordings and their measurements moved to the [recording history](../docs/recording-history.md), which links to each file as published in commit `9af86c6`. The poster frame on the README is cut from the retained conversation. [Previous bilingual memory validation](history/2026-11-23-bilingual-memory-validation.json)
+The recorded measurements describe finite development runs. The package provides
+the replays and reference modules for separate reproduction.

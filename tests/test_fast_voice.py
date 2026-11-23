@@ -1,6 +1,7 @@
 import asyncio
 from contextlib import asynccontextmanager, redirect_stdout
 from dataclasses import replace
+from datetime import timedelta
 import hashlib
 import io
 import json
@@ -14,9 +15,11 @@ import uuid
 from unittest.mock import patch
 
 from ravora.conversation import MemoryStore
-from ravora.edge_grpc import EdgeError
+from ravora.edge_grpc import EdgeClients, EdgeError
 from ravora.fast_voice import FastVoiceSession, SpeechEndpoint
 from ravora.fast_voice_server import MockVoiceClients
+from ravora.persona import japanese_question_direction
+from ravora.ray_character import public_fixture
 from ravora.settings import ProviderSettings,SettingsError,load_settings
 
 
@@ -52,6 +55,13 @@ class EndpointTests(unittest.TestCase):
         detector.has_text = True
         self.assertIsNone(detector.end_reason(6700))
         self.assertEqual(detector.end_reason(6800), 'transcript_silence')
+
+    def test_quieter_speech_after_onset_still_delays_endpoint(self):
+        detector = SpeechEndpoint(800, local_onset=True)
+        detector.activity({'type':'SPEECH_ACTIVITY_END','offset_ms':300})
+        detector.observe_pcm(1000, 320*368**2, 320)  # -39 dBFS tail
+        self.assertIsNone(detector.end_reason(1100))
+        self.assertEqual(detector.end_reason(1800),'speech_activity_end')
 
 
 class FastVoiceTests(unittest.IsolatedAsyncioTestCase):
@@ -468,6 +478,146 @@ class FastVoiceTests(unittest.IsolatedAsyncioTestCase):
         await self.session.start_text(uuid.uuid4().hex,'Hello.');await asyncio.wait_for(self.session.task,3)
         self.assertEqual(self.session.phase,'failed');self.assertFalse(self.session.played(self.session.token,self.session.expected_frames))
         self.assertFalse(any(x['kind']=='complete' for x in self.events))
+
+    async def test_japanese_followup_uses_what_was_played(self):
+        prompts=[]
+        replies=iter(('曲名は「雨かな？」だったよ。','どんな音が好き？','どんな響きが好きですか。',
+                      '私も低い音が好き。','雨音と合わせたいな。','曲名は雨のステップかな。','君なら何を重ねる？','雨音を足したいな。'))
+        async def generate(text,**kwargs):
+            prompts.append(kwargs['prompt'])
+            yield public_fixture(next(replies))
+        generate.ray_public_output=True
+        self.client.generate=generate
+        self.session.select_language('ja-JP')
+        for index,previous in enumerate(([],[False],[False],[False,True],[False,True,False],[True,False,False],[False,False,False])):
+            await self.text('音楽の話をしよう。')
+            self.assertIn(japanese_question_direction(previous),prompts[-1])
+            if index==1:
+                await self.session.cancel()
+            else:
+                self.assertTrue(self.session.played(self.session.token,self.session.expected_frames))
+        question = 'じゃあレイは何を重ねたい？'
+        await self.text(question)
+        self.assertIn(japanese_question_direction([False, False, True], question), prompts[-1])
+
+    async def test_cold_opening_reaches_only_the_next_relevant_turn_after_playback(self):
+        from ravora.ray_character import public_fixture
+        seen = []
+        async def generate(text,**kwargs):
+            seen.append((text,kwargs['history'],kwargs['prompt']))
+            yield public_fixture('星座に短い名前を二つ付ける遊びをしよう。')
+        generate.ray_public_output = True
+        self.client.generate = generate
+        session = self.session
+        session.select_language('ja-JP')
+        session.character.last_activity -= 46
+        self.assertTrue(await session.maybe_initiate())
+        await asyncio.wait_for(session.task,4)
+        self.assertEqual(seen[0][1],[])
+        self.assertIn('What-If Notebook',seen[0][2])
+        self.assertTrue(session.played(session.token,session.expected_frames))
+        await self.text('続けて。')
+        self.assertEqual(seen[1][1][-1],('model','星座に短い名前を二つ付ける遊びをしよう。'))
+        self.assertTrue(session.played(session.token,session.expected_frames))
+        await self.text('スープを作ったよ。')
+        self.assertNotIn(('user','Ray opened this conversation.'),seen[2][1])
+
+    async def test_language_follows_the_turn_for_text_audio_and_initiatives(self):
+        session = self.session
+        prompts = []
+        generate = self.client.generate
+        async def capture(text, **kwargs):
+            prompts.append((kwargs['language'], kwargs['prompt']))
+            if text == 'レイ、何に興味がある？':
+                from ravora.ray_character import public_fixture
+                yield public_fixture('星の並びを別の形にできるのか気になる。')
+            else:
+                async for part in generate(text, **kwargs):
+                    yield part
+        capture.ray_public_output = True
+        self.client.generate = capture
+        await session.start_text(uuid.uuid4().hex, 'レイ、何に興味がある？', language='ja-JP')
+        await asyncio.wait_for(session.task, 4)
+        self.assertEqual(prompts[-1][0], 'ja-JP')
+        self.assertIn('自然な日本語', prompts[-1][1])
+        self.assertTrue(session.played(session.token, session.expected_frames))
+        session.character.last_activity -= 46
+        self.assertTrue(await session.maybe_initiate())
+        await asyncio.wait_for(session.task, 4)
+        self.assertEqual(prompts[-1][0], 'ja-JP')
+        self.assertTrue(session.played(session.token, session.expected_frames))
+        session.select_language('en-US')
+        await self.text('Hello.')
+        self.assertEqual(prompts[-1][0], 'en-US')
+        self.assertIn('conversational English', prompts[-1][1])
+        self.assertTrue(session.played(session.token, session.expected_frames))
+        identifier = uuid.uuid4().hex
+        await session.start_audio(identifier, 'ja-JP')
+        session.select_language('en-US')
+        await session.audio_chunk(identifier, b'\x00\x10' * 3200)
+        await session.end_audio(identifier)
+        await asyncio.wait_for(session.task, 4)
+        self.assertEqual(prompts[-1][0], 'ja-JP')
+        info = session.records.info(session.key)
+        self.assertEqual(info['language'], 'ja-JP')
+        self.assertIn('コーヒー', info['transcript'])
+        with self.assertRaisesRegex(EdgeError, 'INVALID_INPUT_LANGUAGE'):
+            session.select_language('auto')
+
+    async def test_provider_billed_duration_is_optional_and_preserved_without_transcript(self):
+        try:
+            from google.cloud.speech_v2 import types
+        except ImportError:
+            self.skipTest('requires the gRPC voice dependencies')
+        responses = []
+
+        class StubSpeech:
+            async def streaming_recognize(self, *, requests, **kwargs):
+                async def stream():
+                    async for _ in requests:
+                        pass
+                    for response in responses:
+                        yield response
+                return stream()
+
+        edge = EdgeClients({'access_token': 'offline'})
+        edge.speech_types = types
+        edge.stt = StubSpeech()
+        self.client.transcribe_frames = edge.transcribe_frames
+        for final, durations in [(False, []), (False, [0]), (False, [3]), (True, [2, 3])]:
+            with self.subTest(final=final, durations=durations):
+                responses.clear()
+                for seconds in durations:
+                    responses.append(types.StreamingRecognizeResponse(metadata=types.RecognitionResponseMetadata(
+                        total_billed_duration=timedelta(seconds=seconds))))
+                responses.append(types.StreamingRecognizeResponse(results=[types.StreamingRecognitionResult(
+                    alternatives=[types.SpeechRecognitionAlternative(transcript='Hello.')], is_final=final)]))
+                identifier = uuid.uuid4().hex
+                await self.session.start_audio(identifier, 'en-US')
+                await self.session.audio_chunk(identifier, bytes([0, 16]) * 3200)
+                await self.session.end_audio(identifier)
+                await asyncio.wait_for(self.session.task, 4)
+                row = self.session.records.info(self.session.key)
+                self.assertEqual(row['input_state'], 'accepted' if final else 'empty')
+                diagnostics = row['stt_diagnostics']
+                self.assertEqual(diagnostics['actual_audio_seconds'], .2)
+                self.assertEqual(diagnostics['reserved_audio_seconds'], self.session.s.stt_max_seconds)
+                if durations:
+                    self.assertEqual(diagnostics['provider_billed_seconds'], durations[-1])
+                else:
+                    self.assertNotIn('provider_billed_seconds', diagnostics)
+
+    async def test_dell_rejects_background_above_old_threshold_before_reserving_stt(self):
+        reader,_ = self.dell_stream()
+        await self.session.start_audio(uuid.uuid4().hex,'en-US',dell_device='PCH,0',end_mode='handsfree')
+        key, capture = self.session.key, self.session.capture_task
+        # -39 dBFS, long enough to have opened the old -40 dBFS gate.
+        reader.feed_data((368).to_bytes(2,'little')*16000)
+        reader.feed_eof()
+        await self.wait_event('armed')
+        await asyncio.wait_for(capture,2)
+        self.assertFalse(any(e['kind']=='listening' for e in self.events))
+        self.assertIsNone(self.session.records.info(key)['duration_seconds'])
 
 
 if __name__=='__main__':unittest.main()

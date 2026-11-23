@@ -41,9 +41,11 @@ class Handler(BaseHTTPRequestHandler):
     def setup(self):super().setup();self.connection.settimeout(5)
     def log_message(self,*_):pass
 
-    def reply(self,status,value,mime='application/json; charset=utf-8'):
+    def reply(self,status,value,mime='application/json; charset=utf-8',*,headers=None):
         body=json.dumps(value,ensure_ascii=False).encode() if mime.startswith('application/json') else value
         self.send_response(status);self.send_header('Content-Type',mime);self.send_header('Content-Length',str(len(body)))
+        for name, item in (headers or {}).items():
+            self.send_header(name, str(item))
         self.send_header('Cache-Control','no-store');self.send_header('X-Content-Type-Options','nosniff')
         self.send_header('Referrer-Policy','no-referrer')
         self.send_header('Content-Security-Policy',"default-src 'self'; script-src 'self'; style-src 'self'; connect-src 'self'; worker-src 'self'; media-src 'self' blob:; img-src 'self' data:; object-src 'none'; base-uri 'none'; frame-ancestors 'none'")

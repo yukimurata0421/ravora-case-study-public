@@ -1,3 +1,4 @@
+from legacy_turn import insert_legacy_turn
 import asyncio
 import json
 from pathlib import Path
@@ -103,12 +104,14 @@ class SingleReactionTests(unittest.IsolatedAsyncioTestCase):
             release.set();await asyncio.wait_for(session.early.task,1)
         self.assertEqual([e['phase'] for e in events if e['kind']=='reaction'],['final'])
 
-    def bound_input(self,store):
+    def bound_input(self,store,*,legacy=False):
         records=InputRecords(store,'session','mock');key,_=records.create(uuid.uuid4().hex,'text',b'Hello.')
         comment=Comment('developer-mock','chat',uuid.uuid4().hex,'local-developer','Developer','Hello.',time.time())
         inbox=CommentInbox(store);self.assertEqual(inbox.put(comment),'queued');inbox.take();inbox.claimed(comment.receipt)
         turn=uuid.uuid4().hex;self.assertTrue(inbox.bind(comment.receipt,turn))
-        store.start(turn,'offline:'+comment.viewer,comment.text);records.state(key,'accepted',source=comment.receipt)
+        if legacy:insert_legacy_turn(store,comment,turn,None,played=False)
+        else:store.start(turn,'offline:'+comment.viewer,comment.text)
+        records.state(key,'accepted',source=comment.receipt)
         return key,turn
 
     async def test_competing_final_preparations_share_atomic_claim(self):
@@ -130,7 +133,7 @@ class SingleReactionTests(unittest.IsolatedAsyncioTestCase):
                     db.execute('''INSERT INTO early_reaction_calls
                         (id,input_id,sequence,model,mode,text_sha256,characters,state,attempted,created_at,updated_at)
                         VALUES(?,?,?,'jev-latest','mock','fixture',10,'outcome_unknown',1,1,1)''',(uuid.uuid4().hex,key,sequence))
-            other,turn=self.bound_input(old);old.prepare_call(turn,'jev','reaction',{},mode='offline')
+            other,turn=self.bound_input(old,legacy=True);old.prepare_call(turn,'jev','reaction',{},mode='offline')
             with old.connect() as db:before=db.execute('SELECT * FROM early_reaction_calls ORDER BY sequence').fetchall()
             upgraded=MemoryStore(path)
             with upgraded.connect() as db:
