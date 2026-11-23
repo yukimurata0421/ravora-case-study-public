@@ -1,14 +1,14 @@
 # Recording history
 
 These dated recordings document how speech timing, expressions and mouth motion
-changed during development. They show superseded motion and are kept for their
-measurements. The [current design](audio-timing.md) and the
-[README conversation](../README.md#see-it-in-30-seconds) describe the present state.
+changed during development. Each measurement describes the listed take. The
+README features the November 21 dinner conversation. [Current articulation design](audio-timing.md) ·
+[README conversation](../README.md#see-it-in-30-seconds)
 
-Recordings that no longer appear in the main pages are removed from the working
-tree. Each link below points to the file as published in commit `9af86c6`, so
-the measurements can still be compared with the original video. All figures
-describe the listed finite takes only.
+The links to retired recordings point to their files at commit `9af86c6`.
+For future comparisons, attach the finished video to a tagged GitHub Release and
+link the asset from its measurement entry here. This keeps new video files out of
+the clone while preserving a specific recording for each comparison.
 
 | First published (JST) | Recording | Shows | Video |
 | --- | --- | --- | --- |
@@ -83,7 +83,9 @@ The on-screen speaking indicator followed the first audible reply by 33–37 ms.
 The source captured 1,029 frames. The 30 fps export held one frame for a
 missing tick, giving 1,030 frames over 34.33 seconds. The figures describe
 these three synthetic-speaker turns.
-[Transcripts, scores and audio measurements](../publication/thinking-conversation-timings.json)
+The offline reaction test reads the saved scores from the JSON report. To inspect
+the original sound or frames, use the archived MP4. [Transcripts, scores and audio measurements](../publication/thinking-conversation-timings.json) ·
+[November 19 recording](https://github.com/yukimurata0421/ravora-case-study-public/raw/9af86c66154f0ac265266cc7965d5cc82fdfe0cd/docs/media/ravora-thinking-conversation.mp4)
 
 In the third turn the thinking pose first crossed a 0.05 render weight at
 23.93 s, about 3.42 s before the speaker finished. The final decision retained

@@ -6,11 +6,10 @@ allowed to influence the next reply?
 
 RAVORA is the conversation system. Ray is the character it voices and animates.
 
-This snapshot contains the streaming controller, a source-backed SQLite memory
-policy, viewer contact state, two-stage transcript reactions, configurable reply
-instructions, and synthetic replays. It includes model-independent mouth and
-capture timing code. The avatar source assets, private recordings, conversation
-database, and deployment environment are excluded.
+If a reply is cancelled while its audio is still arriving, the controller rejects
+late audio from that turn. A completed reply becomes eligible for recall from
+SQLite only after playback is acknowledged. You can exercise both paths offline.
+[Reliability checks and commands](#what-this-demonstrates-and-how-to-check-it)
 
 ## See it in 30 seconds
 
@@ -26,19 +25,19 @@ take. The panel on the right shows what the system decided and when.
   0.83 s after the speaker stops, once the full transcript is available.
 - **Reply start.** The panel shows the time from the end of the speaker's voice to Ray's
   first sound. It reads 1.80 s for the second turn.
-- **Speech and smile.** Around **0:17–0:19**, Ray answers “That freezer find is
-  pure magic” while smiling. The upper lip follows the opening of her mouth, and
-  the teeth stay in place.
+- **Visible reaction.** Around **0:17–0:19**, Ray smiles as she answers
+  “That freezer find is pure magic.”
 
-This recording predates the November 22 jaw revision. At the first reply onset,
-the browser recorded an 83.3 ms gap between draws, so that reply failed its
-frame-spacing check. [Current mouth and jaw, with a same-audio comparison](docs/audio-timing.md#current-mouth-and-jaw) ·
+At the first reply onset, the browser recorded an **83.3 ms** gap between draws,
+so that reply failed its frame-spacing check. [Later jaw revision and same-audio comparison](docs/audio-timing.md#current-mouth-and-jaw) ·
 [Earlier recordings and their measurements](docs/recording-history.md)
 
 ## What this demonstrates, and how to check it
 
 | Claim | Evidence | Check it yourself |
 | --- | --- | --- |
+| Cancelling a turn invalidates its generation. Late audio is rejected and the turn stays unplayed. | The [replay result](examples/replay-report.json) records the cancellation check. | `python3 scripts/demo.py replay` |
+| A completed reply must receive a playback acknowledgement before it can be recalled. | [Retrieval tests](tests/test_conversation_context.py) exercise completed, unplayed, cancelled and deleted turns. | `PYTHONPATH=src python3 -m unittest discover -s tests -p test_conversation_context.py -k failed_unplayed` |
 | Speech output starts before text generation finishes. | Offline replay with mock providers | `python3 scripts/demo.py replay` |
 | A provisional reaction can arrive before the input ends; generation uses only the final transcript. | Replay with low-stability transcript hypotheses | `python3 scripts/demo.py early-reaction` |
 | Private developer dialogue reaches a public reply only as a reviewed summary, and revocation removes it. | Replay and unit tests | `python3 scripts/demo.py replay` |
@@ -174,6 +173,9 @@ and shift a repeated topic through a related detail.
 
 ## Scope
 
+The avatar source assets, private recordings, conversation database and deployment
+environment are excluded from this snapshot.
+
 The portable slice retains the schema, turn fencing, provider boundaries, mock
 streaming, up to one reservation per reaction stage, character and reply-length policies,
 sharing approvals, and retrieval provenance. Its sixteen schema migrations retain
@@ -192,15 +194,10 @@ instructions. A previous answer can itself be wrong.
 
 ## Validation and publication state
 
-```bash
-PYTHONPATH=src python3 -B -m unittest discover -s tests -v
-python3 scripts/validate_public.py
-```
-
-The dated [local validation record](publication/validation.json) separates checks
-run on the archive snapshot from historical runtime measurements. Its publication
-fields describe that local preparation stage. Current remote workflow results are
-available in the repository's Actions tab.
+The [reproduction guide](docs/reproduce.md#test-results) lists the Python suite
+and its skips for each tested environment, alongside the Node.js module tests.
+Each push runs the replays, installed-package tests and publication checks.
+[CI runs on main](https://github.com/yukimurata0421/ravora-case-study-public/actions/workflows/ci.yml?query=branch%3Amain)
 
 A project-wide redistribution license has not been selected. See
 [NOTICE.md](NOTICE.md) before reuse or public distribution.

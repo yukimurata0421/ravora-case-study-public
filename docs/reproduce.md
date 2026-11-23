@@ -2,12 +2,15 @@
 
 ## Checkout-only replay
 
+For a smaller download that includes the current demos, use
+`git clone --depth 1 https://github.com/yukimurata0421/ravora-case-study-public.git`.
+Run the commands below from the repository root.
+
 ```bash
 python3 -B scripts/demo.py replay
 python3 -B scripts/demo.py early-reaction
 python3 -B scripts/demo.py relationships
 python3 -B scripts/demo.py media-timing
-PYTHONPATH=src python3 -B -m unittest discover -s tests -v
 python3 -B scripts/validate_public.py
 ```
 
@@ -24,7 +27,7 @@ sanitized synthetic result and refuses to overwrite an existing file.
 
 ```bash
 python3 -m venv .venv
-.venv/bin/python -m pip install .
+.venv/bin/python -m pip install '.[console]'
 .venv/bin/ravora-case-study replay
 .venv/bin/ravora-case-study early-reaction
 .venv/bin/ravora-case-study relationships
@@ -45,6 +48,22 @@ Run `node --test tests/check_media.mjs` to check the browser modules with synthe
 phonemes, an interleaved mesh, and a stub encoder. The optional native Python
 alignment test uses a locally synthesized utterance and requires the
 `phone-alignment` extra, FFmpeg, and the local speech library.
+
+## Test results
+
+The November 23 media snapshot (`b1ea343`) has the following recorded results.
+The Python total includes skips. Each listed run finished with zero failures and
+zero errors.
+
+| Environment | Python tests | Skipped | Node.js browser module tests |
+| --- | ---: | ---: | --- |
+| Local Python 3.14.4, checkout and installed package | 348 each | 1 each | Not run (Node.js unavailable) |
+| CI, Python 3.11 | 345 | 31 | 14 passed |
+| CI, Python 3.13 with live studio dependencies | 348 | 1 | 14 passed |
+
+The local skip was the optional phone-alignment test. The CI job logs list the
+individual skips for each environment. [Local record for `b1ea343`](https://github.com/yukimurata0421/ravora-case-study-public/blob/b1ea343c74e820fa4a134fbc1ab159e2f995a22b/publication/validation.json) ·
+[CI run for `b1ea343`](https://github.com/yukimurata0421/ravora-case-study-public/actions/runs/45100444264)
 
 ## Optional browser console
 

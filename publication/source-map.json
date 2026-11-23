@@ -16,7 +16,7 @@
     "third-party renderer bundles",
     "host deployment and production controls"
   ],
-  "updated_at_jst": "2026-11-23T11:08:46+09:00",
+  "updated_at_jst": "2026-11-23T11:50:45+09:00",
   "files": [
     {
       "path": ".env.example",
@@ -50,7 +50,7 @@
       "path": "README.md",
       "kind": "generated",
       "source": "case-study",
-      "sha256": "df20a81259aa5c53255016b3dc4dba357c8aa5b4bf82cfa86f523f0823e100a4",
+      "sha256": "f0753b7caa484cee83c0301670d5ea0994aca9150bcbfdd35086e8505cf48eaa",
       "note": "Project overview, demonstration video, claims with reproduction commands, and reading order."
     },
     {
@@ -165,7 +165,7 @@
     },
     {
       "path": "docs/reproduce.md",
-      "sha256": "35948ba4ae12e41a21150161fe1922d727759753830d1570dbcef6203cbc1120",
+      "sha256": "4a294e40d58861cf060da9221060e93098e1d153d8cb405d58275974c4db8452",
       "kind": "generated",
       "source": "case-study",
       "note": "Portable documentation, fixture, or publication validation."
@@ -1397,7 +1397,7 @@
       "path": "docs/recording-history.md",
       "kind": "generated",
       "source": "case-study",
-      "sha256": "056dc4b26ffe6f0604443633cf072cbd7a00827ace9dd0923b07595783e2ead4",
+      "sha256": "e13c902c213005c780924f2bba2d49262dd23ce85d96245185166a4a1e8fed43",
       "note": "Dated recordings, superseded motion and their measurements, with links to the files as published in commit 9af86c6."
     },
     {
