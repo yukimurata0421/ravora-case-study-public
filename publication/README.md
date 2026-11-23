@@ -19,8 +19,8 @@ Included:
 - automatic local evaluation capture, condition-specific latency percentiles,
   human review labels, transcription edit counts, and an installed review command;
 - aggregate historical observations with explicit measurement limits;
-- rendered [public conversations](../README.md#watch-ravora-in-conversation) with both voices, plus a same-audio comparison of jaw motion;
-- the prepared-audio adapter and the live renderer's default articulation, with [measurements](../docs/audio-timing.md#concept-02-default-motion).
+- a rendered [public conversation](../README.md#see-it-in-30-seconds) with both voices, a same-audio comparison of jaw motion, and [dated earlier recordings](../docs/recording-history.md);
+- the prepared-audio adapter and the live renderer's default articulation, with [measurements](../docs/recording-history.md#concept-02-default-motion).
 
 The reaction replay and tests cover provisional and final results, prefix
 agreement, correction, late completion, cancellation, and preservation of prior
@@ -71,7 +71,7 @@ contents remain private. [Previous motion snapshot](history/2026-11-20-default-m
 The November 21 snapshot includes the registered upper-lip renderer, manifest
 validation, and two finished clips of the scripted dinner conversation.
 The current reference and the frame-spacing result are documented together.
-[Conversational smile](../docs/audio-timing.md#november-21-conversational-smile) · [Previous voice and conversation validation](history/2026-11-20-conversation-and-voice-validation.json)
+[Conversational smile](../docs/audio-timing.md#conversational-smile) · [Previous voice and conversation validation](history/2026-11-20-conversation-and-voice-validation.json)
 
 The voice-evaluation port adds the recorder, authenticated browser review,
 startup defaults and installed command described in [voice evaluation](../docs/voice-evaluation.md).
@@ -88,6 +88,8 @@ The [live studio guide](../docs/youtube-live.md) covers channel authorization, c
 
 The dialogue router adds topic saturation, per-turn retrieval control and source-linked topic suggestions. The installed package contains the two migrations and synthetic tests. [Routing behavior](../docs/conversation-controls.md#topic-changes-and-recall) · [Previous live studio validation](history/2026-11-22-live-studio-validation.json)
 
-The November 22 avatar and encoder port includes the mesh, texture registration, articulation changes and two finished reference renders. The studio accepts an NVIDIA or CPU encoder in the same configuration file as the portrait. [Render comparison](../docs/audio-timing.md#november-22-mouth-and-jaw) · [Recording settings](../docs/youtube-live.md#select-the-hevc-encoder) · [Previous dialogue routing validation](history/2026-11-22-dialogue-routing-validation.json)
+The November 22 avatar and encoder port includes the mesh, texture registration, articulation changes and two finished reference renders. The studio accepts an NVIDIA or CPU encoder in the same configuration file as the portrait. [Render comparison](../docs/audio-timing.md#current-mouth-and-jaw) · [Recording settings](../docs/youtube-live.md#select-the-hevc-encoder) · [Previous dialogue routing validation](history/2026-11-22-dialogue-routing-validation.json)
 
 The bilingual memory port includes Japanese topic-tag retrieval, opt-out checks and three initial character interests. Its tests use fictional exchanges. [Conversation settings](../docs/conversation-controls.md#rays-interests-and-viewer-memories) · [Previous avatar and encoder validation](history/2026-11-22-avatar-hevc-validation.json)
+
+The November 23 media consolidation keeps one conversation, one same-audio comparison and the voice audition in the working tree. It adds no source code or new recordings. Earlier recordings and their measurements moved to the [recording history](../docs/recording-history.md), which links to each file as published in commit `9af86c6`. The poster frame on the README is cut from the retained conversation. [Previous bilingual memory validation](history/2026-11-23-bilingual-memory-validation.json)

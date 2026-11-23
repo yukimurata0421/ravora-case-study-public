@@ -139,4 +139,4 @@ With registered expression-vowel artwork, a manifest can also supply
 pairs of crop-local pixel coordinates each. Hardware WebGL2 blends these
 layers during a spoken smile. The 2D fallback uses the talking and blinking
 sprites and overlays any registered facial expressions. The built-in synthetic
-face still works without artwork. [Reference smile and comparison](audio-timing.md#november-21-conversational-smile)
+face still works without artwork. [Conversational smile](audio-timing.md#conversational-smile)

@@ -4,78 +4,51 @@ RAVORA explores a practical question: how can a spoken conversation stay respons
 while reacting before a speaker finishes and deciding which past statements are
 allowed to influence the next reply?
 
+RAVORA is the conversation system. Ray is the character it voices and animates.
+
 This snapshot contains the streaming controller, a source-backed SQLite memory
 policy, viewer contact state, two-stage transcript reactions, configurable reply
 instructions, and synthetic replays. It includes model-independent mouth and
 capture timing code. The avatar source assets, private recordings, conversation
 database, and deployment environment are excluded.
 
-## Watch RAVORA in conversation
+## See it in 30 seconds
 
-### November 22 mouth and jaw revision
+[![Ray smiling as she answers the second question](docs/images/ray-dinner-conversation.png)](https://github.com/yukimurata0421/ravora-case-study-public/raw/refs/heads/main/docs/media/ray-upper-lip-conversation.mp4)
 
-Watch the chin at **0:15–0:17** as Ray changes vowels. The jaw follows the facial midline and keeps its width. The renderer samples each vowel from its original position in the portrait. The comparison shows the same speech and expressions on both sides. [Watch the 19-second reference render](docs/media/ray-avatar-fixed-demo.mp4) · [Compare the two versions](docs/media/ray-mouth-before-after-comparison.mp4)
+[Watch the 30-second dinner conversation (1080p MP4, 5.3 MiB)](https://github.com/yukimurata0421/ravora-case-study-public/raw/refs/heads/main/docs/media/ray-upper-lip-conversation.mp4)
 
-The live studio can record or publish 1080p30 HEVC using NVIDIA NVENC. Choose the encoder in the studio TOML file. [GPU recording settings](docs/youtube-live.md#select-the-hevc-encoder)
+A synthetic speaker asks Ray three scripted questions about dinner in one uncut
+take. The panel on the right shows what the system decided and when.
 
-### RAY’s conversational smile
+- **Reacting while listening.** In the second turn, the panel shows a provisional
+  *neutral* reaction 1.36 s into the speaker's voice. A final *smile* follows
+  0.83 s after the speaker stops, once the full transcript is available.
+- **Reply start.** The panel shows the time from the end of the speaker's voice to Ray's
+  first sound. It reads 1.80 s for the second turn.
+- **Speech and smile.** Around **0:17–0:19**, Ray answers “That freezer find is
+  pure magic” while smiling. The upper lip follows the opening of her mouth, and
+  the teeth stay in place.
 
-Watch RAY answer “That freezer find is pure magic” around **0:17–0:19**.
-In the November 21 reference render, five upper-lip shapes follow the opening of
-her mouth while her teeth stay in place. The 2.5-second close-up plays the same
-line on both sides so you can compare the lips directly.
-[Watch the 1080p dinner conversation](https://github.com/yukimurata0421/ravora-case-study-public/raw/refs/heads/main/docs/media/ray-upper-lip-conversation.mp4) · [Compare the upper lip before and after](docs/media/ray-upper-lip-comparison.mp4) · [Capture measurements and known issues](docs/audio-timing.md#november-21-conversational-smile)
+This recording predates the November 22 jaw revision. At the first reply onset,
+the browser recorded an 83.3 ms gap between draws, so that reply failed its
+frame-spacing check. [Current mouth and jaw, with a same-audio comparison](docs/audio-timing.md#current-mouth-and-jaw) ·
+[Earlier recordings and their measurements](docs/recording-history.md)
 
-### Zephyr and the November 20 mouth motion
+## What this demonstrates, and how to check it
 
-In this 35-second dinner conversation, RAVORA listens to a scripted speaker,
-thinks through the first choice, and smiles at the freezer discovery. The new
-voice is Zephyr at 0.96 speaking rate, raised two semitones after synthesis.
-The jaw tracks the measured facial midline, and the lower lip covers the teeth
-as the smile closes. [Watch the 1080p conversation](https://github.com/yukimurata0421/ravora-case-study-public/raw/refs/heads/main/docs/media/concept02-lip-motion.mp4) · [Compare the same smile across three revisions](docs/media/concept02-lip-comparison.mp4)
+| Claim | Evidence | Check it yourself |
+| --- | --- | --- |
+| Speech output starts before text generation finishes. | Offline replay with mock providers | `python3 scripts/demo.py replay` |
+| A provisional reaction can arrive before the input ends; generation uses only the final transcript. | Replay with low-stability transcript hypotheses | `python3 scripts/demo.py early-reaction` |
+| Private developer dialogue reaches a public reply only as a reviewed summary, and revocation removes it. | Replay and unit tests | `python3 scripts/demo.py replay` |
+| Viewer contact state respects daily caps, playback acknowledgements and owner/scope separation. | Replay with fictional contacts | `python3 scripts/demo.py relationships` |
+| Mouth shapes and video timestamps follow the audio sample clock. | Synthetic phone sequence and browser module tests | `python3 scripts/demo.py media-timing` |
+| Live reply timing and reaction behavior | Finite recorded runs only | [Measurements and their limits](docs/measurements.md) |
 
-[Listen to the six-voice audition](docs/media/voice-audition.m4a). The same English
-line starts with Aoede at 0:00, Leda at 0:09.5, Kore at 0:16.5, Sulafat at
-0:24.7, **Zephyr at 0:32.9**, and the earlier WaveNet H at 0:40.0.
-The optional browser console plays offline test tones. [Voice, memory and budget settings](docs/conversation-controls.md) · [Try hands-free input or full screen](docs/reproduce.md#route-the-microphone-and-playback)
-
-### Concept 02 in conversation (previous motion)
-
-This recording shows the preceding avatar motion.
-In the second turn, the speaker finds a forgotten loaf in the freezer. Watch
-RAVORA begin her reply with a smile at **17.39 s**. The recording
-includes both voices and the pauses across all three turns.
-
-[![RAVORA smiling during the second reply](docs/images/concept02-default-motion.png)](docs/media/concept02-default-motion.mp4)
-
-[Download the 31-second conversation (1080p MP4, 7.5 MiB)](https://github.com/yukimurata0421/ravora-case-study-public/raw/refs/heads/main/docs/media/concept02-default-motion.mp4) · [Compare the same line before and after (3.4-second MP4)](docs/media/concept02-mouth-comparison.mp4) · [Timing and motion measurements](docs/audio-timing.md#concept-02-default-motion)
-
-### Deciding what to make for dinner (earlier recording)
-
-At **0:23.93**, RAVORA starts looking thoughtful while the speaker is still
-weighing lemon against yogurt. The full transcript confirms the same expression.
-At **0:28.93** she starts her reply and keeps that look as her lips form the words.
-
-https://github.com/user-attachments/assets/f89db4a2-e6c7-47a1-a36b-2fd47bc970e0
-
-[Download the 34-second conversation (1080p30 MP4, 5.0 MiB)](https://github.com/yukimurata0421/ravora-case-study-public/raw/refs/heads/main/docs/media/ravora-thinking-conversation.mp4) · [Per-turn timing and expressions](docs/audio-timing.md#the-dinner-conversation)
-
-### The first balcony tomato
-
-A synthetic speaker tells RAVORA about the first ripe tomato on their balcony. The opening
-line is fixed. For the next three turns, the partner waits for RAVORA to finish
-speaking and uses the exchange so far to decide what to say next. Both voices,
-the speech-recognition captions, and the pauses are captured in one take.
-
-https://github.com/user-attachments/assets/a3260bd3-9ff5-4efc-807c-f9877df0cb70
-
-[Download the 49-second demo (MP4, 6.7 MiB)](https://github.com/yukimurata0421/ravora-case-study-public/raw/refs/heads/main/docs/media/balcony-tomato-conversation.mp4)
-
-Listen for the first reply at **0:08.25**. RAVORA starts moving her mouth with
-the audio, then switches to word-aligned mouth shapes on *weeks* at **0:08.93**.
-The four replies started an average of **2.13 seconds** after the partner
-finished speaking. The largest gap between video frames was **67 ms**.
-See the [per-turn measurements and close-ups](docs/audio-timing.md#reply-timing-in-the-balcony-conversation).
+The video shows how the result looks and sounds. The commands check the
+mechanisms. Live timing figures describe specific finite runs, not general
+latency guarantees.
 
 ## Start here
 
@@ -121,15 +94,17 @@ positions to produce mouth cues and video timestamps. It includes a missing
 frame so that the later frames can be checked against their original audio clock.
 See the [timing result](examples/media-timing-report.json).
 
-## Run the live studio
+## How it works
 
-Record Ray and a host microphone with synchronized subtitles, or create an unlisted YouTube broadcast with channel OAuth. The studio supports Japanese and English conversation tabs, hands-free input, microphone mute and automatic gain matching. Chat arrives through gRPC `streamList`. Start with the local HEVC/AAC preview in the [live studio guide](docs/youtube-live.md).
+Input chunks pass through an input ledger and streaming recognition. The turn
+controller streams text into speech synthesis and bounded PCM playout. Only a
+playback acknowledgement makes a reply eligible for memory. An ownership and
+sharing policy then decides which stored statements can return as context.
+[Architecture and decisions](docs/case-study.md)
 
-Ray starts with an interest in stargazing, puzzles and speech technology. The cloud studio can remember source-backed details from Japanese and English conversations when the operator enables memory extraction. [Character interests and viewer memory](docs/conversation-controls.md#rays-interests-and-viewer-memories)
+## Run it yourself
 
-Ray can follow up on a co-host's news and shift a repeated topic through a related detail. The same routing rules govern the studio and the streaming console. [Topic changes and recall](docs/conversation-controls.md#topic-changes-and-recall)
-
-## Try the console
+### Offline console
 
 ```bash
 python3 -m venv .venv
@@ -143,6 +118,7 @@ Watch the synthetic face as Ray listens and then starts speaking. A specific
 persona expression takes over at playback onset; a neutral cue keeps the
 current listening reaction. **Mute microphone** stops capture while text input
 and reply playback remain available. [Conversation controls](docs/conversation-controls.md)
+
 The server expires after the requested interval and removes its temporary session
 database and reply audio. Evaluation starts automatically and retains input audio,
 transcripts and timing reports in a new local directory under `.runtime/`.
@@ -151,19 +127,50 @@ disable retention. See [automatic voice evaluation](docs/voice-evaluation.md).
 
 ![Offline console using a fictional conversation](docs/images/console.png)
 
-## Read the case study
+### Live studio
 
-1. [Problem, architecture, and decisions](docs/case-study.md)
-2. [Implementation history: causes, decisions, and outcomes](docs/implementation-history.md)
-3. [Provisional and final reaction stages](docs/early-reactions.md)
-4. [Memory ownership and sharing](docs/privacy.md)
-5. [Historical measurements and their limits](docs/measurements.md)
-6. [Reproduction and validation](docs/reproduce.md)
-7. [Viewer relationships and deterministic contact state](docs/relationships.md)
-8. [Live relationship, expression, and latency evaluation](docs/live-evaluation-20261117.md)
-9. [Speech articulation and audio-clock capture](docs/audio-timing.md)
-10. [What was ported](publication/README.md)
-11. [Automatic voice timing and human-reviewed transcription errors](docs/voice-evaluation.md)
+Record Ray and a host microphone with synchronized subtitles, or create an unlisted
+YouTube broadcast with channel OAuth. The studio supports Japanese and English
+conversation tabs, hands-free input, microphone mute and automatic gain matching.
+Chat arrives through gRPC `streamList`. The studio can record or publish 1080p30
+HEVC using NVIDIA NVENC. Start with the local HEVC/AAC preview in the
+[live studio guide](docs/youtube-live.md).
+
+Ray starts with an interest in stargazing, puzzles and speech technology. The cloud
+studio can remember source-backed details from Japanese and English conversations
+when the operator enables memory extraction. Ray can follow up on a co-host's news
+and shift a repeated topic through a related detail.
+[Character interests and viewer memory](docs/conversation-controls.md#rays-interests-and-viewer-memories) ·
+[Topic changes and recall](docs/conversation-controls.md#topic-changes-and-recall) ·
+[Voice selection and the six-voice audition](docs/conversation-controls.md)
+
+## Read further
+
+**Overview**
+
+- [Problem, architecture, and decisions](docs/case-study.md)
+- [Implementation history: causes, decisions, and outcomes](docs/implementation-history.md)
+
+**Mechanisms**
+
+- [Provisional and final reaction stages](docs/early-reactions.md)
+- [Memory ownership and sharing](docs/privacy.md)
+- [Viewer relationships and deterministic contact state](docs/relationships.md)
+- [Voice, memory, topic and budget controls](docs/conversation-controls.md)
+- [Speech articulation and audio-clock capture](docs/audio-timing.md)
+
+**Evaluation**
+
+- [Historical measurements and their limits](docs/measurements.md)
+- [Live relationship, expression, and latency evaluation](docs/live-evaluation-20261117.md)
+- [Automatic voice timing and human-reviewed transcription errors](docs/voice-evaluation.md)
+- [Earlier recordings and their measurements](docs/recording-history.md)
+
+**Operation**
+
+- [Reproduction and validation](docs/reproduce.md)
+- [Live studio and YouTube broadcast](docs/youtube-live.md)
+- [What was ported](publication/README.md)
 
 ## Scope
 

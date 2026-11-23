@@ -34,7 +34,7 @@ video_encoder = "hevc_nvenc"
 
 `--check` validates the configured name. The recording opens the encoder and reports `Video encoder: hevc_nvenc` when it succeeds. The same setting applies to `--publish` and `--auto-broadcast`. A missing driver or encoder stops GPU startup. To run on CPU, set `video_encoder = "libx265"`. Omitting the setting also selects the CPU encoder. Both produce 1080p30 HEVC with AAC audio. The run summary records the encoder actually opened.
 
-The WebGL renderer applies the November 22 mouth and jaw revision to compatible registered portraits. With a portrait loaded, the launcher prints its manifest name and records its binding digest in `summary.json`. The public example can also run with the built-in synthetic face. [Reference render and comparison](audio-timing.md#november-22-mouth-and-jaw)
+The WebGL renderer applies the November 22 mouth and jaw revision to compatible registered portraits. With a portrait loaded, the launcher prints its manifest name and records its binding digest in `summary.json`. The public example can also run with the built-in synthetic face. [Same-audio comparison](audio-timing.md#current-mouth-and-jaw)
 
 ## Talk to Ray
 

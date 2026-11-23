@@ -1,0 +1,58 @@
+{
+  "status": "PASS_LOCAL_BILINGUAL_MEMORY_AND_CHARACTER_PORT",
+  "validated_at_jst": "2026-11-23T08:23:53+09:00",
+  "scope": "Portable Japanese and English source-backed viewer memory and a repeatable initial character profile.",
+  "checks": {
+    "checkout_python_tests": {
+      "tests": 348,
+      "failures": 0,
+      "errors": 0,
+      "skipped": 1
+    },
+    "installed_python_tests": {
+      "tests": 348,
+      "failures": 0,
+      "errors": 0,
+      "skipped": 1
+    },
+    "optional_test_skipped": "Phone alignment extra unavailable in the local test environment.",
+    "python": "3.14.4",
+    "wheel_sha256": "6eba8d273f21e4c45d6be911ca834c7f4fbd367f9982fa1fde0be338e974fa58",
+    "package_files_matched_to_checkout": 100,
+    "checkout_replays_match_examples": 4,
+    "installed_replays_match_examples": 4,
+    "browser_module_tests": {
+      "tests": 14,
+      "passed": 14
+    },
+    "installed_offline_studio": {
+      "publish": false,
+      "host_only": true,
+      "initial_interest_strengths": {
+        "puzzles": 0.6,
+        "stargazing": 0.6,
+        "technology": 0.6
+      },
+      "viewer_memories": 0
+    },
+    "public_payload": {
+      "status": "PASS_PUBLIC_PAYLOAD",
+      "files": 191,
+      "hashes_checked": 189,
+      "unexpected_files": 0,
+      "private_defaults_found": 0,
+      "broken_local_links": 0
+    },
+    "secret_scan_findings": 0
+  },
+  "remote_ci": {
+    "configured": true,
+    "configured_python_versions": [
+      "3.11",
+      "3.13"
+    ]
+  },
+  "included_private_databases_or_recordings": false,
+  "new_inference_api_calls": 0,
+  "earlier_validation_preserved": "publication/history/2026-11-22-avatar-hevc-validation.json"
+}

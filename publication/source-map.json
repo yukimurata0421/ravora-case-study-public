@@ -16,7 +16,7 @@
     "third-party renderer bundles",
     "host deployment and production controls"
   ],
-  "updated_at_jst": "2026-11-23T08:22:06+09:00",
+  "updated_at_jst": "2026-11-23T11:08:46+09:00",
   "files": [
     {
       "path": ".env.example",
@@ -36,7 +36,7 @@
       "path": ".gitignore",
       "kind": "generated",
       "source": "case-study",
-      "sha256": "b4e5b68901f8cdef3ed100d0b71672b348260ff2ccdae01eff90d7305413a711",
+      "sha256": "df4fafa16125abf11c4d3f04584e0b2aa57598e66d8786fbd5063a622c067196",
       "note": "Public documentation, validation or media allowlist."
     },
     {
@@ -50,15 +50,15 @@
       "path": "README.md",
       "kind": "generated",
       "source": "case-study",
-      "sha256": "3b4f03d04d3d467196b5a7227ef01081c8988eef1f4d6b2a649c27e8e6e57179",
-      "note": "Portable profile initialization and reproduction guidance."
+      "sha256": "df20a81259aa5c53255016b3dc4dba357c8aa5b4bf82cfa86f523f0823e100a4",
+      "note": "Project overview, demonstration video, claims with reproduction commands, and reading order."
     },
     {
       "path": "docs/audio-timing.md",
       "kind": "generated",
       "source": "case-study",
-      "sha256": "f47734b954e0bd93af57b6f255b0466a24d94de4204355ede25ed1d2eb648d14",
-      "note": "Public documentation, validation or media allowlist."
+      "sha256": "32917701eb616e41d979a5103c5bd98cdfc00b6133093c7948af246e469f8510",
+      "note": "Current speech articulation, mouth and capture design."
     },
     {
       "path": "docs/case-study.md",
@@ -95,13 +95,6 @@
       "note": "Frame crops from the distributed balcony conversation."
     },
     {
-      "path": "docs/images/balcony-tomato-preview.png",
-      "sha256": "925fa4f38cc54ab22449f0e5ce0d234d456657c7462ccfc15f8e14aa401bafde",
-      "kind": "generated",
-      "source": "case-study",
-      "note": "Preview frame from the public conversation demo."
-    },
-    {
       "path": "docs/images/concept02-default-motion.png",
       "source": "case-study",
       "kind": "generated",
@@ -134,74 +127,12 @@
       "note": "Case-study documentation, replay, packaging, or local validation support."
     },
     {
-      "path": "docs/media/balcony-tomato-conversation.mp4",
-      "sha256": "f0d3b8cea091c6110b9f08ac7166eb6efc59fecf47fd26b74cb717b91fc5bf04",
-      "kind": "generated",
-      "source": "case-study",
-      "note": "One continuous English conversation recorded for public viewing, with a synthetic partner and live replies."
-    },
-    {
-      "path": "docs/media/concept02-default-motion.mp4",
-      "source": "demos/concept02-thinking-live-20261119-hybrid/ravora-thinking-conversation-compat.mp4",
-      "kind": "copied",
-      "note": "Rendered public recording of three synthetic-speaker turns with the default motion.",
-      "source_sha256": "71e84fa90733a0f1c0641dad9307515d4209f39f7ddb6d6230274c2008832bfc",
-      "sha256": "71e84fa90733a0f1c0641dad9307515d4209f39f7ddb6d6230274c2008832bfc"
-    },
-    {
-      "path": "docs/media/concept02-lip-comparison.mp4",
-      "sha256": "0565f87b1c669242da14078afa077cf5c1b0875b47a2f2a595bd0c8b615c676a",
-      "source": "demos/concept02-thinking-live-20261120-v3lips/smile-v3-previous-now.mp4",
-      "source_sha256": "0565f87b1c669242da14078afa077cf5c1b0875b47a2f2a595bd0c8b615c676a",
-      "kind": "copied",
-      "note": "Rendered three-way smile comparison using the same speech."
-    },
-    {
-      "path": "docs/media/concept02-lip-motion.mp4",
-      "sha256": "8a5c5764e9fa8b96135ed79380d329566738f128eafb2835c9ec2091b9a554b9",
-      "source": "demos/concept02-thinking-live-20261120-v3lips/ravora-thinking-conversation-compat.mp4",
-      "source_sha256": "8a5c5764e9fa8b96135ed79380d329566738f128eafb2835c9ec2091b9a554b9",
-      "kind": "copied",
-      "note": "Reviewed 1080p public render of the scripted dinner turns using Zephyr."
-    },
-    {
-      "path": "docs/media/concept02-mouth-comparison.mp4",
-      "source": "demos/concept02-thinking-live-20261119-hybrid/20s-before-after.mp4",
-      "kind": "copied",
-      "note": "Rendered same-audio comparison of the previous and current jaw motion.",
-      "source_sha256": "a7c970acffe607c78c2414fd8baf9fa70a89a131dcddcb8c21f7f2fd0e3985e8",
-      "sha256": "a7c970acffe607c78c2414fd8baf9fa70a89a131dcddcb8c21f7f2fd0e3985e8"
-    },
-    {
-      "path": "docs/media/ravora-thinking-conversation.mp4",
-      "source": "demos/concept02-thinking-live-20261119/ravora-thinking-conversation.mp4",
-      "kind": "copied",
-      "source_sha256": "2d91889add5aaa7ea632921aafe8d1b4d0ea1d9540128fc93bcca58d8cf6fdd3",
-      "sha256": "2d91889add5aaa7ea632921aafe8d1b4d0ea1d9540128fc93bcca58d8cf6fdd3"
-    },
-    {
-      "path": "docs/media/ray-avatar-fixed-demo.mp4",
-      "kind": "copied",
-      "source": "demos/ray-mouth-fix-20261122/ray-avatar-fixed-demo.mp4",
-      "source_sha256": "0360f7ef397cf8f78fe70001dc6b6f1d29a2a72867b9dd875cb7848b3db86a9a",
-      "sha256": "0360f7ef397cf8f78fe70001dc6b6f1d29a2a72867b9dd875cb7848b3db86a9a",
-      "note": "Finished render of four scripted voice and expression examples."
-    },
-    {
       "path": "docs/media/ray-mouth-before-after-comparison.mp4",
       "kind": "copied",
       "source": "demos/ray-mouth-fix-20261122/ray-mouth-before-after-comparison.mp4",
       "source_sha256": "55f083e6e39e45bf83fe03bd53c7e0e22aaa1b707898257d3742e8859e71ae2f",
       "sha256": "55f083e6e39e45bf83fe03bd53c7e0e22aaa1b707898257d3742e8859e71ae2f",
       "note": "Finished render of four scripted voice and expression examples."
-    },
-    {
-      "path": "docs/media/ray-upper-lip-comparison.mp4",
-      "sha256": "7505c396cc4265add50afbd40fe0a04ad9d5a8ee9b6978f94ba8a9e0a7449e00",
-      "source": "demos/concept02-thinking-live-20261121-upper-lip/smile-upper-lip-before-after.mp4",
-      "source_sha256": "7505c396cc4265add50afbd40fe0a04ad9d5a8ee9b6978f94ba8a9e0a7449e00",
-      "kind": "copied",
-      "note": "Rendered same-audio upper-lip comparison."
     },
     {
       "path": "docs/media/ray-upper-lip-conversation.mp4",
@@ -234,7 +165,7 @@
     },
     {
       "path": "docs/reproduce.md",
-      "sha256": "da0d1e3d966e732066c121d20e08a1557f7874891390cdd8b269edd505a94697",
+      "sha256": "35948ba4ae12e41a21150161fe1922d727759753830d1570dbcef6203cbc1120",
       "kind": "generated",
       "source": "case-study",
       "note": "Portable documentation, fixture, or publication validation."
@@ -250,7 +181,7 @@
       "path": "docs/youtube-live.md",
       "kind": "generated",
       "source": "case-study",
-      "sha256": "8122155badd3069724e21b860ce1f169dacc83cb635bc4fbcda748c8ea6305de",
+      "sha256": "714fc81ffb09389ecdf1b496870a607b76347d37490854484681bef2b4692314",
       "note": "Public documentation, validation or media allowlist."
     },
     {
@@ -300,7 +231,7 @@
       "path": "publication/README.md",
       "kind": "generated",
       "source": "case-study",
-      "sha256": "9465873b02809aaa03a523605564c38ce9633046bc8f0cdaff63fd71098c2036",
+      "sha256": "d373069354f7b4a916a9970afedb4a918558b3a1625b9de320feaaa7e1a05a53",
       "note": "Portable profile initialization and reproduction guidance."
     },
     {
@@ -466,7 +397,7 @@
       "path": "scripts/validate_public.py",
       "kind": "generated",
       "source": "case-study",
-      "sha256": "93305b5ac37de5cacd3778182f5c947c8545f04be12a1ded34b16c7fe7709cae",
+      "sha256": "41edb07e14a58ba6d7839feebdb9b07d333c2d8c7f3a70bf70a6614681e5fda8",
       "note": "Public documentation, validation or media allowlist."
     },
     {
@@ -1461,6 +1392,27 @@
       "source_sha256": "8c1a550450d7ba90c80f2ad4ecba9b7efb4fe7b02e91e1981507828c598cf0e1",
       "sha256": "c4d5cf08feb137c92ea0da19f5be6064b7745676b2ab82a41f610f20553e40b4",
       "note": "Avatar binding, articulation or live encoder port and tests."
+    },
+    {
+      "path": "docs/recording-history.md",
+      "kind": "generated",
+      "source": "case-study",
+      "sha256": "056dc4b26ffe6f0604443633cf072cbd7a00827ace9dd0923b07595783e2ead4",
+      "note": "Dated recordings, superseded motion and their measurements, with links to the files as published in commit 9af86c6."
+    },
+    {
+      "path": "docs/images/ray-dinner-conversation.png",
+      "kind": "generated",
+      "source": "case-study",
+      "sha256": "ff2f443fc09ffaae09f5821a2ef0fcf0ed8ff9ff78ec07ab77f7f98d9fc92319",
+      "note": "Poster frame at 18 s from the retained November 21 dinner conversation."
+    },
+    {
+      "path": "publication/history/2026-11-23-bilingual-memory-validation.json",
+      "kind": "generated",
+      "source": "case-study",
+      "sha256": "49a6c187aa2142cfbb2460cabc50b686ef8818214715ada1c6359ae226a83826",
+      "note": "Previous bilingual memory and character verification record, retained unchanged."
     }
   ]
 }

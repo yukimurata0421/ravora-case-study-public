@@ -11,15 +11,7 @@ from urllib.parse import unquote,urlsplit
 ROOT=Path(__file__).resolve().parents[1]
 CONTROL={'publication/source-map.json','publication/validation.json'}
 PUBLIC_MOVIES = {
-    'docs/media/balcony-tomato-conversation.mp4',
-    'docs/media/ravora-thinking-conversation.mp4',
-    'docs/media/concept02-default-motion.mp4',
-    'docs/media/concept02-mouth-comparison.mp4',
-    'docs/media/concept02-lip-motion.mp4',
-    'docs/media/concept02-lip-comparison.mp4',
     'docs/media/ray-upper-lip-conversation.mp4',
-    'docs/media/ray-upper-lip-comparison.mp4',
-    'docs/media/ray-avatar-fixed-demo.mp4',
     'docs/media/ray-mouth-before-after-comparison.mp4',
 }
 

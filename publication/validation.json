@@ -1,7 +1,7 @@
 {
-  "status": "PASS_LOCAL_BILINGUAL_MEMORY_AND_CHARACTER_PORT",
-  "validated_at_jst": "2026-11-23T08:23:53+09:00",
-  "scope": "Portable Japanese and English source-backed viewer memory and a repeatable initial character profile.",
+  "status": "PASS_LOCAL_MEDIA_CONSOLIDATION",
+  "validated_at_jst": "2026-11-23T11:15:47+09:00",
+  "scope": "README and articulation documentation restructure; retained public media reduced to one conversation, one same-audio comparison and the voice audition. No source code changes.",
   "checks": {
     "checkout_python_tests": {
       "tests": 348,
@@ -17,28 +17,54 @@
     },
     "optional_test_skipped": "Phone alignment extra unavailable in the local test environment.",
     "python": "3.14.4",
-    "wheel_sha256": "6eba8d273f21e4c45d6be911ca834c7f4fbd367f9982fa1fde0be338e974fa58",
-    "package_files_matched_to_checkout": 100,
     "checkout_replays_match_examples": 4,
     "installed_replays_match_examples": 4,
     "browser_module_tests": {
-      "tests": 14,
-      "passed": 14
+      "run": false,
+      "reason": "Node.js unavailable in the local validation environment; no browser module changed.",
+      "changed_source_files": []
     },
-    "installed_offline_studio": {
-      "publish": false,
-      "host_only": true,
-      "initial_interest_strengths": {
-        "puzzles": 0.6,
-        "stargazing": 0.6,
-        "technology": 0.6
+    "retained_media": {
+      "ray-upper-lip-conversation.mp4": {
+        "sha256": "17de0bd4fd1a268f89026a59b31d67b672897aec5ba96809db91575b24eedff8",
+        "codecs": [
+          "h264",
+          "aac"
+        ],
+        "duration_s": 29.568,
+        "width": 1920,
+        "height": 1080
       },
-      "viewer_memories": 0
+      "ray-mouth-before-after-comparison.mp4": {
+        "sha256": "55f083e6e39e45bf83fe03bd53c7e0e22aaa1b707898257d3742e8859e71ae2f",
+        "codecs": [
+          "h264",
+          "aac"
+        ],
+        "duration_s": 18.917,
+        "width": 1920,
+        "height": 1080
+      },
+      "voice-audition.m4a": {
+        "sha256": "9962ff44efc4088e50bd9a356dc3b53924fb738f482f71e9439ff139c6af9215"
+      }
     },
+    "removed_from_working_tree": [
+      "docs/media/balcony-tomato-conversation.mp4",
+      "docs/media/ravora-thinking-conversation.mp4",
+      "docs/media/concept02-default-motion.mp4",
+      "docs/media/concept02-mouth-comparison.mp4",
+      "docs/media/concept02-lip-motion.mp4",
+      "docs/media/concept02-lip-comparison.mp4",
+      "docs/media/ray-upper-lip-comparison.mp4",
+      "docs/media/ray-avatar-fixed-demo.mp4",
+      "docs/images/balcony-tomato-preview.png"
+    ],
+    "removed_media_permalink_commit": "9af86c66154f0ac265266cc7965d5cc82fdfe0cd",
     "public_payload": {
       "status": "PASS_PUBLIC_PAYLOAD",
-      "files": 191,
-      "hashes_checked": 189,
+      "files": 185,
+      "hashes_checked": 183,
       "unexpected_files": 0,
       "private_defaults_found": 0,
       "broken_local_links": 0
@@ -54,5 +80,5 @@
   },
   "included_private_databases_or_recordings": false,
   "new_inference_api_calls": 0,
-  "earlier_validation_preserved": "publication/history/2026-11-22-avatar-hevc-validation.json"
+  "earlier_validation_preserved": "publication/history/2026-11-23-bilingual-memory-validation.json"
 }
