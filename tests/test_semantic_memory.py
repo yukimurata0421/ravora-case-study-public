@@ -358,7 +358,7 @@ class SemanticVoiceTests(unittest.IsolatedAsyncioTestCase):
     async def asyncSetUp(self):
         self.tmp=tempfile.TemporaryDirectory();self.addCleanup(self.tmp.cleanup);self.root=Path(self.tmp.name)
         self.store=MemoryStore(self.root/'voice.sqlite3');self.events=[];self.prompts=[]
-        self.settings=ProviderSettings(semantic_memory_mode='jev',semantic_wait_ms=40,memory_extractor='local_rules')
+        self.settings=ProviderSettings(semantic_memory_mode='jev',memory_extractor='local_rules')
         async def send(value):self.events.append(value)
         async def pcm(*args):pass
         client=MockVoiceClients();original=client.generate
@@ -409,7 +409,8 @@ class SemanticVoiceTests(unittest.IsolatedAsyncioTestCase):
         async def classify(early,text):
             await gate.wait()
             return {'reaction':'neutral','semantic':parse_judgment(answer(early.candidates),early.candidates)},{}
-        with patch.object(EarlyReactions,'_classify',classify):
+        fast_deadline=replace(self.session.s,semantic_wait_ms=40)
+        with patch.object(self.session,'s',fast_deadline), patch.object(EarlyReactions,'_classify',classify):
             await self.session.start_text(uuid.uuid4().hex,'It did not work out.')
             await asyncio.wait_for(self.session.task,1)
             self.assertEqual(self.session.phase,'generated',self.events)

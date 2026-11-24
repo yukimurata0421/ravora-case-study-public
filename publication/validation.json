@@ -1,6 +1,6 @@
 {
   "status": "PASS_LOCAL_SCHEDULED_SPEECH_AND_REPLY_COVERAGE",
-  "validated_at_jst": "2026-11-25T01:16:56+09:00",
+  "validated_at_jst": "2026-11-25T01:19:24+09:00",
   "scope": "Per-speaker selection, short spontaneous turns, human input priority, audience sampling and broadcast reply coverage in the portable package.",
   "checks": {
     "checkout_python_tests": {
@@ -65,12 +65,21 @@
       "errors": 0,
       "skipped": 0,
       "scene": "Temporary static PNG via the launcher scene directory."
+    },
+    "semantic_memory_regression": {
+      "installed_wheel_tests": 34,
+      "failures": 0,
+      "errors": 0,
+      "skipped": 0,
+      "default_deadline_ms": 350,
+      "late_result_test_deadline_ms": 40
     }
   },
   "verification_history": [
     "The initial wheel-suite run outside the checkout could not import two checkout-only test helpers. Running from the checkout root provided those helpers. The package path was verified against the installed wheel.",
     "An intermediate full run produced an empty retrieval candidate in the existing 40 ms semantic-memory fixture. The same test then passed five isolated runs with its original settings. The final complete suite used the standard unittest discovery command.",
-    "In the first hosted Python 3.13 run, Chromium startup failed in two managed broadcast tests before the encoder checks. All four launcher scenarios subsequently passed locally against the installed wheel with a temporary scene. The tests retain their assertions for stream input, provider lifecycle and encoded video and audio."
+    "In the first hosted Python 3.13 run, Chromium startup failed in two managed broadcast tests before the encoder checks. All four launcher scenarios subsequently passed locally against the installed wheel with a temporary scene. The tests retain their assertions for stream input, provider lifecycle and encoded video and audio.",
+    "The short deadline also expired in a later checkout run of the test that expects an on-time retrieval. The semantic voice fixture now uses the normal 350 ms setting, and the gated late-result test still uses 40 ms. All 34 semantic memory tests passed locally against the installed wheel after this change."
   ],
   "included_private_databases_or_recordings": false,
   "new_inference_api_calls": 0,

@@ -16,7 +16,7 @@
     "third-party renderer bundles",
     "host-specific installed units and production service controls"
   ],
-  "updated_at_jst": "2026-11-25T01:16:56+09:00",
+  "updated_at_jst": "2026-11-25T01:19:24+09:00",
   "files": [
     {
       "path": ".env.example",
@@ -2010,9 +2010,9 @@
       "path": "tests/test_semantic_memory.py",
       "kind": "adapted",
       "source": "tests/test_semantic_memory.py",
-      "sha256": "00ffab84bc1fe4082a5bd1235e38cc14f860b3663550783d076cc6c65264f24f",
+      "sha256": "0517571161a19be658aa0033d04230a05e2de9d14e10450b7384b30e109fc7aa",
       "source_sha256": "e9040437fb049edf420e2836e22000c14c8fa386b4b28bc57a2e19a786ce36a2",
-      "note": "Studio runtime or synthetic regression port from the development snapshot."
+      "note": "Semantic voice tests use the configured default deadline for on-time results and a short deadline for the late-result scenario."
     },
     {
       "path": "tests/test_single_reaction.py",
