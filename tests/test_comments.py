@@ -76,7 +76,7 @@ class CommentTests(unittest.TestCase):
 
     def test_queue_capacity_viewer_fairness_age_and_expiry(self):
         values=[message(),message('same-author'),message('m2','channel-two'),message('overflow','third'),message('old','old',at=NOW-60),message('future','future',at=NOW+40)]
-        report=self.inbox.accept_page(CHAT,page(values));self.assertEqual(report['counts']['queued'],2)
+        report=self.inbox.accept_page(CHAT,page(values));self.assertEqual(sum(report['counts'].values()),len(values))
         self.assertEqual(self.inbox.summary(),{'dropped':3,'expired':1,'queued':2})
         self.now+=46;self.assertIsNone(self.inbox.take());self.assertEqual(self.inbox.summary()['expired'],3)
 
@@ -271,8 +271,11 @@ class CommentTests(unittest.TestCase):
                     posted.append(self.now - next_post)
                 next_post += 20
             yield [page(items, str(i + 1), interval=None)]
-        reader = YouTubeReader(settings, self.inbox, stream=stream, clock=lambda:self.now,
-                               on_page=self.inbox.take)
+        def consume_page():
+            selected = self.inbox.take()
+            if selected:
+                self.inbox.finish(selected['receipt'],'cancelled','fixture_consumer_done')
+        reader = YouTubeReader(settings, self.inbox, stream=stream, clock=lambda:self.now, on_page=consume_page)
         stop = Stop()
         def wait(seconds):
             delays.append(seconds)

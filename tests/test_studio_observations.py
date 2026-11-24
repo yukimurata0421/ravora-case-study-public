@@ -22,6 +22,30 @@ class ObservationTests(unittest.TestCase):
         inbox = CommentInbox(self.store, scope='cloud')
         return inbox, StudioObservations(inbox, 'twitch', True, 'twitch', identity, sample_rate=48000, fps=30)
 
+    def test_helix_last_success_and_consecutive_auth_errors_are_independent_of_end_state(self):
+        from ravora.studio_report import audience_health
+        rows = [{'observed':i,'status':status} for i,status in enumerate(('http_401','live','http_401','http_401'))]
+        self.assertEqual(audience_health(rows),{'last_attempt':3,'last_success':1,'status':'http_401','consecutive_401':2,'total_401':3})
+        self.assertEqual(audience_health(rows+[{'observed':4,'status':'offline'}]),
+                         {'last_attempt':4,'last_success':4,'status':'offline','consecutive_401':0,'total_401':3})
+        self.assertIsNone(audience_health([])['last_success'])
+
+    def test_response_sli_uses_all_eligible_comments_and_direct_program_audio(self):
+        from ravora.studio_report import conversation
+        row = dict(source='twitch', test=0, intake_reason=None, selected=1, played_at=None, viewer='a',
+                   received=10, published=10, status='played', reason=None, turn_id=None, previous_turn=None,
+                   first_sample=0, first_written=13, prefetched=0, ready_at=None, wav_ready=None, player_at=None)
+        rows = [row,dict(row,first_written=15),dict(row,first_written=16),
+                dict(row,first_sample=None,first_written=None,status='failed',reason='LOCAL_MONTHLY_REPLY_LLM_LIMIT'),
+                dict(row,first_sample=None,first_written=None,status='queued'),
+                dict(row,status='removed'), dict(row,intake_reason='comment_too_old'),
+                dict(row,test=1), dict(row,source='live-host')]
+        result = conversation(rows,False)['response_sli']
+        self.assertEqual((result['eligible'],result['started'],result['within_3s'],result['within_5s'],
+                          result['budget_blocked'],result['unobserved_start']), (5,3,1,2,1,2))
+        self.assertEqual(result['rates']['within_5s'],2/5)
+        self.assertIsNone(conversation([],False)['response_sli']['rates']['within_5s'])
+
     def test_duplicate_receipts_costs_test_labels_and_retention(self):
         inbox, obs = self.session()
         now = time.time()

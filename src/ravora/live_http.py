@@ -96,7 +96,13 @@ class LiveHandler(Handler):
             self.reply(200, {'volume_db': program.bgm.set_volume(request['volume_db'])})
         elif self.path in ('/v1/host/mic/open', '/v1/host/mic/open-auto'):
             self.object(())
-            self.reply(200, {'session': mic.open(automatic=self.path.endswith('open-auto'))})
+            automatic = self.path.endswith('open-auto')
+            if dell:
+                session = dell.open(automatic=automatic)
+            else:
+                echo_cancelled = program.interrupt_initiatives and self.headers.get('X-Mic-Echo-Cancelled') == '1'
+                session = mic.open(automatic=automatic, echo_cancelled=echo_cancelled)
+            self.reply(200, {'session': session})
         elif self.path == '/v1/host/mic/mute':
             self.object(())
             mic.mute(owner)

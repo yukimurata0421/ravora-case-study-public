@@ -14,7 +14,7 @@
       <nav aria-label="Sections"><a href="#people">People</a><a href="#schedule">Schedule</a><a href="#log">Broadcasts</a><a href="#method">Method</a></nav>
     </header>
 
-    <main id="raySnapshot" data-version="5" data-generated="$generated" data-collected="$collected">
+    <main id="raySnapshot" data-version="6" data-generated="$generated" data-collected="$collected">
       <section id="status" class="status" data-state="$status_state" data-until="$live_until" aria-live="polite">
         <span class="pill" aria-hidden="true"></span>
         <div class="status-text"><h1 id="statusTitle">$status_title</h1><p id="statusDetail">$status_detail</p></div>
@@ -56,7 +56,8 @@
           <dt>Viewers and peak</dt><dd>Unique viewers sum per-broadcast platform summaries imported after each broadcast. Peak uses the reported peak when available, then the maximum of live Twitch samples taken about once a minute.</dd>
           <dt>Chat coverage</dt><dd>Time with a connected chat reader divided by the broadcast window. Slot comparison rates use only finished broadcasts with at least 114 minutes of chat observation and 95% coverage.</dd>
           <dt>Market and overlap</dt><dd>Every five minutes during scheduled windows, Twitch streams in Just Chatting are filtered by the slot language and VTuber tags. Market averages exclude Ray and use completed scans. Top five share is the five largest audiences per scan divided by all viewers in those scans. Tags are self-reported. Overlap pairs consecutive samples of Ray and vedal987 across all categories.</dd>
-          <dt>Broadcast state</dt><dd>Live requires recent provider evidence and expires on this page after 150 seconds. A provider summary or confirmed end closes a broadcast. Unconfirmed records stay out of finished totals.</dd>
+          <dt>Broadcast state</dt><dd>Live requires recent provider evidence and expires on this page after 150 seconds. A platform summary, an offline observation, or a recorded studio stop after a confirmed start closes a broadcast. Unconfirmed records stay out of finished totals.</dd>
+          <dt>Ray gap</dt><dd>Silence between the last audible sample of one Ray utterance and the first of the next, when the comment was already waiting. Below 20 intervals the p95 is the sample value and is marked with its count.</dd>
           <dt>Ray gap</dt><dd>Silence between the last audible sample of one Ray utterance and the first of the next, when the comment was already waiting. Below 20 intervals the p95 is the sample value and is marked with its count.</dd>
           <dt>Response times</dt><dd>Comment to on air runs from studio receipt to the first reply audio in the broadcast. Comment to viewer runs from the platform's comment time to audio detected on an independent player.</dd>
           <dt>API use and cost</dt><dd>Calls include retries and discarded prefetched calls. Cost uses estimated USD list prices. Calls without a known price are counted separately.</dd>

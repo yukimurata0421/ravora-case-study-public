@@ -21,6 +21,8 @@ def example_export():
                 VALUES ('demo','twitch','offline',48000,30,1,'twitch','stopped',?,?,216000,'show','twitch_helix',1)""",
                        (start, end))
             db.execute("INSERT INTO studio_chat_intervals VALUES ('demo',?,?)", (start, end))
+            db.execute("""INSERT INTO studio_speech_policies (session,first_frame,activated,policy)
+                          VALUES ('demo',0,?,'short-turn-v1')""", (start,))
             db.execute("INSERT INTO studio_stream_summaries VALUES ('twitch','show',?,?,5,2,3)", (start, end))
             db.execute("INSERT INTO twitch_schedule_runs VALUES (?,'ja-17',?,?,'finished',NULL,'demo')",
                        (start, start, end))
@@ -36,6 +38,9 @@ def example_export():
                            (f'message-{index}', start + arrival, start + arrival, turn, start + last,
                             start + first - .1, prior, int(first*48000), int(last*48000), start + first, start + last))
                 prior = turn
+            db.execute("""INSERT INTO studio_inputs (receipt,session,source,viewer,published,received,status,reason)
+                          VALUES ('message-3','demo','twitch','fictional-viewer',?,?,'held','LOCAL_MONTHLY_TTS_LIMIT')""",
+                       (start + 7, start + 7))
         with Database.existing(store.path, readonly=True).connect() as db:
             db.execute('BEGIN')
             return project(db, time.time())

@@ -44,6 +44,7 @@ This take has a known defect: at the first reply onset the browser recorded an
 | Private developer dialogue reaches a public reply only as a reviewed summary, and revocation removes it. | Replay and unit tests | `python3 scripts/demo.py replay` |
 | Viewer contact state respects daily caps, playback acknowledgements and owner/scope separation. | Replay with fictional contacts | `python3 scripts/demo.py relationships` |
 | Mouth shapes and video timestamps follow the audio sample clock. | Synthetic phone sequence and browser module tests | `python3 scripts/demo.py media-timing` |
+| Incoming chat or operator speech can take priority over a spontaneous turn. | [Scheduled playout and audience tests](tests/test_twitch_audience_idle.py) | [Reproduce the broadcast timing report](docs/studio-observations.md#try-the-pipeline-offline) |
 | Live reply timing and reaction behavior | Finite recorded runs only | [Measurements and their limits](docs/measurements.md) |
 
 The video shows how the result looks and sounds. The commands check the
@@ -164,7 +165,7 @@ environment are excluded from this snapshot.
 
 The portable slice retains the schema, turn fencing, provider boundaries, mock
 streaming, up to one reservation per reaction stage, character and reply-length policies,
-sharing approvals, and retrieval provenance. Its twenty-three schema migrations preserve
+sharing approvals, and retrieval provenance. Its twenty-five schema migrations preserve
 earlier reaction attempts and add source-bound contact accounting, dialogue routing,
 session and chat usage ledgers, broadcast timing, coverage and scheduled runs. The reference API adapters
 are available for inspection. The replay commands and console use mock providers

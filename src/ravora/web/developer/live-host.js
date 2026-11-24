@@ -215,7 +215,8 @@ async function claimSession(input) {
   await changeSession(async () => {
     if (mic !== input) return;
     const response = await fetch(input.automatic ? '/v1/host/mic/open-auto' : '/v1/host/mic/open', {
-      method: 'POST', body: '{}', headers: {...headers, 'Content-Type': 'application/json'},
+      method: 'POST', body: '{}', headers: {...headers, 'Content-Type': 'application/json',
+                                           'X-Mic-Echo-Cancelled': input.echoCancelled ? '1' : '0'},
       signal: AbortSignal.timeout(dell ? 12000 : 1500)
     });
     const result = await response.json();
@@ -265,6 +266,7 @@ async function openMic() {
     if (mic !== input) { stream.getTracks().forEach(track => track.stop()); return; }
     input.stream = stream;
     const track = stream.getAudioTracks()[0];
+    input.echoCancelled = track.getSettings?.().echoCancellation === true;
     track.onended = () => mute(input, 'マイクが切断されたためミュートしました。');
     const context = input.context = new AudioContext({sampleRate: 48000});
     await context.audioWorklet.addModule('/mic-stream.js');

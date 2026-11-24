@@ -45,7 +45,9 @@ class Tone:
         return {'duration': len(signal) / RATE, 'source': 'fixture'}
 
 
-def replay(root, **options):
+def replay(root, *, arrivals=None, expected=3, **options):
+    if arrivals is None:
+        arrivals = [(tick,str(tick),'Hello Ray!') for tick in (0,15,35)]
     settings = replace(ProviderSettings(), comment_source='twitch', memory_enabled=False,
                        character_initiative_enabled=False)
     store = MemoryStore(root / 'fixture.sqlite3')
@@ -64,10 +66,9 @@ def replay(root, **options):
         stack.callback(writer.close)
         start = time.monotonic()
         for tick in range(180):
-            if tick in (0, 15, 35):
-                msg = str(tick)
-                pipe.inbox.put(Comment('twitch', 'fixture-channel', msg, msg, 'Viewer',
-                                       'Hello Ray!', time.time()))
+            for index,(arrival,viewer,text) in enumerate(arrivals):
+                if tick==arrival:
+                    pipe.inbox.put(Comment('twitch','fixture-channel',str(index),viewer,'Viewer',text,time.time()))
             stage, pcm = program.next_frame()
             writer.write(stage, pcm)
             program.encoded(stage)
@@ -76,10 +77,10 @@ def replay(root, **options):
                 turn = program.token['turn_id']
                 extent = extents.setdefault(turn, [tick*SAMPLES + int(signal[0]), None])
                 extent[1] = tick*SAMPLES + int(signal[-1]) + 1
-            if program.completed == 3:
+            if program.completed == expected:
                 break
             time.sleep(max(0, start + (tick + 1) / FPS - time.monotonic()))
-        assert program.completed == 3, program.last_error
+        assert program.completed == expected, program.last_error
     with av.open(str(root / 'local.flv')) as recording:
         assert any(np.max(np.abs(f.to_ndarray())) > .02 for f in recording.decode(audio=0))
     positions = list(extents.values())
@@ -90,6 +91,17 @@ def replay(root, **options):
 
 @unittest.skipUnless(av, 'youtube-live extra required')
 class StudioReplay(unittest.TestCase):
+    def test_two_music_questions_have_one_prefetched_group_reply_on_the_writer(self):
+        with tempfile.TemporaryDirectory() as directory:
+            gaps, row = replay(Path(directory),prefetch=True,expected=2,
+                arrivals=[(0,'a','Hello'),(10,'b','What is this song?'),(10,'c','この曲の名前は？')])
+        counts=row['comments']
+        self.assertEqual(len(gaps),1)
+        self.assertEqual((counts['received'],counts['played'],counts['prefetched']),(3,2,1))
+        self.assertEqual(counts['selection']['individually_replied_speakers'],1)
+        self.assertEqual(counts['selection']['group_replies'],1)
+        self.assertEqual(row['api']['attempts'],0)
+
     def test_same_arrivals_serial_and_prefetched(self):
         results = []
         for mode in (False, True):

@@ -14,8 +14,8 @@ from urllib.parse import urlsplit
 import requests
 import websocket
 
-from ravora.comments import Comment, clean, timestamp
 from ravora.twitch_identity import TwitchError
+from ravora.comments import Comment, clean, timestamp
 from ravora.settings import SettingsError, read_env
 from ravora.youtube_auth import read_private, save_private
 
@@ -30,7 +30,7 @@ DELETE = 'channel.chat.message_delete'
 
 
 class TwitchOAuth:
-    def __init__(self, config, token_path, http):
+    def __init__(self, config, token_path, http, *, channel_grant=None):
         self.token_path = token_path
         self.http = http
         try:
@@ -39,6 +39,14 @@ class TwitchOAuth:
             raise TwitchError('TWITCH_CHAT_CLI_CONFIG_INVALID') from exc
         self.client_id = values.get('CLIENTID', '')
         self.secret = values.get('CLIENTSECRET', '')
+        if channel_grant is not None:
+            if not self.client_id or channel_grant.get('client_id')!=self.client_id:
+                raise TwitchError('TWITCH_SCHEDULE_AUTHORIZATION_MISMATCH')
+            self.access = self._token(channel_grant,'access_token')
+            self.refresh = self._token(channel_grant,'refresh_token')
+            self.user_id = channel_grant.get('user_id')
+            self.cli_grant = channel_grant.get('cli_grant') or hashlib.sha256(self.refresh.encode()).hexdigest()
+            return
         self.access = values.get('ACCESSTOKEN', '')
         self.refresh = values.get('REFRESHTOKEN', '')
         if not all((self.client_id, self.access, self.refresh)):
@@ -131,12 +139,13 @@ def _session_url(url):
 
 
 class TwitchReader:
-    def __init__(self, inbox, token_path, *, config=None, on_removed=None, on_audience=None, is_announcement=None):
+    def __init__(self, inbox, token_path, *, config=None, on_removed=None, on_audience=None, is_announcement=None, expected_user_id=None):
         self.inbox = inbox
         self.token_path = token_path
         self.config = config or cli_config_path()
         self.is_announcement = is_announcement
         self.on_audience = on_audience
+        self.expected_user_id = expected_user_id
         self.on_removed = on_removed
         self.status = 'connecting'
         self.code = None
@@ -185,7 +194,8 @@ class TwitchReader:
                     return
                 comment = Comment('twitch', identity, clean(event['message_id'], 128),
                                   clean(event['chatter_user_id'], 128), clean(event['chatter_user_name'], 100),
-                                  clean(event['message']['text'], 1000), timestamp(metadata['message_timestamp']))
+                                  clean(event['message']['text'], 1000), timestamp(metadata['message_timestamp']),
+                                  clean(event['reply']['parent_message_id'],128) if event.get('reply') else None)
                 if not comment.text:
                     raise ValueError('EMPTY_TWITCH_COMMENT')
             elif kind == DELETE:
@@ -244,7 +254,9 @@ class TwitchReader:
         delay = 2
         with ExitStack() as stack:
             http = stack.enter_context(closing(requests.Session()))
-            audience = None
+            if self.on_audience:
+                from ravora.twitch_audience import TwitchAudience
+                stack.enter_context(TwitchAudience(self.token_path.parent,self.on_audience,config=self.config))
             http.trust_env = False
             oauth = None
             while not stop.is_set() and time.monotonic() < deadline:
@@ -252,11 +264,8 @@ class TwitchReader:
                     if oauth is None:
                         oauth = TwitchOAuth(self.config, self.token_path, http)
                     oauth.validate()
-                    if self.on_audience and audience is None:
-                        from ravora.twitch_audience import TwitchAudience
-                        audience = TwitchAudience(oauth, self.on_audience)
-                        audience.worker.start()
-                        stack.callback(audience.close)
+                    if self.expected_user_id is not None and oauth.user_id != self.expected_user_id:
+                        raise TwitchError('TWITCH_CHAT_ACCOUNT_MISMATCH')
                     self._listen(oauth, stop, deadline)
                     break
                 except TwitchError as exc:

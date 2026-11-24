@@ -9,6 +9,7 @@ import re
 import threading
 import time
 import uuid
+import wave
 import sqlite3
 
 from ravora.speech import utterance_word_starts
@@ -170,6 +171,12 @@ class MemoryStore(Relationships,ConversationContext,SemanticMemory,MemoryReposit
             db.execute('BEGIN IMMEDIATE')
             row=db.execute("UPDATE conversation_turns SET played=1,state='COMPLETED',closed_at=COALESCE(closed_at,?) WHERE id=? AND status='completed' AND played=0 RETURNING source_event_id,viewer,comment,reply",(now,turn_id)).fetchone()
             if row:
+                if row[0] and asked_listener_in_japanese(row[3]) and db.execute('PRAGMA user_version').fetchone()[0]>=24:
+                    db.execute("""UPDATE chat_candidates SET asked=1 WHERE receipt=?
+                        AND reply_kind='individual' AND lane!='continuation'""",(row[0],))
+                if row[1].partition(':')[2].startswith('audience:'):
+                    memory_enabled = relationship_enabled = False
+                    unspoken_hooks = None
                 if program_latency is not None:
                     db.execute("UPDATE conversation_turns SET metrics=json_set(metrics,'$.live_program',json(?)) WHERE turn_id=?",
                                (json.dumps(program_latency),turn_id))
@@ -353,13 +360,20 @@ class SpeechController:
         self.s=settings;self.store=store;self.output=Path(output);self.clock=clock
         self.text,self.reaction,self.speech=providers or adapters(settings)
         self.program_pcm = None
+        self.initiative_audio_limit = None
         self.memory_worker=MemoryWorker(store,settings,extractor=memory_extractor)
         self.character=CharacterRuntime(idle_seconds=settings.character_idle_seconds,max_initiatives=settings.character_max_initiatives) if settings.character_enabled else None
 
     def run(self,comment,viewer,turn_id,emit,cancel,*,followup=None):
         start=self.clock();deadline=start+self.s.turn_timeout
         initiative=viewer.startswith('ray-initiative:')
-        character_epoch=self.character.begin(turn_id,comment,initiative=initiative,viewer=viewer,opening=followup) if self.character else None
+        brief = initiative and self.initiative_audio_limit is not None
+        character_epoch = None
+        if self.character:
+            with self.character.lock:
+                if cancel.is_set():
+                    return {}
+                character_epoch = self.character.begin(turn_id,comment,initiative=initiative,viewer=viewer,opening=followup)
         metrics={'mode':self.s.mode,'first_text_ms':None,'first_sentence_ms':None,'first_audio_ready_ms':None,'reaction_ms':None,'chunks':0,'characters':0,'provider_requests':0}
         reply=[];sentences=queue.Queue(maxsize=2);producer_error=[];worker_stop=threading.Event();aux=[];metrics_lock=threading.Lock()
         def current():return not cancel.is_set() and not worker_stop.is_set() and self.clock()<deadline
@@ -378,7 +392,8 @@ class SpeechController:
         recent_for_route = recent_for_route + self.store.opening_history(self.character,character_epoch,self.s.mode)
         route = self.character.route(character_epoch, comment, recent_for_route,
                                      initiative=initiative) if self.character else DialogueRoute()
-        rag = route.allow_retrieval(metrics, comment)
+        audience = viewer.startswith('audience:')
+        rag = route.allow_retrieval(metrics, comment) and not audience
         memory_wait=self.clock()
         semantic_enabled=rag and self.s.memory_enabled and self.s.semantic_memory_mode!='off'
         if semantic_enabled:self.memory_worker.wake()
@@ -429,7 +444,7 @@ class SpeechController:
             if context_supported:self.text.set_context(context)
             self.store.record_context_retrievals(turn_id,context,call_id=key,prepared=context_supported)
             begin=time.monotonic()
-            background=self.store.relationship_context(viewer,scope=self.s.mode) if self.s.memory_enabled and self.s.relationship_enabled else None
+            background=self.store.relationship_context(viewer,scope=self.s.mode) if not audience and self.s.memory_enabled and self.s.relationship_enabled else None
             relationship_supported=hasattr(self.text,'set_relationship')
             if relationship_supported:self.text.set_relationship(background)
             metrics['relationship_lookup_ms']=round((time.monotonic()-begin)*1000,3)
@@ -439,7 +454,7 @@ class SpeechController:
             metrics['memory_ids']=[m['memory_id'] for m in notes];metrics['memory_context_prepared']=supported
             metrics['memory_strategy']=method
             character_begin=time.monotonic()
-            memories=self.memory_worker.character_memories(viewer,route,comment) if self.character else ()
+            memories=self.memory_worker.character_memories(viewer,route,comment) if self.character and not audience else ()
             if not current():raise ProviderError('TURN_CANCELLED')
             hook=claim_hook(self.store,self.s.mode,viewer,turn_id,comment,route.unspoken_hooks) if route.dialogue_policy=='SHIFT_TO_HOOK' else ''
             plan=self.character.plan(comment,memories,background,initiative=initiative,epoch=character_epoch,
@@ -503,6 +518,10 @@ class SpeechController:
                 speaker={'developer_speaker':developer_speaker} if isinstance(self.text,GeminiText) else {}
                 if isinstance(self.text,GeminiText) and 'japanese_turn' in generation_decision:
                     speaker['japanese_turn']=generation_decision['japanese_turn']
+                if brief and isinstance(self.text,GeminiText):
+                    speaker['brief_opening'] = True
+                    if getattr(followup,'greeting',False):
+                        speaker['greet_room'] = True
                 if isinstance(self.text,GeminiText) and live_host:
                     speaker['live_host']=True
                 if self.s.mode=='cloud' and self.s.monthly_reply_llm_usd:
@@ -515,6 +534,39 @@ class SpeechController:
                     speaker['before_send']=before_send
                 plan=generation_decision.get('character_plan')
                 decoder=PublicDecoder(structured=bool(getattr(self.text.stream,'ray_public_output',False)),buffer=buffer,plan=plan,limit=self.s.max_reply_chars) if self.character else None
+                def enqueue(sentence):
+                    nonlocal characters
+                    if metrics['first_sentence_ms'] is None:
+                        metrics['first_sentence_ms']=round((self.clock()-start)*1000,2)
+                    if not isinstance(sentence,PublicOutput):
+                        put(sentence)
+                        return
+                    characters+=len(sentence.speech)
+                    if characters>self.s.max_reply_chars:raise ProviderError('REPLY_CHARACTER_LIMIT')
+                    metrics.setdefault('public_output_ready_ms',round((self.clock()-start)*1000,2))
+                    pieces = [sentence.speech]
+                    if initiative and self.program_pcm and decoder.structured:
+                        # The complete structured response has passed validation. Each media
+                        # segment can now finish independently, including a streaming prefix.
+                        pieces = SentenceBuffer(limit=len(sentence.speech)).feed(sentence.speech, final=True)
+                        pieces = pieces[:self.s.max_chunks]
+                    if brief:
+                        # Only one validated, whole sentence is ever submitted to TTS for an opening.
+                        # This leaves all further provider capacity for the next human turn.
+                        if metrics.get('initiative_line_selected'):
+                            return
+                        pieces = SentenceBuffer(limit=len(sentence.speech)).feed(sentence.speech, final=True)[:1]
+                        if not pieces:
+                            return
+                        line = pieces[0]
+                        japanese = self.s.language.startswith('ja') or bool(re.search(r'[ぁ-ヿ一-鿿]',line))
+                        if (len(line)>16 if japanese else len(line.split())>6 or len(line)>48):
+                            metrics['initiative_hold'] = 'INITIATIVE_TEXT_TOO_LONG'
+                            return
+                        metrics['initiative_line_selected'] = True
+                    for piece in pieces:
+                        publish('character_action',**sentence.action())
+                        put(PublicOutput(piece,sentence.expression,sentence.motion))
                 for delta in self.text.stream(comment,generation_history,**speaker):
                     if not got_response:received(key,'gemini');got_response=True
                     if not current():break
@@ -524,22 +576,10 @@ class SpeechController:
                         characters+=len(delta)
                         if characters>self.s.max_reply_chars:raise ProviderError('REPLY_CHARACTER_LIMIT')
                     for sentence in (decoder.feed(delta) if decoder else buffer.feed(delta)):
-                        if metrics['first_sentence_ms'] is None:metrics['first_sentence_ms']=round((self.clock()-start)*1000,2)
-                        if isinstance(sentence,PublicOutput):
-                            characters+=len(sentence.speech)
-                            if characters>self.s.max_reply_chars:raise ProviderError('REPLY_CHARACTER_LIMIT')
-                            metrics.setdefault('public_output_ready_ms',round((self.clock()-start)*1000,2))
-                            publish('character_action',**sentence.action())
-                        put(sentence)
+                        enqueue(sentence)
                 if current():
                     for sentence in (decoder.feed('',final=True) if decoder else buffer.feed('',final=True)):
-                        if metrics['first_sentence_ms'] is None:metrics['first_sentence_ms']=round((self.clock()-start)*1000,2)
-                        if isinstance(sentence,PublicOutput):
-                            characters+=len(sentence.speech)
-                            if characters>self.s.max_reply_chars:raise ProviderError('REPLY_CHARACTER_LIMIT')
-                            metrics.setdefault('public_output_ready_ms',round((self.clock()-start)*1000,2))
-                            publish('character_action',**sentence.action())
-                        put(sentence)
+                        enqueue(sentence)
                 self.store.call_usage(key,getattr(self.text,'usage',{}));accepted(key,'gemini')
             except Exception as exc:
                 if isinstance(exc,CharacterError):
@@ -602,7 +642,7 @@ class SpeechController:
                     tts_start=self.clock()
                     options = {}
                     sink = self.program_pcm
-                    if self.character and sink and getattr(self.speech, 'streams_program_pcm', False) and index == 0:
+                    if not brief and self.character and sink and getattr(self.speech, 'streams_program_pcm', False) and index == 0:
                         def on_pcm(packet):
                             if not current():
                                 raise ProviderError('TURN_CANCELLED')
@@ -618,11 +658,21 @@ class SpeechController:
                     accepted(key,'tts')
                 except Exception as exc:raise ProviderError(failed(key,'tts',exc)) from None
                 if not current():break
+                if brief:
+                    # Validate the exact WAV before publishing any prefix, subtitle or audio.
+                    with wave.open(str(path),'rb') as wav:
+                        seconds = wav.getnframes()/wav.getframerate()
+                    if seconds > self.initiative_audio_limit:
+                        metrics['initiative_hold'] = 'INITIATIVE_AUDIO_TOO_LONG'
+                        break
+                    duration = seconds
                 self.store.record_utterance(turn_id,index,sentence,path,duration)
                 if metrics['first_audio_ready_ms'] is None:metrics['first_audio_ready_ms']=round((self.clock()-start)*1000,2)
                 publish('audio',index=index,text=sentence,word_starts=utterance_word_starts(timing),audio='/conversation/audio/'+name,duration=duration,visemes=timing.get('visemes',[]),mouth_plan=timing.get('mouth_plan',[]),lip_sync=timing.get('lip_sync',timing['source']),tts_ms=round((self.clock()-tts_start)*1000,2))
             if cancel.is_set():status='cancelled'
             elif self.clock()>=deadline:raise ProviderError('TURN_DEADLINE')
+            elif brief and metrics.get('initiative_hold') and (not reply or metrics['initiative_hold']=='INITIATIVE_AUDIO_TOO_LONG'):
+                status,code='held',metrics['initiative_hold']
             elif not reply:raise ProviderError('EMPTY_GENERATED_REPLY')
         except Exception as exc:status='failed';code=str(exc) if isinstance(exc,ProviderError) else 'SPEECH_PIPELINE_FAILED'
         finally:
@@ -639,7 +689,7 @@ class SpeechController:
                 metrics['character']=self.character.metrics()
                 with self.memory_worker.lock:metrics['character_memory']=dict(self.memory_worker.character_counts)
             self.store.finish(turn_id,' '.join(reply),status,metrics)
-        if not cancel.is_set():emit({'kind':'complete' if status=='completed' else 'error','status':status,'code':code,'metrics':metrics})
+        if not cancel.is_set():emit({'kind':'complete' if status=='completed' else 'held' if status=='held' else 'error','status':status,'code':code,'metrics':metrics})
         return metrics
 
 
@@ -654,10 +704,12 @@ class ConversationBridge:
         self.playout_state = self.playout_hooks = None
         self.viewer=None;self.events=[];self.cancel_event=threading.Event();self.worker=None;self.token=None;self.claims=set();self.finished=False
 
-    def next_studio_turn(self):
-        """Generation is serial. Keep the playing turn's claims, callbacks and ACK independently fenced."""
+    def next_studio_turn(self, *, cancelled_initiative=False):
+        """Fork playout state after generation, or after fencing an unheard scheduled opening."""
         with self.lock:
-            if not self.finished or self.worker.is_alive():
+            retiring = (cancelled_initiative and self.cancel_event.is_set()
+                        and self.viewer and self.viewer.startswith('ray-initiative:'))
+            if not self.finished or (self.worker.is_alive() and not retiring):
                 raise ValueError('TURN_BUSY')
             character = self.controller.character
             if character and self.playout_state is None:
@@ -726,12 +778,13 @@ class ConversationBridge:
                 memory_min_confidence=s.memory_min_confidence,relationship_enabled=s.memory_enabled and s.relationship_enabled,developer_id=s.developer_id,
                 program_latency=program_latency,
                 unspoken_hooks=hooks)
-            if accepted and s.memory_enabled and self.controller.store.memory_pending(self.viewer,s.mode):
+            audience = self.viewer.startswith('audience:')
+            if accepted and not audience and s.memory_enabled and self.controller.store.memory_pending(self.viewer,s.mode):
                 self.controller.memory_worker.wake()
             if accepted and self.controller.character:
                 initiative = self.viewer.startswith('ray-initiative:')
                 turn = token['turn_id']
-                exchange = self.controller.store.followup_exchange(turn,self.viewer,s.mode) if s.character_initiative_enabled and not initiative else None
+                exchange = self.controller.store.followup_exchange(turn,self.viewer,s.mode) if s.character_initiative_enabled and not initiative and not audience else None
                 self.controller.character.played(turn,turn,self.viewer,exchange,initiative=initiative,playout_state=self.playout_state)
-                if not initiative:self.controller.memory_worker.offer_character(turn)
+                if not initiative and not audience:self.controller.memory_worker.offer_character(turn)
             return accepted

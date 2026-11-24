@@ -215,8 +215,10 @@ def card(b, ordinal, open_first):
     if state == 'live':
         pill, when = 'live', 'Live'
         status = f'confirmed {clock(b["last_confirmed_at"])}'
-    elif state == 'finished':
-        pill, when, status = 'ok', 'Finished', b['state_source']
+    elif state == 'ended':
+        source = {'studio_stop':'Studio output stopped','summary':'Platform summary','helix':'Twitch confirmed offline',
+                  'youtube':'YouTube confirmed end'}
+        pill, when, status = 'ok', 'Finished', source[b['state_source']] if b['state_source'] in source else 'End recorded'
     else:
         pill, when = 'wait', 'Unconfirmed'
         status = f'last seen {clock(b["last_confirmed_at"])}' if b['last_confirmed_at'] else 'no provider confirmation'
@@ -238,6 +240,15 @@ def card(b, ordinal, open_first):
                   f'{round(100*b["replied"]/b["comments"])}% of comments' if b['comments'] and b['replied'] is not None else '&nbsp;'),
              stat('Wrote again', num(b['spoke_again']), 'after a reply'),
              stat('API cost', cost, escape(cost_note))]
+    sli = b.get('response_sli')
+    if sli is not None:
+        eligible = sli['eligible']
+        for label, key in (('Reply started','started'), ('Within 3 seconds','within_3s'),
+                           ('Within 5 seconds','within_5s'), ('Budget stopped','budget_blocked')):
+            stats.append(stat(label, f'{sli[key]}/{eligible}' if eligible else DASH,
+                              'eligible comments' if eligible else 'No eligible comments'))
+    else:
+        stats.append(stat('Reply timing', DASH, 'Eligible comments unobserved'))
     m = b['market'] or {}
     chat_rows = [('Chat coverage', coverage_pct(b['chat'])),
                  ('Average viewers', f'{num(b["average_viewers"], 1)} <span class="sub-inline">{escape(b["average_source"] or "no samples")}</span>'),
@@ -247,6 +258,13 @@ def card(b, ordinal, open_first):
                  ('Unplayed', num(b['unplayed'])),
                  ('VTuber market', DASH if m.get('avg_channels') is None else f'{m["avg_channels"]:,.0f} ch · {m["avg_viewers"]:,.0f} avg'),
                  ('vedal987 overlap', DASH if m.get('paired_ray_minutes') is None else f'{m["overlap_minutes"]:,.0f} / {m["paired_ray_minutes"]:,.0f} min')]
+    health = b.get('audience_health')
+    if health:
+        chat_rows.append(('Helix last success', clock(health['last_success']) if health['last_success'] is not None else DASH))
+        chat_rows.append(('Helix last result', escape(health['status'])))
+        chat_rows.append(('Helix 401s', f"{health['consecutive_401']} consecutive · {health['total_401']} total"))
+    if b.get('speech_policy'):
+        chat_rows.append(('Speech policy', escape(b['speech_policy'])))
     if b['latest_viewers'] is not None and b['last_audience_at'] is not None:
         chat_rows.insert(1, ('Watching at last sample', f'{b["latest_viewers"]:,} <span class="sub-inline">{clock(b["last_audience_at"])}</span>'))
     g = b['gap']

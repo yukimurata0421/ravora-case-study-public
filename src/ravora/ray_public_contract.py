@@ -1,5 +1,6 @@
 """Versioned count-only contract shared with the Pi collector."""
-SCHEMA = 'ravora.ray_public_observation.v4'
+LEGACY_SCHEMA = 'ravora.ray_public_observation.v4'
+SCHEMA = 'ravora.ray_public_observation.v5'
 MAX_BROADCASTS = 60
 P95_MIN_SAMPLES = 20
 CHAT_RANK_COVERAGE = .95
@@ -71,16 +72,27 @@ TOTALS = obj(broadcasts=COUNT, minutes=NNUMBER, viewer_summaries=COUNT, unique_v
              repeat_viewers=nullable(obj(speakers=COUNT, on_two_or_more_days=COUNT)))
 LEGACY = obj(platform={'enum':['twitch','youtube']}, sessions=COUNT, retained_comments=COUNT, viewer_turns=COUNT, played_flags=COUNT)
 OBSERVED = obj(**TOTALS['properties'], live=COUNT, last_seen=COUNT, unknown=COUNT, gap=nullable(GAP))
-SOURCE_SCHEMA = obj(schema={'const':SCHEMA}, generated_at=NUMBER, pipeline=obj(observations_ready=BOOL),
+LEGACY_SOURCE_SCHEMA = obj(schema={'const':LEGACY_SCHEMA}, generated_at=NUMBER, pipeline=obj(observations_ready=BOOL),
                     experiment=obj(weekly_broadcasts={'const':WEEKLY_SHOWS}, weekly_hours={'const':WEEKLY_SHOWS*2},
                                    next_jst=STAMP, next_slot={'enum':SLOT_IDS}, min_chat_fraction={'const':CHAT_RANK_COVERAGE}),
                     totals=TOTALS, observed=OBSERVED, legacy=array(LEGACY,2), slots=array(SLOT,len(SLOTS),len(SLOTS)), broadcasts=array(BROADCAST,MAX_BROADCASTS))
 
 
+SLI = obj(eligible=COUNT, started=COUNT, within_3s=COUNT, within_5s=COUNT, budget_blocked=COUNT)
+HEALTH = obj(last_attempt=NNUMBER, last_success=NNUMBER,
+             status={'enum':['live','offline','http_401','unavailable','no_samples']},
+             consecutive_401=COUNT, total_401=COUNT)
+BROADCAST_V5 = obj(**BROADCAST['properties'], response_sli=nullable(SLI), audience_health=nullable(HEALTH),
+                   speech_policy={'enum':['short-turn-v1','mixed','unrecorded']})
+SOURCE_SCHEMA = obj(**{**LEGACY_SOURCE_SCHEMA['properties'], 'schema':{'const':SCHEMA},
+                       'broadcasts':array(BROADCAST_V5,MAX_BROADCASTS)})
+
+
 def validate(value, now):
     # Validation runs at the publication boundary. The Dell exporter needs only stdlib.
     from jsonschema import Draft7Validator
-    if not Draft7Validator(SOURCE_SCHEMA).is_valid(value):
+    schema = LEGACY_SOURCE_SCHEMA if isinstance(value,dict) and value.get('schema')==LEGACY_SCHEMA else SOURCE_SCHEMA
+    if not Draft7Validator(schema).is_valid(value):
         raise ValueError('SCHEMA')
     if not now - 120 <= value['generated_at'] <= now + 10:
         raise ValueError('GENERATED_AT')
@@ -91,6 +103,15 @@ def validate(value, now):
         raise ValueError('SLOTS')
     timings = [value['observed']['gap'], *(slot['activity']['gap'] for slot in value['slots'])]
     for row in value['broadcasts']:
+        sli = row.get('response_sli')
+        if sli and not (sli['within_3s'] <= sli['within_5s'] <= sli['started'] <= sli['eligible']
+                        and sli['budget_blocked'] <= sli['eligible']-sli['started']):
+            raise ValueError('SLI')
+        health = row.get('audience_health')
+        if health and (health['consecutive_401'] > health['total_401'] or
+                       (health['last_success'] is not None and
+                        (health['last_attempt'] is None or health['last_success'] > health['last_attempt']))):
+            raise ValueError('AUDIENCE_HEALTH')
         timings.extend(row[k] for k in ('gap','reply','audio_ready','player'))
     for entry in timings:
         if entry is None:

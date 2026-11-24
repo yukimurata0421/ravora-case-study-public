@@ -17,8 +17,9 @@ python -m http.server 8000 --bind 127.0.0.1 --directory "$preview"
 ```
 
 Open `http://127.0.0.1:8000/ray/`. The fixture creates a temporary database for one
-fictional January broadcast with three comments from one speaker and three completed replies.
-The speaker wrote again after a reply. Only one comment was already waiting when the
+fictional January broadcast with four comments from one speaker. Three replies started
+within five seconds. The simulated speech budget held the fourth reply, so the page
+shows 3/4. The speaker wrote again after a reply. Only one comment was already waiting when the
 previous utterance ended. Its 250 ms gap therefore appears with a sample count of 1/20.
 The fixture never contacts a platform or speech provider. The generated HTML, CSS,
 JavaScript and aggregate JSON remain in the preview directory.
@@ -45,6 +46,14 @@ Sessions that predate broadcast identity tracking contribute separate historical
 | Comment to program | Studio receipt to the first audible Ray frame accepted by the program writer. Preparing the next reply and putting it on air have separate timestamps. |
 | Comment to player | Platform event time to independently matched player audio. Each reply needs an actual match to enter the sample. |
 | API usage | Counts include dispatched retries and discarded prefetched calls. A known cost subtotal accompanies the count of unpriced calls. Estimated prices describe the rate assumptions in the report. |
+
+Each broadcast shows the count of eligible comments with an observed audio start,
+with a start within three and five seconds, and with a budget stop. All four counts
+use every eligible comment received during observed chat coverage as the denominator.
+A broadcast with zero eligible comments has no rate. Missing coverage is marked
+unobserved. The stream card identifies the source of an end observation. For Twitch,
+the last successful Helix sample and the consecutive and total 401 counts accompany
+the chat coverage. An EventSub authentication error leaves the scheduled Helix worker running.
 
 The report gives p50, nearest-rank sample p95, measurement count and missing count.
 A sample p95 based on 1–19 intervals is provisional. The comparison p95 starts at 20.
@@ -74,7 +83,7 @@ matches leave the reply unmeasured. [Player capture procedure](twitch-live-opera
 
 ## Publish observations from a separate host
 
-The site accepts a bounded, fresh export with schema `ravora.ray_public_observation.v4`.
+The exporter writes `ravora.ray_public_observation.v5`. The site validates both v5 and v4 snapshots.
 It rejects unexpected fields before rendering. A successful collection writes
 `ray-observation.json`, `ray/index.html` and the two referenced assets. The initial HTML
 contains the measurements. An open tab checks for a newer snapshot every 30 seconds
@@ -98,6 +107,32 @@ four static files through your own publisher. A failed fetch or validation retai
 last successful snapshot and collection timestamp. The example SSH command requires
 noninteractive access to the exporter. The static host needs no chat, model or platform
 credentials.
+
+## Selecting speakers when chat is busy
+
+Migration 024 adds the local `speaker_rotation_v1` policy. Each waiting speaker
+gets one position. An update from that speaker keeps their waiting time and
+lottery ticket. Expired entries leave before admission. At capacity, tickets
+from distinct speakers compete within the first-reply, continuation and open
+opportunities. The ticket stays stable for that speaker during a freshness
+window. Quiet sessions dispatch the first eligible comment immediately.
+
+Each four opportunities give two to speakers who have received no individual
+reply in this broadcast, one to a continuation and one to any speaker. An empty
+opportunity goes to the oldest eligible speaker, with a ticket breaking ties.
+A continuation can use its opportunity early when the same viewer answers a
+played question within the comment TTL. An explicit chat reply must name the
+original message. For a spoken question the fallback uses the addressed viewer,
+publication time and a subsequent answer. A continuation cannot open another
+continuation. The playout deadline uses the larger of remaining program audio
+and the recent preparation p90, with a one-second initial estimate.
+
+Equivalent public questions about the current music can share an open
+opportunity. One group reply occupies one audio turn and credits zero
+individuals. The local report includes eligible and individually reached
+speaker counts, their ratio, group replies, selection lanes, rejection reasons
+and estimated cost of discarded prefetches. The report uses a null ratio when
+there were no eligible speakers. Older sessions have no policy marker.
 
 ## Scheduled Twitch shows and prepared replies
 
@@ -141,6 +176,18 @@ timer. Installing the Python package leaves scheduling disabled.
 Scheduled shows prepare one waiting comment while the preceding reply plays. A manual
 studio launch enables this with `--prefetch`. The playout order stays serial. Deletion,
 expiry or interruption can discard a prepared reply before it reaches the program.
+With the scheduled `short-turn-v1` policy, Ray's own openings use one short sentence.
+The studio checks the synthesized WAV and reverb tail against a three-second ceiling
+before playout. An incoming comment can begin preparation while that line plays.
+A comment that arrives during preparation can take the floor while an already dispatched
+opening request finishes. Its provider call stays in the ledger. The operator's enabled
+microphone takes priority on detected speech.
+
+A fresh positive viewer sample allows an opening. Ray greets the room once when the first sample shows a single listener. With one silent listener, successive
+waits are 120, 240, 480 and then 600 seconds at the default settings. A human turn resets
+the interval. Zero or unavailable viewer counts keep the show on video and music until a
+comment or operator speech arrives. Older sessions have an unrecorded speech policy.
+
 Playback acknowledgement gates conversational memory. For operator-supplied music,
 `bgm_tracks` is an ordered list of paths relative to the selected TOML file and
 `bgm_volume_db` sets the shared mix level. [Mixer configuration](../examples/studio-nvenc.toml)

@@ -33,6 +33,7 @@ class LiveHandsfree:
         self.cancel = self.worker = self.pending = self.utterance = None
         self.closed = self.processing = False
         self.playback_until = 0
+        self.listen_during_playback = False
         self.result = ''
 
     def _arm(self, wait_for_quiet=False):
@@ -40,11 +41,14 @@ class LiveHandsfree:
         self.utterance = None
         self.quiet_bytes = 0
 
-    def session(self, enabled):
+    def session(self, enabled, *, listen_during_playback=False):
         with self.condition:
             if self.cancel:
                 self.cancel.set()
             self.cancel = threading.Event() if enabled and not self.closed else None
+            self.listen_during_playback = self.cancel is not None and listen_during_playback
+            if self.listen_during_playback:
+                self.playback_until = 0
             self.pending = None
             self.processing = False
             self.result = ''
@@ -55,6 +59,8 @@ class LiveHandsfree:
 
     def playback(self):
         with self.condition:
+            if self.listen_during_playback:
+                return
             now = time.monotonic()
             if self.cancel and now >= self.playback_until:
                 self._arm()

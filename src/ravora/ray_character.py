@@ -112,9 +112,12 @@ class CharacterOpening:
     topic: str
     angle: str = ''
     previous: tuple[ConversationThread, ...] = ()
+    greeting: bool = False
 
     @property
     def message(self):
+        if self.greeting:
+            return 'Ray is greeting the room. There is no new host or viewer message.'
         if self.topic not in OPENING_IDEAS:
             raise CharacterError('UNKNOWN_OPENING_TOPIC')
         return f'Ray is introducing a topic about {self.topic}. There is no new host or viewer message.'
@@ -328,11 +331,14 @@ class CharacterRuntime:
         self.max_initiatives = max_initiatives
         self.initiatives = 0
         self.followups_played = 0
+        self.unanswered_openings = 0
         self.counts = {'state_updates': 0, 'memory_references': 0, 'output_format_errors': 0}
 
     def begin(self, event, text, *, initiative=False, viewer=None, opening=None):
         with self.lock:
             self.epoch += 1; self.event = event; self.last_activity = self.clock()
+            if not initiative:
+                self.unanswered_openings = 0
             if event in self.seen_set: return self.epoch
             self.opening_available = False
             self.opening = opening if initiative and isinstance(opening,CharacterOpening) else None
@@ -498,7 +504,7 @@ class CharacterRuntime:
             self.floor = None
             if initiative:
                 self.followups_played += 1
-                if opening:
+                if opening and not opening.greeting:
                     self.last_project = opening.topic
                     self.floor = ConversationThread(turn,owner,opening.topic)
                     self.aired_openings.append(self.floor)
@@ -541,12 +547,14 @@ class CharacterRuntime:
         topic, angle = self.rng.choice(candidates)
         return CharacterOpening(topic,angle,tuple(self.aired_openings))
 
-    def take_followup(self):
+    def take_followup(self, *, audience_opening=False, quiet_single=False):
         with self.lock:
             now = self.clock()
             silence = now - self.last_activity
             recurring = self.max_initiatives == -1
-            if (0 <= self.max_initiatives <= self.initiatives or silence < self.idle_seconds
+            first_viewers = audience_opening and recurring and self.opening_available and not self.initiatives
+            multiplier = (1,1,2,4,5)[min(self.unanswered_openings,4)] if quiet_single and recurring else 1
+            if (0 <= self.max_initiatives <= self.initiatives or (silence < self.idle_seconds*multiplier and not first_viewers)
                     or (recurring and now - self.last_mic_activity < self.idle_seconds)):
                 return None
             if silence > 3 * self.idle_seconds:
@@ -554,16 +562,22 @@ class CharacterRuntime:
             candidate, self.thread = self.thread, None
             if candidate is None and (recurring or (self.opening_available and silence <= 3 * self.idle_seconds)):
                 candidate = self._choose_opening(recurring)
+                if first_viewers and quiet_single:
+                    candidate = replace(candidate,greeting=True)
             self.opening_available = False
             if candidate is None:
                 return None
             self.last_activity = now
             self.initiatives += 1
+            if quiet_single:
+                self.unanswered_openings += 1
             return candidate
 
-    def note_mic_activity(self):
+    def note_mic_activity(self, *, speaking=False):
         with self.lock:
             self.last_mic_activity = self.clock()
+            if speaking:
+                self.unanswered_openings = 0
 
     def start_opening_window(self):
         with self.lock:

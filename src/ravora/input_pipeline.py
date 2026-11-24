@@ -1,5 +1,6 @@
 """Comment reception -> inbox -> turn preparation -> browser playback acknowledgement."""
 from dataclasses import dataclass
+from collections import deque
 import threading
 import time
 import uuid
@@ -24,7 +25,11 @@ class InputPipeline:
             scope=settings.mode,relationships_enabled=settings.memory_enabled and settings.relationship_enabled)
         self.fixtures=fixtures;self.stop=threading.Event();self.reader=None;self.thread=None
         self.last_source=None
+        self.audience_present = None
+        self.audience_size = None
+        self.retiring_initiative = None
         self.prepared = None
+        self.preparation_seconds = deque(maxlen=20)
         self.followup_claim=None
         self.active_followup=None
         self.active_receipt=None;self.paused_reason=None;self.lock=threading.RLock();self.source_done=False
@@ -80,20 +85,22 @@ class InputPipeline:
                 'queue':self.inbox.summary(),'provider_requests_attempted':self.inbox.requests_attempted(),'reader':self.reader.snapshot() if self.reader else None,
                 'fixture_page':getattr(self,'fixture_result',None),'memory_worker':self.bridge.controller.memory_worker.snapshot()}
 
-    def next(self, *, allow_host_input=False, allow_initiative=True):
+    def next(self, *, allow_host_input=False, allow_initiative=True, prefer_host=False):
         with self.lock:
             if self.paused_reason:return {'available':False,'finished':True,'held':True,'code':self.paused_reason}
             if not allow_host_input and self.reader and self.reader.status=='failed':return {'available':False,'finished':True,'error':self.reader.code}
             if self.prepared or self.active_receipt or (self.bridge.worker and self.bridge.worker.is_alive()):return {'available':False,'finished':False}
-            prefer='live-host' if allow_host_input and self.last_source!='live-host' else None
-            comment=self.inbox.take(prefer_source=prefer)
+            prefer='live-host' if allow_host_input and (prefer_host or self.last_source!='live-host') else None
+            comment=self.inbox.take(prefer_source=prefer,playout_delay=self.estimated_preparation())
             if comment:
                 self.last_source=comment['source']
                 return {'available':True,'finished':False,'comment':comment}
             character=getattr(self.bridge.controller,'character',None)
             live = self.s.comment_source in VIEWER_CHAT_SOURCES or (allow_host_input and self.s.comment_source=='developer')
-            if live and allow_initiative and character and self.s.character_initiative_enabled:
-                thread = character.take_followup()
+            if (live and allow_initiative and character and self.s.character_initiative_enabled
+                    and not self.retiring_initiative and (self.audience_present is None or self.audience_present())):
+                options = {'quiet_single':self.audience_size()==1} if self.audience_size else {}
+                thread = character.take_followup(audience_opening=self.audience_present is not None, **options)
                 if self.inbox.store.can_initiate(thread,self.s.mode):
                     initiative = Comment('ray-initiative',self.inbox.session,uuid.uuid4().hex,'ray','Ray',
                                          thread.message,time.time())
@@ -143,14 +150,21 @@ class InputPipeline:
         return bridge.begin(text,viewer,on_begin=bind,on_terminal=terminal,
                             **({'followup':followup} if followup else {}))
 
-    def prepare_viewer(self, configure):
+    def estimated_preparation(self):
+        cutoff = time.monotonic() - self.s.comment_ttl
+        values = sorted(duration for stamp,duration in self.preparation_seconds if stamp >= cutoff)
+        if not values:
+            return 1.0
+        return values[(9*len(values)-1)//10]
+
+    def prepare_viewer(self, configure, remaining_seconds=0):
         with self.lock:
             if (self.prepared or not self.active_receipt or self.paused_reason or self.stop.is_set()
                     or not self.bridge.finished or self.bridge.worker.is_alive()
                     or not self.bridge.fence.current(self.bridge.token)):
                 return
             comment = self.inbox.take(prefer_source='live-host' if self.last_source!='live-host' else None,
-                                      viewer_only=True)
+                                      viewer_only=True,playout_delay=max(remaining_seconds,self.estimated_preparation()))
             if comment is None:
                 return
             receipt = comment['receipt']
@@ -224,11 +238,30 @@ class InputPipeline:
                     or self.active_followup and not self.followup_available()):
                 self.cancel()
 
-    def cancel(self, reason=None):
+    def reap_initiative(self, *, closing=False):
+        old = self.retiring_initiative
+        if old is None:
+            return
+        if closing:
+            old.worker.join(timeout=self.s.turn_timeout + self.s.timeout + 1)
+        if not old.worker.is_alive():
+            for path in old.controller.output.glob(old.token['turn_id']+'-*'):
+                path.unlink(missing_ok=True)
+            self.retiring_initiative = None
+
+    def cancel(self, reason=None, *, keep_prepared=False):
         with self.lock:
-            self.discard_prepared(reason or 'interrupted')
+            if not keep_prepared:
+                self.discard_prepared(reason or 'interrupted')
+            retire = (self.active_followup is not None and getattr(self.bridge.controller,'initiative_audio_limit',None) is not None
+                      and reason in ('human_input_priority','host_interrupt') and self.prepared is None
+                      and self.retiring_initiative is None and self.bridge.worker and self.bridge.worker.is_alive())
             self.followup_claim=self.active_followup=None
             self.bridge.cancel()
+            if retire:
+                old = self.bridge
+                self.bridge = old.next_studio_turn(cancelled_initiative=True)
+                self.retiring_initiative = old
             if self.active_receipt:self.inbox.finish(self.active_receipt,'expired' if reason=='queue_expired' else 'cancelled',reason);self.active_receipt=None
 
     def close(self):
@@ -237,5 +270,6 @@ class InputPipeline:
             self.prepared.bridge.worker.join(timeout=self.s.turn_timeout + self.s.timeout + 1)
             self.reap_prepared()
         if self.thread:self.thread.join(timeout=.25)
+        self.reap_initiative(closing=True)
         self.inbox.close()
         self.bridge.controller.memory_worker.close()

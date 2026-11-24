@@ -6,7 +6,7 @@ extracted source files with hashes. Generated case-study files are also listed.
 
 ## Included
 
-- source-backed SQLite memory, session usage and chat admission across twenty-three schema migrations;
+- source-backed SQLite memory, session usage and chat admission across twenty-five schema migrations;
 - three-tier retrieval, explicit summary sharing, and revocation;
 - deterministic viewer contact state, daily caps, and qualitative request background;
 - streaming orchestration, input ledgers, and session-bound playback fences;
@@ -57,7 +57,9 @@ are retained unchanged.
 
 | Validated (JST) | Snapshot | Record |
 | --- | --- | --- |
-| 2026-11-24 | Broadcast reporting, prepared replies, scheduled shows and a validated static observation page. [Observations](../docs/studio-observations.md) | [Current](validation.json) |
+| 2026-11-25 | Short spontaneous turns, priority for incoming speech, independent audience sampling and broadcast reply coverage. [Broadcast observations](../docs/studio-observations.md) | [Current](validation.json) |
+| 2026-11-24 | Per-speaker admission, deadline-aware rotation and shared music questions. [Selection policy](../docs/studio-observations.md#selecting-speakers-when-chat-is-busy) | [Record](history/2026-11-24-chat-selection-validation.json) |
+| 2026-11-24 | Broadcast reporting, prepared replies, scheduled shows and a validated static observation page. [Observations](../docs/studio-observations.md) | [Record](history/2026-11-24-broadcast-observations-validation.json) |
 | 2026-11-24 | Progressive studio PCM, program audio and subtitle controls, transport and API graphs, conversational initiative and recall, YouTube same-event recovery and chat admission. [Studio operations](../docs/studio-operations.md) | [Record](history/2026-11-24-studio-operations-validation.json) |
 | 2026-11-24 | Twitch H.264 output, bounded RTMPS reconnect, EventSub chat and bilingual program replies. [Operations record](../docs/twitch-live-operations-20261124.md) | [Record](history/2026-11-24-twitch-studio-validation.json) |
 | 2026-11-23 | Media consolidation: one conversation, one same-audio comparison and the audition. No source code or new recordings. | [Record](history/2026-11-23-media-consolidation-validation.json) |

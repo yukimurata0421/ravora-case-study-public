@@ -51,7 +51,21 @@ def conversation(rows, tests, *, gap_samples=None):
     selected = [r for r in viewers if r['selected']]
     returning = set()
     first_reply = {}
-    for r in played:
+    direct = [r for r in played if r.get('reply_kind') != 'group' and r['status']!='removed']
+    eligible_comments = [r for r in viewers if r['intake_reason'] not in
+                         ('future_timestamp','comment_too_old') and r['status']!='removed']
+    eligible = {r['viewer'] for r in eligible_comments}
+    starts = [r for r in eligible_comments if r['first_sample'] is not None and r['first_written'] is not None]
+    delays = [elapsed(r['received'],r['first_written']) for r in starts]
+    denominator = len(eligible_comments)
+    counts = {'started':len(starts),
+              'within_3s':sum(d is not None and d<=3000 for d in delays),
+              'within_5s':sum(d is not None and d<=5000 for d in delays),
+              'budget_blocked':sum(r['reason'] in BUDGET_CODES and r['first_sample'] is None for r in eligible_comments)}
+    response_sli = {'eligible':denominator, 'unobserved_start':denominator-len(starts),
+                    **counts, 'rates':{k:v/denominator if denominator else None for k,v in counts.items()}}
+    reached = {r['viewer'] for r in direct} & eligible
+    for r in direct:
         who = r['viewer']
         first_reply[who] = min(first_reply.get(who, r['played_at']), r['played_at'])
     for r in viewers:
@@ -79,6 +93,13 @@ def conversation(rows, tests, *, gap_samples=None):
         gap_samples.extend(g for g in gaps if g is not None)
     prefetched = [r for r in viewers if r['prefetched']]
     return {'received':len(viewers), 'speakers':len({r['viewer'] for r in viewers}), 'selected':len(selected),
+            'response_sli':response_sli,
+            'selection':{'eligible_speakers':len(eligible),'individually_replied_speakers':len(reached),
+                         'individual_reply_rate':len(reached)/len(eligible) if eligible else None,
+                         'group_replies':sum(r.get('reply_kind')=='group' for r in played),
+                         'group_members_covered':sum(r['status']=='covered' for r in viewers),
+                         'lanes':dict(Counter(r['selection_lane'] for r in selected if r.get('selection_lane'))),
+                         'reasons':dict(Counter(r['reason'] for r in viewers if r['reason']))},
             'played':len(played), 'not_played':len(viewers)-len(played), 'returning_after_reply':len(returning),
             'budget_blocked':sum(r['reason'] in BUDGET_CODES for r in viewers),
             'outcomes':dict(Counter(r['status'] for r in viewers)),
@@ -89,7 +110,8 @@ def conversation(rows, tests, *, gap_samples=None):
             'received_to_program':timing([elapsed(r['received'],r['first_written']) for r in viewers]),
             'received_to_audio_ready':timing([elapsed(r['received'],first_ready(r)) for r in selected]),
             'event_to_player':timing([elapsed(r['published'],r['player_at']) for r in viewers]),
-            'ray_gap_waiting_comment':{**timing(gaps), 'idle_excluded':idle, 'first_in_session':first,
+            'ray_gap_waiting_comment':{**timing(gaps), 'within_500ms':sum(g is not None and 0<=g<=500 for g in gaps),
+                                      'idle_excluded':idle, 'first_in_session':first,
                                       'previous_end_unknown':unknown,
                                       'no_program_signal':sum(r['first_sample'] is None for r in viewers)}}
 
@@ -124,10 +146,12 @@ def usage(db, sessions, *, instrumented=True):
     for row in rows:
         grouped[(row['provider'],row['operation'])].append(row)
     result = []
+    discarded_costs = []
     for (provider,operation), items in sorted(grouped.items()):
         sent = [r for r in items if r['attempted']]
         costs = [estimate(r) for r in sent]
         discarded = [r for r in sent if r['prefetched'] and r['played_at'] is None and r['outcome'] in FINAL_UNPLAYED]
+        discarded_costs.extend(estimate(r) for r in discarded)
         logical = {(r['turn_id'],r['chunk']) for r in sent}
         result.append({'provider':provider, 'operation':operation, 'attempts':len(sent),
                        'retries':len(sent)-len(logical), 'failed':sum(r['status']=='failed' for r in sent),
@@ -159,6 +183,9 @@ def usage(db, sessions, *, instrumented=True):
     unpriced = sum(r['unpriced_calls'] for r in result)
     known = round(sum(r['estimated_usd_known'] or 0 for r in result),9)
     return {'attempts':attempts, 'discarded_prefetch_attempts':sum(r['discarded_prefetch_attempts'] for r in result),
+            'discarded_prefetch_usd_known':round(sum(c for c in discarded_costs if c is not None),9)
+                if not discarded_costs or any(c is not None for c in discarded_costs) else None,
+            'discarded_prefetch_unpriced_calls':discarded_costs.count(None),
             'estimated_usd':known if not unpriced else None,
             'estimated_usd_known':known if not attempts or unpriced < attempts else None,
             'unpriced_calls':unpriced, 'by_operation':result}
@@ -188,6 +215,24 @@ def legacy_sessions(db, registered, *, include_usage=True):
 
 # Helix samples once a minute. A fresh document cannot renew a provider observation.
 LIVE_EVIDENCE_SECONDS = 150
+
+
+def audience_health(rows):
+    last_success = None
+    consecutive = failures = 0
+    for row in rows:
+        status = row['status']
+        if status in ('live','offline'):
+            last_success = row['observed']
+        if status == 'http_401':
+            consecutive += 1
+            failures += 1
+        else:
+            consecutive = 0
+    status = rows[-1]['status'] if rows else 'no_samples'
+    return {'last_attempt':rows[-1]['observed'] if rows else None, 'last_success':last_success,
+            'status':status if status in ('live','offline','http_401','no_samples') else 'unavailable',
+            'consecutive_401':consecutive, 'total_401':failures}
 
 
 def broadcast_state(runs, identity, summary, audience, events, now):
@@ -260,6 +305,9 @@ def report(db, *, now=None, include_legacy=True, include_gap_samples=False):
         inputs = timeline(db,ids)
         audience = list(db.execute(f'SELECT * FROM studio_audience WHERE session IN {SESSION_SET} ORDER BY observed', (ids,)))
         samples = [r for r in audience if r['status']=='live' and binding=='stream' and r['stream_id']==identity]
+        policy_events = ([dict(r) for r in db.execute(f"""SELECT session,first_frame,activated,policy
+                         FROM studio_speech_policies WHERE session IN {SESSION_SET} ORDER BY activated""",(ids,))]
+                         if version>=25 else [])
         counts = [r['viewers'] for r in samples if r['viewers'] is not None]
         summary = summaries.get((platform,identity)) if binding=='stream' else None
         provider_start = summary['started'] if summary else next(
@@ -284,9 +332,12 @@ def report(db, *, now=None, include_legacy=True, include_gap_samples=False):
         broadcasts.append({
             **({'gap_samples_ms':gap_samples} if include_gap_samples else {}),
             'last_confirmed_at':max(confirmations, default=None),
+            'speech_policy_events':policy_events,
+            'audience_health':audience_health(audience) if platform=='twitch' and runs else None,
             'state': state, 'state_source': evidence, 'live_until': live_until, 'chat_coverage': coverage,
             'platform':platform, 'stream_id':identity if binding=='stream' else None,
             'sessions':[{'id':r['session'],'mode':r['mode'],'prefetch':bool(r['prefetch']),
+                         'selection_policy':r['selection_policy'] if version>=24 else None,
                          'started_jst':jst(r['started']), 'stopped_jst':jst(r['stopped']),
                          'binding_source':r['binding_source'], 'chat_source':r['chat_source'], 'chat_status_at_stop':r['chat_status_at_stop'],
                          'timing_write_losses':r['timing_write_losses'], 'identity_conflict':bool(r['identity_conflict'])} for r in runs],

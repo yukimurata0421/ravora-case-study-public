@@ -23,6 +23,33 @@ def sample(now):
 
 class ValidateTests(unittest.TestCase):
     @unittest.skipUnless(find_spec('jsonschema'), 'observations extra required')
+    def test_v5_counts_and_ended_state_reach_the_card(self):
+        now = time.time()
+        v = sample(now)
+        v['schema'] = 'ravora.ray_public_observation.v5'
+        for b in v['broadcasts']:
+            b.update(state='ended',state_source='studio_stop',speech_policy='unrecorded',audience_health=None,
+                     response_sli=dict(eligible=4,started=4,within_3s=2,within_5s=3,budget_blocked=0))
+        validate(v,now)
+        v['pipeline']['collected_at']=now
+        page=render(v)
+        self.assertIn('Latest broadcast finished',page)
+        self.assertIn('Studio output stopped',page)
+        self.assertIn('3/4',page)
+        self.assertNotIn('pill wait">Unconfirmed',page)
+        for key in v['broadcasts'][0]['response_sli']:
+            v['broadcasts'][0]['response_sli'][key]=0
+        self.assertIn('No eligible comments',render(v))
+        zero = v['broadcasts'][0]['response_sli']
+        v['broadcasts'][0]['response_sli']=None
+        self.assertIn('Eligible comments unobserved',render(v))
+        v['broadcasts'][0]['response_sli']=zero
+        del v['pipeline']['collected_at']
+        v['broadcasts'][0]['response_sli']['within_5s']=1
+        with self.assertRaises(ValueError):
+            validate(v,now)
+
+    @unittest.skipUnless(find_spec('jsonschema'), 'observations extra required')
     def test_exporter_command_renders_the_fictional_broadcast(self):
         example = Path(__file__).resolve().parents[1] / 'examples/broadcast_observations.py'
         with tempfile.TemporaryDirectory() as temp, contextlib.redirect_stdout(io.StringIO()):
@@ -31,6 +58,13 @@ class ValidateTests(unittest.TestCase):
             self.assertEqual(value['observed']['cohort'], {'first_seen': 1, 'replied': 1, 'spoke_again': 1})
             self.assertEqual(value['observed']['gap']['sample_p95_ms'], 250)
             self.assertIsNone(value['observed']['gap']['p95_ms'])
+            broadcast = value['broadcasts'][0]
+            self.assertEqual(broadcast['speech_policy'], 'short-turn-v1')
+            self.assertEqual(broadcast['response_sli'], {
+                'eligible': 4, 'started': 3, 'within_3s': 3, 'within_5s': 3, 'budget_blocked': 1})
+            page = (Path(temp) / 'ray/index.html').read_text()
+            self.assertIn('Within 5 seconds', page)
+            self.assertIn('3/4', page)
 
 
     @unittest.skipUnless(find_spec('jsonschema'), 'observations extra required')
@@ -108,7 +142,7 @@ class ValidateTests(unittest.TestCase):
         for label in ('pill live', 'Comment → on air', '207 ms', 'No API calls recorded', 'unique after summary'):
             self.assertIn(label,cards)
         self.assertIn('after summary import',s)
-        self.assertIn('data-version="5"',s)
+        self.assertIn('data-version="6"',s)
         self.assertIn('data-state="live"',s)
         self.assertIn('class="block ja has"',s)
         self.assertNotIn('Loading the latest',s)

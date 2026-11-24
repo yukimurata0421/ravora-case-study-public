@@ -7,6 +7,8 @@ import sqlite3
 import threading
 import time
 
+from ravora.studio_report import LIVE_EVIDENCE_SECONDS
+
 
 def stream_key(value):
     if not isinstance(value, str) or not re.fullmatch(r'[A-Za-z0-9_-]{1,128}', value):
@@ -20,12 +22,15 @@ class StudioObservations:
         self.session = inbox.session
         self.events = queue.Queue(maxsize=256)
         self.dropped = self.failed = 0
+        self._audience = (float('-inf'), None)
         self.chat_matches = chat_source == platform
         self.chat_since = self.chat_last = self.chat_saved = None
         with self.store.connect() as db:
             db.execute("""INSERT INTO studio_sessions(session,platform,mode,sample_rate,fps,prefetch,chat_source,started,stream_id,binding_source,chat_tracked)
                 VALUES(?,?,?,?,?,?,?,?,?,?,1)""", (self.session, platform, inbox.scope, sample_rate, fps, int(prefetch), chat_source,
                                           time.time(), stream_key(stream_id) if stream_id else None,binding_source))
+            if inbox.speaker_rotation and chat_source in ('twitch','youtube','youtube-fixture'):
+                db.execute("UPDATE studio_sessions SET selection_policy='speaker_rotation_v1' WHERE session=?",(self.session,))
 
         self.writer = threading.Thread(target=self._write, name='ray-studio-timing', daemon=True)
         self.writer.start()
@@ -47,21 +52,46 @@ class StudioObservations:
                 self.failed += 1
                 logging.getLogger(__name__).warning('STUDIO_TIMING_WRITE_FAILED')
 
-    def audience(self, observed, status, stream_id=None, viewers=None, started=None):
+    def speech_policy(self, frame, version):
         with self.store.connect() as db:
-            db.execute('BEGIN IMMEDIATE')
-            if not db.execute('SELECT 1 FROM studio_sessions WHERE session=? AND stopped IS NULL',
-                              (self.session,)).fetchone():
-                return
-            if status == 'live':
-                stream_key(stream_id)
-                if type(viewers) is not int or viewers < 0:
-                    raise ValueError('INVALID_VIEWER_COUNT')
-                db.execute("""UPDATE studio_sessions SET
-                    identity_conflict=MAX(identity_conflict,stream_id IS NOT NULL AND stream_id!=?),
-                    binding_source=COALESCE(binding_source,'twitch_helix'), stream_id=COALESCE(stream_id,?) WHERE session=?""", (stream_id, stream_id, self.session))
-            db.execute('INSERT INTO studio_audience VALUES(?,?,?,?,?,?)',
-                       (self.session, observed, status, stream_id, started, viewers))
+            db.execute("""INSERT INTO studio_speech_policies(session,first_frame,activated,policy)
+                          VALUES(?,?,?,?) ON CONFLICT(session,first_frame) DO UPDATE
+                          SET activated=excluded.activated,policy=excluded.policy""",
+                       (self.session,frame,time.time(),version))
+
+    def has_audience(self):
+        return (self.audience_size() or 0) > 0
+
+    def audience_size(self):
+        observed, viewers = self._audience
+        return viewers if 0 <= time.time()-observed <= LIVE_EVIDENCE_SECONDS else None
+
+    def audience(self, observed, status, stream_id=None, viewers=None, started=None):
+        known_viewers = None
+        conflict = False
+        try:
+            with self.store.connect() as db:
+                db.execute('BEGIN IMMEDIATE')
+                if not db.execute('SELECT 1 FROM studio_sessions WHERE session=? AND stopped IS NULL',
+                                  (self.session,)).fetchone():
+                    return
+                if status == 'live':
+                    stream_key(stream_id)
+                    if type(viewers) is not int or viewers < 0:
+                        raise ValueError('INVALID_VIEWER_COUNT')
+                    conflict, = db.execute("""UPDATE studio_sessions SET
+                        identity_conflict=MAX(identity_conflict,stream_id IS NOT NULL AND stream_id!=?),
+                        binding_source=COALESCE(binding_source,'twitch_helix'), stream_id=COALESCE(stream_id,?)
+                        WHERE session=? RETURNING identity_conflict""", (stream_id, stream_id, self.session)).fetchone()
+                db.execute('INSERT INTO studio_audience VALUES(?,?,?,?,?,?)',
+                           (self.session, observed, status, stream_id, started, viewers))
+            if status=='live' and not conflict:
+                known_viewers = viewers
+        finally:
+            # Only a committed, stream-bound sample can enable an unsolicited turn.
+            latest, _ = self._audience
+            if observed >= latest or conflict:
+                self._audience = (max(observed, latest), known_viewers)
 
     def _save_chat(self):
         if self.chat_since is not None and self.chat_last > self.chat_since:

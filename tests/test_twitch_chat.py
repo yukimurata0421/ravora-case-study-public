@@ -40,6 +40,56 @@ class TwitchChatTests(unittest.TestCase):
         self.cli.chmod(0o600)
         self.state = self.root / 'twitch/oauth.json'
 
+    def test_scheduled_audience_survives_missing_chat_grant_and_expired_fallback(self):
+        import time
+        import os
+        self.enterContext(patch.dict(os.environ, RAVORA_TWITCH_CHANNEL="fixture_channel"))
+        channel_name="fixture_channel"
+        from ravora.twitch_audience import TwitchAudience
+        from ravora.twitch_schedule_api import METADATA_SCOPE, prepare_channel
+        from ravora.youtube_auth import save_private
+        folder = self.state.parent
+        folder.mkdir()
+        self.cli.write_text('CLIENTID=test-app\n')
+        grant = {'client_id':'test-app','user_id':'42','access_token':'channel','refresh_token':'fixture'}
+        save_private(folder/'schedule-oauth.json',grant)
+        save_private(folder/'market-app.json',{'client_id':'test-app','access_token':'app.test','expires':time.time()+80})
+        http = Mock()
+        def get(url,**options):
+            if url.endswith('/validate'):
+                return response(200,{'client_id':'test-app','user_id':'42','login':channel_name,'scopes':[METADATA_SCOPE]})
+            if url.endswith('/games'):
+                return response(200,{'data':[{'id':'9','name':'Just Chatting'}]})
+            if url.endswith('/channels'):
+                return response(200,{'data':[{'broadcaster_id':'42','broadcaster_login':channel_name,'game_id':'9','broadcaster_language':'ja','tags':['VTuber']}]})
+            if url.endswith('/streams'):
+                self.assertEqual(options['params']['user_id'],'42')
+                return response(200,{'data':[]})
+            raise AssertionError(url)
+        http.get.side_effect = get
+        from contextlib import nullcontext
+        with patch('ravora.twitch_schedule_api.requests.Session',return_value=nullcontext(http)), patch('ravora.twitch_schedule_api.cli_config_path',return_value=self.cli):
+            account = prepare_channel(folder, 'ja', update=False, independent_chat=True)
+        self.assertTrue(account['matches_slot'])
+        reader = TwitchReader(None,self.state,config=self.cli,expected_user_id=account['user_id'])
+        reader.run(Event(),seconds=.2)
+        self.assertEqual((reader.status,reader.code),('failed','TWITCH_CHAT_RUN_CLI_AUTHORIZATION'))
+        # A malformed scheduled fallback must not shadow a valid app grant.
+        save_private(folder/'schedule-oauth.json',dict(grant,access_token='bad token'))
+        observer = TwitchAudience(folder,Mock(),user_id=account['user_id'],client_id=account['client_id'])
+        self.assertEqual(observer.poll(http),('offline',None,None,None))
+        self.assertEqual(http.get.call_args.kwargs['headers']['Authorization'],'Bearer app.test')
+        http.post.assert_not_called()
+
+    def test_chat_account_must_match_publisher_before_subscribing(self):
+        reader = TwitchReader(None,self.state,config=self.cli,expected_user_id='88')
+        http = Mock()
+        http.get.return_value = response(200,{'client_id':'test-app','user_id':'42','scopes':[SCOPE]})
+        with patch('ravora.twitch_chat.requests.Session',return_value=http), patch.object(reader,'_listen') as listen:
+            reader.run(Event(),seconds=.2)
+        self.assertEqual(reader.code,'TWITCH_CHAT_ACCOUNT_MISMATCH')
+        listen.assert_not_called()
+
     def test_initial_subscription_reconnect_and_duplicate_moderation(self):
         stop = Event()
         inbox = CommentInbox(MemoryStore(self.root / 'chat.db'))

@@ -1,0 +1,80 @@
+{
+  "status": "PASS_LOCAL_CHAT_SELECTION",
+  "validated_at_jst": "2026-11-24T19:02:09+09:00",
+  "scope": "Bounded per-speaker admission, deadline-aware preparation, individual and shared replies, and offline reporting.",
+  "checks": {
+    "checkout_python_tests": {
+      "tests": 509,
+      "failures": 0,
+      "errors": 0,
+      "skipped": 2
+    },
+    "installed_python_tests": {
+      "tests": 509,
+      "failures": 0,
+      "errors": 0,
+      "skipped": 2
+    },
+    "python": "3.14.4",
+    "optional_tests_skipped": [
+      "Cloud speech billing metadata requires optional gRPC voice dependencies.",
+      "Phone alignment requires the optional alignment dependency."
+    ],
+    "studio_source_tests": {
+      "studio_and_chat": {
+        "tests": 235,
+        "failures": 0,
+        "errors": 0,
+        "skipped": 0
+      },
+      "character": {
+        "tests": 32,
+        "failures": 0,
+        "errors": 0,
+        "skipped": 0
+      }
+    },
+    "checkout_replays_match_examples": 4,
+    "installed_replays_match_examples": 4,
+    "browser_module_tests": {
+      "tests": 14,
+      "failures": 0,
+      "node": "24.19.0"
+    },
+    "migrations_through": 24,
+    "migration_compatibility": {
+      "v23_read_only_report_and_aggregate": true,
+      "v23_writer_after_upgrade": true,
+      "v24_integrity_and_foreign_keys": true,
+      "idempotent_reopen": true
+    },
+    "speaker_selection_replay": {
+      "fixture": "Six initial single-speaker turns followed by 24 bursts of five recurring speakers and three new speakers, one voice opportunity every 12 seconds.",
+      "comments": 198,
+      "eligible_speakers": 78,
+      "completed_turns_per_policy": 30,
+      "modeled_prepare_seconds": 2,
+      "individual_speakers_before": 6,
+      "individual_speakers_after": 23,
+      "modeled_receipt_to_first_audio_p95_seconds_before": 39.0,
+      "modeled_receipt_to_first_audio_p95_seconds_after": 38.75
+    },
+    "public_payload": {
+      "status": "PASS_PUBLIC_PAYLOAD",
+      "files": 271,
+      "hashes_checked": 269,
+      "unexpected_files": 0,
+      "private_defaults_found": 0,
+      "broken_local_links": 0
+    },
+    "secret_scan_findings": 0
+  },
+  "verification_history": [
+    "The schema upgrade and reporting checks used fictional databases with the migration history of each distribution. The studio and the portable package each retain their own prior migration hashes.",
+    "Existing character and transport fixtures now close their previous synthetic reply before reserving the next. A fresh checkout suite and installed-wheel suite ran with the final fixtures.",
+    "The overload comparison used the same arrivals and voice opportunities for both policies. Its audio timing was modeled. Separate tests exercised shared playback through the program writer."
+  ],
+  "included_private_databases_or_recordings": false,
+  "new_inference_api_calls": 0,
+  "earlier_validation_preserved": "publication/history/2026-11-24-broadcast-observations-validation.json"
+}

@@ -90,12 +90,9 @@ def channel_grant(path, http, scopes):
     if not path.is_file():
         raise TwitchError('TWITCH_CHANNEL_AUTHORIZATION_REQUIRED')
     grant = read_private(path)
-    oauth = TwitchOAuth(cli_config_path(), path, http)
+    oauth = TwitchOAuth(cli_config_path(), path, http, channel_grant=grant)
     if grant.get('client_id') != oauth.client_id or not grant.get('user_id'):
         raise TwitchError('TWITCH_SCHEDULE_AUTHORIZATION_MISMATCH')
-    oauth.access = oauth._token(grant, 'access_token')
-    oauth.refresh = oauth._token(grant, 'refresh_token')
-    oauth.user_id = grant['user_id']
     identity = oauth.validate(scope=scopes[0])
     if identity.get('login') != channel_login() or not set(scopes).issubset(identity.get('scopes', [])):
         raise TwitchError('TWITCH_SCHEDULE_AUTHORIZATION_MISMATCH')
@@ -133,16 +130,15 @@ def channel_data(http, auth, identity):
     return rows[0]
 
 
-def prepare_channel(directory, language, *, update, previous=None, until=0):
-    """Verify both identities and reconcile the one metadata update before publishing."""
+def prepare_channel(directory, language, *, update, previous=None, until=0, independent_chat=False):
+    """Verify the channel, optionally match the chat grant, and reconcile the metadata update."""
     with requests.Session() as http:
         http.trust_env = False
-        chat = TwitchOAuth(cli_config_path(), directory/'oauth.json', http)
-        if chat.validate().get('login') != channel_login():
-            raise TwitchError('TWITCH_CHAT_ACCOUNT_MISMATCH')
         meta = metadata_grant(directory,http)
-        if chat.user_id != meta.user_id:
-            raise TwitchError('TWITCH_SCHEDULE_AUTHORIZATION_MISMATCH')
+        if not independent_chat:
+            chat = TwitchOAuth(cli_config_path(), directory/'oauth.json', http)
+            if chat.validate().get('login') != channel_login() or chat.user_id != meta.user_id:
+                raise TwitchError('TWITCH_CHAT_ACCOUNT_MISMATCH')
         auth = headers(meta)
         offline(http,auth,meta.user_id,previous,until)
         category = category_id(http,auth)
@@ -171,4 +167,5 @@ def prepare_channel(directory, language, *, update, previous=None, until=0):
                     break
             else:
                 raise TwitchError('TWITCH_CHANNEL_UPDATE_UNCONFIRMED')
-        return {'broadcaster':channel_login(), 'offline':True, 'metadata_authorized':True, 'matches_slot':matches(current)}
+        return {'broadcaster':channel_login(), 'offline':True, 'metadata_authorized':True, 'matches_slot':matches(current),
+                **({'user_id':meta.user_id,'client_id':meta.client_id} if independent_chat else {})}

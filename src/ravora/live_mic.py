@@ -163,7 +163,7 @@ class LiveMicrophone:
             self.host_trim = 10 ** (db / 20)
         return db
 
-    def open(self, *, automatic=False):
+    def open(self, *, automatic=False, echo_cancelled=False):
         with self.lock:
             now = self.clock()
             if self.owner and now < self.expires:
@@ -175,7 +175,7 @@ class LiveMicrophone:
             self.expires = now + 2
             self.sequence = -1
             if self.handsfree:
-                self.handsfree.session(automatic)
+                self.handsfree.session(automatic, listen_during_playback=echo_cancelled)
             return self.owner
 
     def _reset_host(self):
@@ -223,12 +223,14 @@ class LiveMicrophone:
             if self.handsfree:
                 self.handsfree.feed(pcm, gap=gap)
 
-    def allows_initiative(self, *, during_playback=False):
+    def allows_initiative(self, *, during_playback=False, require_echo_cancellation=False):
         # Manual push-to-talk can capture in the browser before the WAV reaches
         # the server. Only hands-free mode can positively identify a quiet open mic.
         with self.lock:
             state = self.handsfree.status()['state'] if self.handsfree else 'off'
             if self.owner and self.clock() < self.expires:
+                if require_echo_cancellation and not (self.handsfree and self.handsfree.listen_during_playback):
+                    return False
                 return state == 'listening' or (during_playback and state == 'playback')
             return state not in ('speaking','transcribing')
 

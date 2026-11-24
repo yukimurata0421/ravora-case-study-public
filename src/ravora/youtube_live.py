@@ -57,10 +57,14 @@ def run(args, *, scheduled=None):
     live_config = config.get('youtube_live', {})
     if not isinstance(live_config, dict):
         raise SettingsError('INVALID_PROGRAM_VIDEO_ENCODER')
+    scheduled_idle = None
     if twitch:
         twitch_config = config.get('twitch_live', {})
         if not isinstance(twitch_config, dict):
             raise SettingsError('INVALID_PROGRAM_VIDEO_ENCODER')
+        scheduled_idle = twitch_config.get('scheduled_audience_idle_seconds', 120) if scheduled else None
+        if scheduled_idle is not None:
+            s = replace(s, character_idle_seconds=scheduled_idle).validate()
         video_encoder = validate_video_encoder(twitch_config.get('video_encoder', 'libx264'), twitch=True)
     else:
         made_for_kids = live_config.get('made_for_kids')
@@ -112,6 +116,7 @@ def run(args, *, scheduled=None):
         if twitch:
             from ravora.twitch_chat import cli_config_path
             report.update(publish_destination=destination, chat_input='twitch' if twitch_chat else 'host_only',
+                          scheduled_audience_required=scheduled_idle is not None, interrupt_initiatives=bool(scheduled),
                           twitch_chat_cli_config_exists=cli_config_path().is_file())
         else:
             report.update(youtube_read_enabled=s.youtube_read_enabled, youtube_api_key_set=bool(s.youtube_key),
@@ -152,6 +157,9 @@ def run(args, *, scheduled=None):
     for sig in (signal.SIGINT, signal.SIGTERM):
         signal.signal(sig, request_stop)
     signal.signal(signal.SIGHUP, signal.SIG_IGN if args.seconds is None else request_stop)
+    reload_policy = threading.Event()
+    if scheduled:
+        signal.signal(signal.SIGUSR1, lambda *_: reload_policy.set())
     runtime = ROOT / '.runtime'
     runtime.mkdir(mode=0o700, exist_ok=True)
     run_dir = Path(tempfile.mkdtemp(prefix='twitch-live-' if twitch else 'youtube-live-', dir=runtime))
@@ -177,7 +185,7 @@ def run(args, *, scheduled=None):
             from ravora.twitch_schedule_api import prepare_channel
             if not twitch or slot_at(time.time(), launching=True) != scheduled:
                 raise SettingsError('TWITCH_SLOT_EXPIRED')
-            prepare_channel(ROOT/'state/twitch', scheduled.language, update=True, previous=previous_id,
+            prepare_channel(ROOT/'state/twitch', scheduled.language, update=True, independent_chat=True, previous=previous_id,
                             until=scheduled.start+START_GRACE)
         if managed:
             api, channel = ChannelAPI.connect(directory)
@@ -211,7 +219,7 @@ def run(args, *, scheduled=None):
         program = LiveProgram(pipeline, audio, host_language=language, reply_profiles=profiles,
                               onset_dbfs=onset, silence_ms=silence, host_trim_db=host_trim_db,
                               host_mic_cleanup=host_mic_cleanup, ray_reverb_mix=ray_reverb_mix, bgm=bgm, prefetch=args.prefetch,
-                              initiative_language=scheduled.language if scheduled else None)
+                              initiative_language=scheduled.language if scheduled else None, interrupt_initiatives=bool(scheduled))
         stack.callback(program.close)
         print('Host STT:', program.host_stt_provider, flush=True)
         if program.cloud_stt and language != 'auto':
@@ -263,7 +271,8 @@ def run(args, *, scheduled=None):
             # Recheck just before opening the RTMPS destination after avatar setup.
             if slot_at(time.time(), launching=True) != scheduled:
                 raise SettingsError('TWITCH_SLOT_EXPIRED')
-            if not prepare_channel(ROOT/'state/twitch', scheduled.language, update=False)['matches_slot']:
+            channel = prepare_channel(ROOT/'state/twitch',scheduled.language,update=False,independent_chat=True)
+            if not channel['matches_slot']:
                 raise SettingsError('TWITCH_CHANNEL_UPDATE_UNCONFIRMED')
         try:
             writer = ProgramWriter(url if publishing else run_dir / 'program.flv', scene,
@@ -295,6 +304,9 @@ def run(args, *, scheduled=None):
             observations = program.observe('youtube', s.youtube_video_id, 'configured_youtube_video')
         else:
             observations = program.observe(destination or 'local')
+        if scheduled_idle is not None:
+            pipeline.audience_present = observations.has_audience
+            pipeline.audience_size = observations.audience_size
         if scheduled:
             with store.connect() as db:
                 if db.execute('UPDATE twitch_schedule_runs SET session=? WHERE scheduled_start=? AND session IS NULL',
@@ -340,8 +352,12 @@ def run(args, *, scheduled=None):
                 observations.audience(observed,status,stream_id,viewers,started)
                 if welcome and status == 'live':
                     welcome.on_live(stream_id)
+            from ravora.twitch_audience import TwitchAudience
+            account = {'user_id':channel['user_id'],'client_id':channel['client_id']} if scheduled else {}
+            stack.enter_context(TwitchAudience(ROOT/'state/twitch',record_audience,**account))
             reader = TwitchReader(pipeline.inbox, ROOT / 'state/twitch/oauth.json', on_removed=pipeline.check_removed,
-                                  on_audience=record_audience, is_announcement=welcome.is_announcement if welcome else None)
+                                  is_announcement=welcome.is_announcement if welcome else None,
+                                  expected_user_id=account.get('user_id'))
             pipeline.start(args.seconds, twitch_reader=reader)
         else:
             pipeline.start(args.seconds, wait_for_chat=True)
@@ -375,6 +391,12 @@ def run(args, *, scheduled=None):
                         remaining_chat = None if args.seconds is None else max(1, deadline - time.monotonic())
                         pipeline.start(remaining_chat, access_token=api.access_token)
                     chat_lookup = None
+                if reload_policy.is_set():
+                    reload_policy.clear()
+                    try:
+                        program.restart_speech_policy()
+                    except Exception:
+                        print('SPEECH_POLICY_RELOAD_FAILED', flush=True)
                 stage, pcm = program.next_frame() if not broadcast or live else (Stage(), SILENCE)
                 scene.clip = program.clip
                 writer.write(stage, pcm)

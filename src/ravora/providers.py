@@ -158,7 +158,7 @@ class GeminiText:
 
     def set_relationship(self,background):self.relationship=background
 
-    def stream(self,comment,history,*,developer_speaker=False,before_send=None,live_host=False,japanese_turn=''):
+    def stream(self,comment,history,*,developer_speaker=False,before_send=None,live_host=False,japanese_turn='',brief_opening=False,greet_room=False):
         prompt=self.prompt+listener_instruction(self.retrieval_strategy,self.listener_reaction)
         if developer_speaker:prompt+=DEVELOPER_SPEAKER
         if live_host:
@@ -167,6 +167,12 @@ class GeminiText:
             prompt=public_prompt(prompt,self.character_plan)
         style,reports=reply_style_context(comment,history,self.memories,developer_speaker=developer_speaker,language=self.s.language)
         prompt+=name_question_instruction(comment,history)+style+japanese_turn
+        if brief_opening:
+            prompt += ('\nThis spontaneous on-air turn is one short, complete thought, spoken in two or three seconds. '
+                       'Use at most six English words or sixteen Japanese characters. End with sentence punctuation. '
+                       'Keep the public JSON format. Do not add a second sentence or a question inviting a reply.')
+            if greet_room:
+                prompt += ' For this opening, welcome the room in the broadcast language. Save the topic for later. Do not name or count viewers.'
         if self.context:prompt+=CONTEXT_RULES
         if self.relationship:prompt+=RELATIONSHIP_RULES
         self.usage={}

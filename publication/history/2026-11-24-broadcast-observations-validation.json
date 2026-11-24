@@ -1,0 +1,70 @@
+{
+  "status": "PASS_LOCAL_BROADCAST_OBSERVATION_PORT",
+  "validated_at_jst": "2026-11-24T18:16:52+09:00",
+  "scope": "Local reproduction of broadcast accounting, separate scheduled shows, queued speech, aggregate export and the static observation site.",
+  "checks": {
+    "checkout_python_tests": {
+      "tests": 501,
+      "failures": 0,
+      "errors": 0,
+      "skipped": 2
+    },
+    "installed_python_tests": {
+      "tests": 501,
+      "failures": 0,
+      "errors": 0,
+      "skipped": 2
+    },
+    "python": "3.14.4",
+    "optional_tests_skipped": [
+      "Cloud speech billing metadata needs the optional gRPC voice dependencies.",
+      "Phone alignment needs the optional alignment dependency."
+    ],
+    "checkout_replays_match_examples": 4,
+    "installed_replays_match_examples": 4,
+    "browser_module_tests": {
+      "tests": 14,
+      "failures": 0,
+      "node": "24.19.0"
+    },
+    "migrations_through": 23,
+    "offline_broadcast": {
+      "installed_replays": 4,
+      "files": 4,
+      "schedule_slots": 7,
+      "weekly_broadcasts": 46,
+      "comments": 3,
+      "played": 3,
+      "provisional_gap_ms": 250,
+      "formal_p95": null,
+      "invalid_source_retained": true,
+      "wheel_resources": true
+    },
+    "browser_on_local_static_host": {
+      "published_files": 4,
+      "slots": 7,
+      "provisional_gap_ms": 250,
+      "automatic_refresh_interval_s": 30.0,
+      "detail_still_open": true,
+      "keyboard_focus_kept": true
+    },
+    "public_payload": {
+      "status": "PASS_PUBLIC_PAYLOAD",
+      "files": 267,
+      "hashes_checked": 265,
+      "unexpected_files": 0,
+      "private_defaults_found": 0,
+      "broken_local_links": 0
+    },
+    "secret_scan_findings": 0
+  },
+  "verification_history": [
+    "A legacy schema-count assertion still expected migration 019. The two affected example reports now declare schema 023.",
+    "The full suite exposed a process-wide scheduling file mask and a race between console readiness and signal handling. The scheduler restores its caller mask and the local console now accepts shutdown before publishing readiness.",
+    "The suite uses the repository test and script fixtures with the installed wheel. Independent CLI replays and the static preview also ran from an unrelated working directory."
+  ],
+  "included_private_databases_or_recordings": false,
+  "new_inference_api_calls": 0,
+  "new_live_broadcast": false,
+  "earlier_validation_preserved": "publication/history/2026-11-24-studio-operations-validation.json"
+}

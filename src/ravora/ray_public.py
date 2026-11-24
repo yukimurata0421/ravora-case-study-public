@@ -60,6 +60,10 @@ def _broadcast(b):
     observed = chat['status'] in ('complete', 'partial')
     c = b['comments'] if observed else None
     counts = c or {}
+    versions = {e['policy'] for e in b['speech_policy_events']}
+    if any(not any(e['session']==row['id'] and e['first_frame']==0 for e in b['speech_policy_events']) for row in sessions):
+        versions.add('unrecorded')
+    version = 'mixed' if len(versions)>1 else next(iter(versions),'unrecorded')
     modes = {s['prefetch'] for s in sessions}
     prefetch = {frozenset(): 'unknown', frozenset({True}): 'prefetch',
                 frozenset({False}): 'serial'}.get(frozenset(modes), 'mixed')
@@ -73,6 +77,10 @@ def _broadcast(b):
     average_source = 'summary' if aud['reported_average'] is not None else ('samples' if aud['sample_count'] else None)
     return {
         'platform': b['platform'], 'slot': 'off-plan', 'cohort': None, 'market': None, 'started_jst': when.isoformat(timespec='minutes'),
+        'speech_policy':version if version in ('short-turn-v1','mixed') else 'unrecorded',
+        'response_sli':({k:c['response_sli'][k] for k in ('eligible','started','within_3s','within_5s','budget_blocked')}
+                        if c is not None else None),
+        'audience_health': b['audience_health'],
         'state': b['state'], 'state_source': b['state_source'], 'live_until': b['live_until'],
         'minutes_source':minutes_source, 'last_confirmed_at':b['last_confirmed_at'],
         'latest_viewers':aud['latest_viewers'], 'last_audience_at':aud['last_audience_at'],
@@ -99,7 +107,9 @@ def _people(db, membership):
     # Select the first observed group before aggregating either finalized or provisional cohorts.
     first, own_reply, again = {}, {}, set()
     days, ended_days = defaultdict(set), defaultdict(set)
-    events = db.execute("""SELECT i.session,i.viewer,i.received,i.played_at FROM studio_inputs i
+    has_kind = any(col[1]=='reply_kind' for col in db.execute('PRAGMA table_info(studio_inputs)'))
+    individual_played = "CASE WHEN i.reply_kind='group' THEN NULL ELSE i.played_at END" if has_kind else 'i.played_at'
+    events = db.execute(f"""SELECT i.session,i.viewer,i.received,{individual_played} FROM studio_inputs i
         JOIN studio_sessions s ON s.session=i.session
         WHERE s.platform IN ('twitch','youtube') AND i.source=s.platform AND i.test=0
           AND COALESCE(i.intake_reason,'')!='startup_history' ORDER BY i.received,i.receipt""")
