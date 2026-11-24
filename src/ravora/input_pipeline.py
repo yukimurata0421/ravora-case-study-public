@@ -1,4 +1,5 @@
 """Comment reception -> inbox -> turn preparation -> browser playback acknowledgement."""
+from dataclasses import dataclass
 import threading
 import time
 import uuid
@@ -7,12 +8,23 @@ from ravora.comments import Comment,CommentInbox,VIEWER_CHAT_SOURCES,fixture_pag
 from ravora.youtube import YouTubeReader
 
 
+@dataclass
+class PreparedReply:
+    comment: dict
+    bridge: object
+    started: float
+    token: dict
+    discarded: bool = False
+    prefix: object = None
+
+
 class InputPipeline:
     def __init__(self,settings,store,bridge,fixtures,*,memory_fixture_comments=None):
         self.s=settings;self.bridge=bridge;self.inbox=CommentInbox(store,capacity=settings.comment_queue_size,ttl=settings.comment_ttl,
             scope=settings.mode,relationships_enabled=settings.memory_enabled and settings.relationship_enabled)
         self.fixtures=fixtures;self.stop=threading.Event();self.reader=None;self.thread=None
         self.last_source=None
+        self.prepared = None
         self.followup_claim=None
         self.active_followup=None
         self.active_receipt=None;self.paused_reason=None;self.lock=threading.RLock();self.source_done=False
@@ -72,7 +84,7 @@ class InputPipeline:
         with self.lock:
             if self.paused_reason:return {'available':False,'finished':True,'held':True,'code':self.paused_reason}
             if not allow_host_input and self.reader and self.reader.status=='failed':return {'available':False,'finished':True,'error':self.reader.code}
-            if self.active_receipt or (self.bridge.worker and self.bridge.worker.is_alive()):return {'available':False,'finished':False}
+            if self.prepared or self.active_receipt or (self.bridge.worker and self.bridge.worker.is_alive()):return {'available':False,'finished':False}
             prefer='live-host' if allow_host_input and self.last_source!='live-host' else None
             comment=self.inbox.take(prefer_source=prefer)
             if comment:
@@ -97,27 +109,99 @@ class InputPipeline:
         with self.lock:
             if self.paused_reason:raise ValueError('INPUT_PAUSED')
             comment,viewer=self.inbox.claimed(receipt)
-            if self.active_receipt:raise ValueError('TURN_BUSY')
+            if self.active_receipt or self.prepared:raise ValueError('TURN_BUSY')
             if viewer.startswith('ray-initiative:') and (not self.followup_claim or self.followup_claim[0]!=receipt):
                 raise ValueError('COMMENT_NO_LONGER_AVAILABLE')
             self.active_receipt=receipt
-            def bind(token):
-                if not self.inbox.bind(receipt,token['turn_id']):raise ValueError('COMMENT_NO_LONGER_AVAILABLE')
-            def terminal(value):
-                with self.lock:
-                    kind=value['kind'];status={'complete':'generated','error':'failed','held':'held'}[kind]
-                    self.inbox.finish(receipt,status,value.get('code'))
-                    if kind!='complete':self.active_receipt=None
-                    if kind=='error' and value.get('code') in ('PROVIDER_HTTP_401','PROVIDER_HTTP_402','PROVIDER_HTTP_403','PROVIDER_HTTP_429','LOCAL_MONTHLY_TTS_LIMIT'):
-                        self.paused_reason=value['code']
             options = {}
             if self.followup_claim and self.followup_claim[0] == receipt:
                 options['followup'] = self.followup_claim[1]
             self.followup_claim = None
             self.active_followup = options.get('followup')
-            try:return self.bridge.begin(comment,viewer,on_begin=bind,on_terminal=terminal,**options)
+            try:
+                return self._start(self.bridge, receipt, comment, viewer, **options)
             except Exception:
-                self.active_receipt=None;raise
+                self.active_receipt=None
+                raise
+
+    def _start(self, bridge, receipt, text, viewer, *, prefetched=False, followup=None):
+        def bind(token):
+            if not self.inbox.bind(receipt,token['turn_id'],prefetched=prefetched):
+                raise ValueError('COMMENT_NO_LONGER_AVAILABLE')
+
+        def terminal(value):
+            with self.lock:
+                kind = value['kind']
+                self.inbox.finish(receipt, {'complete':'generated','error':'failed','held':'held'}[kind],
+                                  value.get('code'))
+                if kind != 'complete' and self.active_receipt == receipt:
+                    self.active_receipt = None
+                if kind == 'error' and value.get('code') in (
+                        'PROVIDER_HTTP_401','PROVIDER_HTTP_402','PROVIDER_HTTP_403',
+                        'PROVIDER_HTTP_429','LOCAL_MONTHLY_TTS_LIMIT'):
+                    self.paused_reason = value['code']
+        return bridge.begin(text,viewer,on_begin=bind,on_terminal=terminal,
+                            **({'followup':followup} if followup else {}))
+
+    def prepare_viewer(self, configure):
+        with self.lock:
+            if (self.prepared or not self.active_receipt or self.paused_reason or self.stop.is_set()
+                    or not self.bridge.finished or self.bridge.worker.is_alive()
+                    or not self.bridge.fence.current(self.bridge.token)):
+                return
+            comment = self.inbox.take(prefer_source='live-host' if self.last_source!='live-host' else None,
+                                      viewer_only=True)
+            if comment is None:
+                return
+            receipt = comment['receipt']
+            branch = self.bridge.next_studio_turn()
+            configure(branch, comment)
+            started = time.monotonic()
+            try:
+                token = self._start(branch, receipt, comment['comment'], comment['viewer'], prefetched=True)
+            except ValueError as exc:
+                if str(exc) != 'COMMENT_NO_LONGER_AVAILABLE':
+                    raise
+                self.inbox.finish(receipt, 'expired')
+                return
+            self.prepared = PreparedReply(comment, branch, started, token)
+
+    def discard_prepared(self, reason):
+        with self.lock:
+            pending = self.prepared
+            if pending and not pending.discarded:
+                pending.discarded = True
+                pending.prefix = None
+                pending.bridge.cancel()
+                status = 'expired' if reason == 'queue_expired' else 'cancelled'
+                self.inbox.finish(pending.comment['receipt'], status, reason)
+
+    def reap_prepared(self):
+        with self.lock:
+            pending = self.prepared
+            if pending and pending.discarded and not pending.bridge.worker.is_alive():
+                for path in pending.bridge.controller.output.glob(pending.token['turn_id'] + '-*'):
+                    path.unlink(missing_ok=True)
+                self.prepared = None
+
+    def promote(self):
+        with self.lock:
+            pending = self.prepared
+            if pending is None or pending.discarded or self.active_receipt:
+                return None
+            receipt = pending.comment['receipt']
+            if self.paused_reason or not self.inbox.playable(receipt):
+                self.discard_prepared('queue_expired' if self.inbox.clock() >= pending.comment['expires']
+                                      else 'unavailable_before_playout')
+                return None
+            with self.bridge.lock:
+                self.bridge.fence.cancel()
+                self.bridge.controller.program_pcm = None
+            self.bridge = pending.bridge
+            self.active_receipt = receipt
+            self.last_source = pending.comment['source']
+            self.prepared = None
+            return pending
 
     def played(self,token,*,program_latency=None):
         with self.lock:
@@ -134,18 +218,24 @@ class InputPipeline:
 
     def check_removed(self):
         with self.lock:
+            if self.prepared and self.inbox.removed_turn(self.prepared.token['turn_id']):
+                self.discard_prepared('source_deleted')
             if self.active_receipt and self.bridge.token and (self.inbox.removed_turn(self.bridge.token['turn_id'])
                     or self.active_followup and not self.followup_available()):
                 self.cancel()
 
-    def cancel(self):
+    def cancel(self, reason=None):
         with self.lock:
+            self.discard_prepared(reason or 'interrupted')
             self.followup_claim=self.active_followup=None
             self.bridge.cancel()
-            if self.active_receipt:self.inbox.finish(self.active_receipt,'cancelled');self.active_receipt=None
+            if self.active_receipt:self.inbox.finish(self.active_receipt,'expired' if reason=='queue_expired' else 'cancelled',reason);self.active_receipt=None
 
     def close(self):
-        self.stop.set();self.cancel()
+        self.stop.set();self.cancel('session_closed')
+        if self.prepared:
+            self.prepared.bridge.worker.join(timeout=self.s.turn_timeout + self.s.timeout + 1)
+            self.reap_prepared()
         if self.thread:self.thread.join(timeout=.25)
         self.inbox.close()
         self.bridge.controller.memory_worker.close()

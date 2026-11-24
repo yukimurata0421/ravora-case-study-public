@@ -1,6 +1,6 @@
 """Twitch EventSub receiver for the broadcaster's own chat."""
 from collections import Counter
-from contextlib import closing
+from contextlib import ExitStack, closing
 import hashlib
 import json
 import logging
@@ -15,6 +15,7 @@ import requests
 import websocket
 
 from ravora.comments import Comment, clean, timestamp
+from ravora.twitch_identity import TwitchError
 from ravora.settings import SettingsError, read_env
 from ravora.youtube_auth import read_private, save_private
 
@@ -26,12 +27,6 @@ SUBSCRIPTIONS = 'https://api.twitch.tv/helix/eventsub/subscriptions'
 SCOPE = 'user:read:chat'
 MESSAGE = 'channel.chat.message'
 DELETE = 'channel.chat.message_delete'
-
-
-class TwitchError(RuntimeError):
-    def __init__(self, code, *, retryable=False):
-        super().__init__(code)
-        self.retryable = retryable
 
 
 class TwitchOAuth:
@@ -89,7 +84,7 @@ class TwitchOAuth:
             raise TwitchError('TWITCH_CHAT_REFRESH_SAVE_FAILED_REAUTHORIZE') from exc
         self.access, self.refresh = access, refresh
 
-    def validate(self):
+    def validate(self, *, scope=SCOPE):
         response = self.http.get(OAUTH + 'validate', headers={'Authorization': 'OAuth ' + self.access},
                                  timeout=5, allow_redirects=False)
         if response.status_code == 401:
@@ -104,9 +99,10 @@ class TwitchOAuth:
         if (account.get('client_id') != self.client_id or not isinstance(identity, str)
                 or not re.fullmatch(r'[0-9]{1,32}', identity) or self.user_id not in (None, identity)):
             raise TwitchError('TWITCH_CHAT_ACCOUNT_MISMATCH')
-        if SCOPE not in (account.get('scopes') or ()):
+        if scope not in (account.get('scopes') or ()):
             raise TwitchError('TWITCH_CHAT_READ_SCOPE_REQUIRED')
         self.user_id = identity
+        return account
 
     def subscribe(self, kind, session):
         identity = self.user_id
@@ -135,10 +131,12 @@ def _session_url(url):
 
 
 class TwitchReader:
-    def __init__(self, inbox, token_path, *, config=None, on_removed=None):
+    def __init__(self, inbox, token_path, *, config=None, on_removed=None, on_audience=None, is_announcement=None):
         self.inbox = inbox
         self.token_path = token_path
         self.config = config or cli_config_path()
+        self.is_announcement = is_announcement
+        self.on_audience = on_audience
         self.on_removed = on_removed
         self.status = 'connecting'
         self.code = None
@@ -181,6 +179,10 @@ class TwitchReader:
                 return
             kind = metadata['subscription_type']
             if kind == MESSAGE:
+                if (self.is_announcement and event['chatter_user_id'] == identity
+                        and self.is_announcement(event['message_id'], event['message']['text'])):
+                    self.counts['ignored_welcome'] += 1
+                    return
                 comment = Comment('twitch', identity, clean(event['message_id'], 128),
                                   clean(event['chatter_user_id'], 128), clean(event['chatter_user_name'], 100),
                                   clean(event['message']['text'], 1000), timestamp(metadata['message_timestamp']))
@@ -240,7 +242,9 @@ class TwitchReader:
     def run(self, stop, *, seconds=None):
         deadline = time.monotonic() + seconds if seconds is not None else float('inf')
         delay = 2
-        with closing(requests.Session()) as http:
+        with ExitStack() as stack:
+            http = stack.enter_context(closing(requests.Session()))
+            audience = None
             http.trust_env = False
             oauth = None
             while not stop.is_set() and time.monotonic() < deadline:
@@ -248,6 +252,11 @@ class TwitchReader:
                     if oauth is None:
                         oauth = TwitchOAuth(self.config, self.token_path, http)
                     oauth.validate()
+                    if self.on_audience and audience is None:
+                        from ravora.twitch_audience import TwitchAudience
+                        audience = TwitchAudience(oauth, self.on_audience)
+                        audience.worker.start()
+                        stack.callback(audience.close)
                     self._listen(oauth, stop, deadline)
                     break
                 except TwitchError as exc:

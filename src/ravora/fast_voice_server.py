@@ -274,17 +274,17 @@ async def serve(settings,store,run,*,mode,port,seconds,write_json,default_input=
     except BaseException:
         if evaluation:evaluation.close()
         raise
-    write_json(run/'connection.json',{'url':f'{server.origin}/#token={server.secret}','port':server.port,
-        'websocket_port':server.ws_port,'mode':mode,'profile':'fast_streaming'})
-    write_json(run/'server.json',{'pid':__import__('os').getpid(),'mode':mode,'profile':'fast_streaming',
-        'default_input':default_input,'dell_mic_available':dell_device is not None,
-        'end_mode':default_end_mode,'end_silence_ms':end_silence_ms,
-        'evaluation_enabled':evaluation is not None,
-        'audio_sink':'operator browser only','api_enabled':settings.api_enabled,'stt_api_enabled':settings.stt_api_enabled})
     loop=asyncio.get_running_loop();stopping=asyncio.Event()
     previous=signal.getsignal(signal.SIGTERM)
     loop.add_signal_handler(signal.SIGTERM,stopping.set)
     try:
+        write_json(run/'connection.json',{'url':f'{server.origin}/#token={server.secret}','port':server.port,
+            'websocket_port':server.ws_port,'mode':mode,'profile':'fast_streaming'})
+        write_json(run/'server.json',{'pid':__import__('os').getpid(),'mode':mode,'profile':'fast_streaming',
+            'default_input':default_input,'dell_mic_available':dell_device is not None,
+            'end_mode':default_end_mode,'end_silence_ms':end_silence_ms,
+            'evaluation_enabled':evaluation is not None,
+            'audio_sink':'operator browser only','api_enabled':settings.api_enabled,'stt_api_enabled':settings.stt_api_enabled})
         deadline=loop.time()+seconds
         while loop.time()<deadline and not stopping.is_set() and not (run/'stop').exists():
             try:await asyncio.wait_for(stopping.wait(),.25)

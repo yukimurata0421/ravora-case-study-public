@@ -1,0 +1,10 @@
+[Unit]
+Description=Start Ray at %i:00 JST
+
+[Timer]
+OnCalendar=*-*-* %i:00:00 Asia/Tokyo
+AccuracySec=1s
+Persistent=false
+
+[Install]
+WantedBy=timers.target

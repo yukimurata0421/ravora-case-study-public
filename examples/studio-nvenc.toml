@@ -6,6 +6,8 @@ latency_preference = "ultraLow"
 host_trim_db = 0.0
 host_mic_cleanup = true
 ray_reverb_mix = 0.06
+# Optional local playlist, relative to this TOML file.
+# bgm_tracks = ["music/track-one.mp3", "music/track-two.mp3", "music/Crystal Bell Drive.mp3"]
 bgm_tracks = []
 bgm_volume_db = -24.0
 

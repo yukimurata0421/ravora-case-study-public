@@ -7,6 +7,8 @@ at 4.5 Mbps with a two-second keyframe interval and 48 kHz stereo AAC at
 use the same conversation and memory database. Viewer history is keyed by
 platform and account.
 
+The [scheduled broadcast and observation guide](studio-observations.md#scheduled-twitch-shows-and-prepared-replies) covers the weekly slots, market sampling, welcome pin and overlapping reply preparation.
+
 ## Configure the channel
 
 Install the studio and prepare the private working directory as described in

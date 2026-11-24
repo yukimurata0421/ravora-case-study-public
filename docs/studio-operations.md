@@ -92,6 +92,8 @@ The shared publisher lock permits one publisher per studio directory.
 
 ## Read the console and verify delivery
 
+[Per-broadcast observations, the public dashboard and its offline reproduction](studio-observations.md) cover first commenters, viewer counts, reply timing and API usage across sessions.
+
 The operator page samples FPS, encoded and sent rate, queue occupancy and
 errors. Its API view counts dispatched calls, duration, characters and
 reported tokens for the current session. A missing provider usage field is

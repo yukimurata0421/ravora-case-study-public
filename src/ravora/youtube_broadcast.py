@@ -362,7 +362,7 @@ class Broadcast:
             phase = self.current()['status']['lifeCycleStatus']
             if phase == 'complete':
                 self.save(pending=None)
-                return
+                return 'complete'
             if phase == 'live':
                 if self.state.get('pending') == 'live':
                     self.save(pending=None)

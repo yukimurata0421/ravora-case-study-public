@@ -6,7 +6,7 @@ extracted source files with hashes. Generated case-study files are also listed.
 
 ## Included
 
-- source-backed SQLite memory, session usage and chat admission across nineteen schema migrations;
+- source-backed SQLite memory, session usage and chat admission across twenty-three schema migrations;
 - three-tier retrieval, explicit summary sharing, and revocation;
 - deterministic viewer contact state, daily caps, and qualitative request background;
 - streaming orchestration, input ledgers, and session-bound playback fences;
@@ -20,7 +20,8 @@ extracted source files with hashes. Generated case-study files are also listed.
   human review labels, transcription edit counts, and an installed review command;
 - aggregate historical observations with explicit measurement limits;
 - sanitized operations records for the YouTube and Twitch studio runs;
-- portable, opt-in user-service and launcher examples.
+- a count-only public observation schema, static page and fictional broadcast fixture;
+- portable, opt-in per-slot, market and publication timers, user-service and launcher examples.
 
 The working tree keeps three media files: the
 [README conversation](../README.md#see-it-in-30-seconds), a same-audio
@@ -56,7 +57,8 @@ are retained unchanged.
 
 | Validated (JST) | Snapshot | Record |
 | --- | --- | --- |
-| 2026-11-24 | Progressive studio PCM, program audio and subtitle controls, transport and API graphs, conversational initiative and recall, YouTube same-event recovery and chat admission. [Studio operations](../docs/studio-operations.md) | [Current](validation.json) |
+| 2026-11-24 | Broadcast reporting, prepared replies, scheduled shows and a validated static observation page. [Observations](../docs/studio-observations.md) | [Current](validation.json) |
+| 2026-11-24 | Progressive studio PCM, program audio and subtitle controls, transport and API graphs, conversational initiative and recall, YouTube same-event recovery and chat admission. [Studio operations](../docs/studio-operations.md) | [Record](history/2026-11-24-studio-operations-validation.json) |
 | 2026-11-24 | Twitch H.264 output, bounded RTMPS reconnect, EventSub chat and bilingual program replies. [Operations record](../docs/twitch-live-operations-20261124.md) | [Record](history/2026-11-24-twitch-studio-validation.json) |
 | 2026-11-23 | Media consolidation: one conversation, one same-audio comparison and the audition. No source code or new recordings. | [Record](history/2026-11-23-media-consolidation-validation.json) |
 | 2026-11-23 | Japanese topic-tag retrieval, opt-out checks and three initial character interests. [Settings](../docs/conversation-controls.md#rays-interests-and-viewer-memories) | [Record](history/2026-11-23-bilingual-memory-validation.json) |

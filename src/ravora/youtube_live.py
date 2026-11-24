@@ -24,13 +24,14 @@ from ravora.live_http import LiveHandler
 from ravora.ray_memory import CharacterMemory
 from ravora.safety import TurnFence
 from ravora.settings import boolean, load_settings, read_env, SettingsError
+from ravora.twitch_identity import TwitchError
 from ravora.youtube_auth import authorize, ChannelAPI, publisher_lock, YouTubeError
 
 
 ROOT = Path.cwd()
 
 
-def run(args):
+def run(args, *, scheduled=None):
     directory = ROOT / 'state/youtube'
     if args.authorize_youtube:
         authorize(directory)
@@ -96,6 +97,8 @@ def run(args):
             except ValueError as exc:
                 raise SettingsError('INVALID_TWITCH_CHAT_ENABLED') from exc
         del values
+    if scheduled and not twitch_chat:
+        raise SettingsError('TWITCH_SCHEDULE_CHAT_REQUIRED')
     if args.check:
         if twitch and stream_key:
             twitch_publish_target(base, stream_key)
@@ -159,10 +162,23 @@ def run(args):
         if bgm is not None:
             stack.callback(bgm.close)
         broadcast = None
-        if twitch:
+        previous_id = None
+        if scheduled:
+            from ravora.database import Database
+            from ravora.twitch_schedule import START_GRACE, predecessor, scheduled_lock, slot_at
+            previous = predecessor(Database.existing(ROOT/'state/conversation.sqlite3'), scheduled)
+            previous_id = previous[0] if previous else None
+            stack.enter_context(scheduled_lock(directory, scheduled, previous))
+        elif twitch:
             stack.enter_context(publisher_lock(directory, busy_code='RAY_PUBLISHER_ALREADY_RUNNING'))
         elif publishing:
             stack.enter_context(publisher_lock(directory))
+        if scheduled:
+            from ravora.twitch_schedule_api import prepare_channel
+            if not twitch or slot_at(time.time(), launching=True) != scheduled:
+                raise SettingsError('TWITCH_SLOT_EXPIRED')
+            prepare_channel(ROOT/'state/twitch', scheduled.language, update=True, previous=previous_id,
+                            until=scheduled.start+START_GRACE)
         if managed:
             api, channel = ChannelAPI.connect(directory)
             stack.callback(api.http.close)
@@ -194,7 +210,8 @@ def run(args):
             raise SettingsError('INVALID_END_SILENCE_MS')
         program = LiveProgram(pipeline, audio, host_language=language, reply_profiles=profiles,
                               onset_dbfs=onset, silence_ms=silence, host_trim_db=host_trim_db,
-                              host_mic_cleanup=host_mic_cleanup, ray_reverb_mix=ray_reverb_mix, bgm=bgm)
+                              host_mic_cleanup=host_mic_cleanup, ray_reverb_mix=ray_reverb_mix, bgm=bgm, prefetch=args.prefetch,
+                              initiative_language=scheduled.language if scheduled else None)
         stack.callback(program.close)
         print('Host STT:', program.host_stt_provider, flush=True)
         if program.cloud_stt and language != 'auto':
@@ -242,13 +259,20 @@ def run(args):
         if stop.is_set():
             return
         # Open the selected encoder before a managed broadcast is created or bound.
+        if scheduled:
+            # Recheck just before opening the RTMPS destination after avatar setup.
+            if slot_at(time.time(), launching=True) != scheduled:
+                raise SettingsError('TWITCH_SLOT_EXPIRED')
+            if not prepare_channel(ROOT/'state/twitch', scheduled.language, update=False)['matches_slot']:
+                raise SettingsError('TWITCH_CHANNEL_UPDATE_UNCONFIRMED')
         try:
             writer = ProgramWriter(url if publishing else run_dir / 'program.flv', scene,
                                    publish=publishing, video_encoder=video_encoder)
         except Exception:
             raise SettingsError(f'PROGRAM_ENCODER_OPEN_FAILED ({video_encoder})') from None
         stack.callback(writer.close)
-        writer.bgm = bgm
+        if not broadcast:
+            writer.bgm = bgm
         active_encoder = writer.video.codec_context.name
         print('Video encoder:', active_encoder, flush=True)
         if twitch:
@@ -265,6 +289,18 @@ def run(args):
             def save_transport():
                 (run_dir / 'transport.json').write_text(json.dumps(writer.transport.status(), indent=2) + '\n')
             stack.callback(save_transport)
+        if broadcast:
+            observations = program.observe('youtube', video_id, 'managed_youtube')
+        elif destination == 'youtube' and s.youtube_video_id:
+            observations = program.observe('youtube', s.youtube_video_id, 'configured_youtube_video')
+        else:
+            observations = program.observe(destination or 'local')
+        if scheduled:
+            with store.connect() as db:
+                if db.execute('UPDATE twitch_schedule_runs SET session=? WHERE scheduled_start=? AND session IS NULL',
+                              (pipeline.inbox.session,scheduled.start)).rowcount != 1:
+                    raise SettingsError('TWITCH_SLOT_BINDING_FAILED')
+        print('Studio session:', pipeline.inbox.session, flush=True)
         server.metrics.start(writer)
         stack.callback(server.metrics.close)
         operator_url = run_dir / 'operator.url'
@@ -283,6 +319,7 @@ def run(args):
         chat_lookup = None
         chat = None
         live = False
+        reused_stream = threading.Event()
         if broadcast:
             executor = stack.enter_context(ThreadPoolExecutor(max_workers=1, thread_name_prefix='youtube-start'))
             startup = (executor.submit(broadcast.wait_live, resume_only=True) if args.resume_live
@@ -290,12 +327,28 @@ def run(args):
             stack.callback(stop.set)
         elif twitch_chat:
             from ravora.twitch_chat import TwitchReader
-            reader = TwitchReader(pipeline.inbox, ROOT / 'state/twitch/oauth.json', on_removed=pipeline.check_removed)
+            welcome = None
+            if scheduled:
+                from ravora.twitch_welcome import ScheduledWelcome
+                welcome = ScheduledWelcome(store, ROOT/'state/twitch', scheduled, pipeline.inbox.session, stop)
+
+            def record_audience(observed, status, stream_id=None, viewers=None, started=None):
+                if scheduled and status=='live' and previous_id and stream_id==previous_id:
+                    reused_stream.set()
+                    stop.set()
+                    return
+                observations.audience(observed,status,stream_id,viewers,started)
+                if welcome and status == 'live':
+                    welcome.on_live(stream_id)
+            reader = TwitchReader(pipeline.inbox, ROOT / 'state/twitch/oauth.json', on_removed=pipeline.check_removed,
+                                  on_audience=record_audience, is_announcement=welcome.is_announcement if welcome else None)
             pipeline.start(args.seconds, twitch_reader=reader)
         else:
             pipeline.start(args.seconds, wait_for_chat=True)
         start = time.monotonic()
         deadline = start + args.seconds if args.seconds is not None else float('inf')
+        if scheduled:
+            deadline = min(deadline,start + max(0.0,scheduled.end-time.time()))
         max_lag = 0.0
         finish_event = False
         try:
@@ -306,6 +359,7 @@ def run(args):
                         break
                     live = True
                     writer.bgm = bgm
+                    observations.provider_event('live')
                     print('YouTube live confirmed:', video_id, flush=True)
                     program.chat_status = {'status':'waiting_for_chat'}
                     chat_lookup = executor.submit(broadcast.chat_id, event)
@@ -342,8 +396,10 @@ def run(args):
                 if broadcast:
                     executor.shutdown(wait=True)
                     # Only an operator stop or an explicit session deadline ends an owned event.
-                    if finish_event:
-                        broadcast.finish()
+                    if finish_event and broadcast.finish() == 'complete':
+                        observations.provider_event('ended')
+        if reused_stream.is_set():
+            raise SettingsError('TWITCH_PREVIOUS_STREAM_ID_REUSED')
         summary = program.status()
         summary.pop('stage')
         summary.pop('monitor_audio')
@@ -353,6 +409,8 @@ def run(args):
         summary['average_fps'] = round(writer.frames / max(playout_seconds, .001), 2)
         summary['video_encoder'] = active_encoder
         summary['max_encoder_lag_ms'] = round(max_lag * 1000)
+        summary['studio_session'] = pipeline.inbox.session
+        summary['prefetch'] = args.prefetch
         summary['publish'] = publishing
         summary['publish_destination'] = destination
         summary['avatar_renderer'] = scene.avatar.renderer if scene.avatar else 'custom_scene'
@@ -369,7 +427,7 @@ def run(args):
     print(json.dumps(summary), flush=True)
 
 
-def main():
+def main(argv=None, *, scheduled=None):
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument('--mode', choices=('offline', 'cloud'), default='offline')
     parser.add_argument('--config', type=Path, help='TOML encoders, mixer, microphone and optional portrait settings')
@@ -381,6 +439,8 @@ def main():
     parser.add_argument('--operator-url-link', type=Path, help=argparse.SUPPRESS)
     parser.add_argument('--port', type=int, default=8790)
     parser.add_argument('--dell-mic', action='store_true', help='Control the configured Dell microphone from the host console')
+    parser.add_argument('--prefetch', action=argparse.BooleanOptionalAction, default=False,
+                        help='Prepare one queued viewer reply during Ray playback')
     parser.add_argument('--host-only', action='store_true', help='Record the conversation locally without YouTube or sample chat')
     parser.add_argument('--host-language', choices=('ja','en','auto'), help='Initial conversation language (auto detects microphone input)')
     parser.add_argument('--check', action='store_true', help='Check configuration without connecting or opening an encoder')
@@ -393,7 +453,7 @@ def main():
     parser.add_argument('--privacy', choices=('unlisted', 'private', 'public'), help='Managed broadcast visibility (default: unlisted)')
     parser.add_argument('--title', help='Override the configured title for a new managed broadcast')
     parser.add_argument('--scene-dir', type=Path)
-    args = parser.parse_args()
+    args = parser.parse_args(argv)
     if args.publish_twitch and (args.publish or args.auto_broadcast or args.authorize_youtube):
         parser.error('--publish-twitch cannot be combined with YouTube publishing or authorization')
     if args.resume_live is not None and (not args.resume_live or not args.auto_broadcast or not args.privacy or args.title):
@@ -409,8 +469,11 @@ def main():
     logging.getLogger('ravora.youtube').setLevel(logging.INFO)
     logging.getLogger('ravora.twitch_chat').setLevel(logging.INFO)
     try:
-        run(args)
-    except (SettingsError, ModuleNotFoundError) as exc:
+        if scheduled is None:
+            run(args)
+        else:
+            run(args, scheduled=scheduled)
+    except (SettingsError, TwitchError, ModuleNotFoundError) as exc:
         sys.exit(str(exc))
     except ValueError as exc:
         code = str(exc)

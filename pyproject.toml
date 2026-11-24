@@ -10,6 +10,7 @@ requires-python = ">=3.11"
 dependencies = []
 
 [project.optional-dependencies]
+observations = ["jsonschema>=4.18,<5"]
 youtube-live = ["google-auth-oauthlib==1.5.0", "google-cloud-texttospeech==2.38.0", "grpcio>=1.85.1,<2", "protobuf>=7.35.1,<8", "av==19.0.2", "numpy>=2.0,<3", "Pillow>=10", "requests>=2.32,<3", "websocket-client==1.9.0"]
 local-stt = ["faster-whisper==1.2.1", "ctranslate2==4.9.0", "onnxruntime>=1.20,<2"]
 console = ["websockets==17.4"]
@@ -18,6 +19,10 @@ avatar = ["Pillow>=10"]
 phone-alignment = ["pocketsphinx==5.1.1"]
 
 [project.scripts]
+ravora-studio-report = "ravora.studio_report_cli:main"
+ravora-ray-export = "ravora.ray_public_cli:main"
+ravora-ray-site = "ravora.observation_site:main"
+ravora-twitch-schedule = "ravora.twitch_schedule_cli:entrypoint"
 ravora-youtube-live = "ravora.youtube_live:main"
 ravora-case-study = "ravora.case_study:main"
 ravora-voice-evaluation = "ravora.voice_evaluation:main"
@@ -26,4 +31,4 @@ ravora-voice-evaluation = "ravora.voice_evaluation:main"
 where = ["src"]
 
 [tool.setuptools.package-data]
-ravora = ["stt-model.json", "youtube_proto/*.proto", "web/live/*.html", "web/live/*.js", "web/live/*.css", "migrations/*.sql", "personas/*.txt", "web/*.js", "web/*.mjs", "web/developer/*.js", "web/developer/*.html", "web/developer/*.css"]
+ravora = ["stt-model.json", "youtube_proto/*.proto", "web/observation/*.html", "web/observation/*.js", "web/observation/*.css", "web/live/*.html", "web/live/*.js", "web/live/*.css", "migrations/*.sql", "personas/*.txt", "web/*.js", "web/*.mjs", "web/developer/*.js", "web/developer/*.html", "web/developer/*.css"]

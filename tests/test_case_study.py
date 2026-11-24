@@ -30,7 +30,7 @@ class CaseStudyTests(unittest.TestCase):
         self.assertFalse(settings.api_enabled);self.assertFalse(settings.stt_api_enabled)
         self.assertFalse(settings.memory_api_enabled);self.assertEqual(settings.gemini_key,'')
     def test_schema_resources_are_inside_the_package(self):
-        self.assertTrue(MIGRATIONS.is_dir());self.assertEqual(len(list(MIGRATIONS.glob('*.sql'))),19)
+        self.assertTrue(MIGRATIONS.is_dir());self.assertEqual(len(list(MIGRATIONS.glob('*.sql'))),23)
         self.assertIn('ravora',MIGRATIONS.parts)
 
     def test_relationship_replay_is_offline_and_cleans_synthetic_state(self):

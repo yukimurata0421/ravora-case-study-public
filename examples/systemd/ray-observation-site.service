@@ -1,0 +1,12 @@
+[Unit]
+Description=Collect and render the public Ray observation
+After=network-online.target
+
+[Service]
+Type=oneshot
+WorkingDirectory=%h/ray-site
+EnvironmentFile=%h/ray-site/source.env
+UMask=0022
+NoNewPrivileges=true
+ExecStart=%h/ray-site/.venv/bin/ravora-ray-site --output %h/ray-site/public --source-command /usr/bin/ssh -T -o BatchMode=yes -o ConnectTimeout=5 ${RAY_OBSERVATION_SOURCE} ravora-ray-export
+TimeoutStartSec=40s

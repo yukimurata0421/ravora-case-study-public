@@ -1,0 +1,72 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title>Ray · Broadcast Observations</title>
+  <meta name="description" content="Ray’s observed audience, chat, response times and API use. Counts from each broadcast, compared across seven recurring Twitch time slots." />
+  <link rel="stylesheet" href="../assets/ray-20261124.css?v=5" />
+</head>
+<body>
+  <div class="wrap">
+    <header class="mast">
+      <div class="brand"><span class="mark" aria-hidden="true">R</span><span><b>Ray</b><small>RAVORA · AI live streamer · EN / 日本語</small></span></div>
+      <nav aria-label="Sections"><a href="#people">People</a><a href="#schedule">Schedule</a><a href="#log">Broadcasts</a><a href="#method">Method</a></nav>
+    </header>
+
+    <main id="raySnapshot" data-version="5" data-generated="$generated" data-collected="$collected">
+      <section id="status" class="status" data-state="$status_state" data-until="$live_until" aria-live="polite">
+        <span class="pill" aria-hidden="true"></span>
+        <div class="status-text"><h1 id="statusTitle">$status_title</h1><p id="statusDetail">$status_detail</p></div>
+        <div class="status-meta"><time id="updated">$collected_label</time><a id="refresh" href="./">Refresh</a></div>
+      </section>
+
+      <section id="people" aria-labelledby="peopleTitle">
+        <h2 id="peopleTitle">Do first-time commenters keep talking?</h2>
+        <p class="lede">Each account counts once, at its first recorded comment. Its reply and follow-up belong to that same broadcast. Includes the broadcast in progress.</p>
+        <div class="headline">$headline</div>
+        <div class="minor">$minor</div>
+      </section>
+
+      <section id="schedule" aria-labelledby="scheduleTitle">
+        <h2 id="scheduleTitle">Schedule</h2>
+        <p class="lede" id="experiment">$schedule</p>
+        <div class="band-scroll"><div class="band" role="img" aria-label="Seven daily broadcast windows on a 24-hour JST axis">$band</div></div>
+        <div class="legend"><span><i class="key en"></i>English slot with data</span><span><i class="key ja"></i>Japanese slot with data</span><span><i class="key none"></i>Scheduled, nothing recorded yet</span><span><i class="key next"></i>Next start</span></div>
+        <div class="table-wrap"><table>
+          <thead><tr><th scope="col">Slot (JST)</th><th scope="col" class="r">Broadcasts</th>
+            <th scope="col" class="r">First commenters</th><th scope="col" class="r">Wrote again</th><th scope="col" class="r">Ray gap p95</th>
+            <th scope="col">Tagged VTuber market</th><th scope="col" class="r" title="Minutes vedal987 was live at the same time">Overlap</th></tr></thead>
+          <tbody>$slots</tbody>
+        </table></div>
+        $coverage
+      </section>
+
+      <section id="log" aria-labelledby="logTitle">
+        <h2 id="logTitle">Broadcasts</h2>
+        <p class="lede">Latest 60 records, newest first. Open a broadcast for response times, chat coverage and API use.</p>
+        <div class="cards" id="logBody">$broadcasts</div>
+        $legacy
+      </section>
+
+      <details class="method" id="method" data-key="method">
+        <summary>How each number is measured</summary>
+        <dl class="defs">
+          <dt>First commenters</dt><dd>Accounts with a first recorded chat message, a completed reply to them, and another message after that reply in their first recorded broadcast. Silent viewers have no chat identity. Accounts are counted separately by platform.</dd>
+          <dt>Viewers and peak</dt><dd>Unique viewers sum per-broadcast platform summaries imported after each broadcast. Peak uses the reported peak when available, then the maximum of live Twitch samples taken about once a minute.</dd>
+          <dt>Chat coverage</dt><dd>Time with a connected chat reader divided by the broadcast window. Slot comparison rates use only finished broadcasts with at least 114 minutes of chat observation and 95% coverage.</dd>
+          <dt>Market and overlap</dt><dd>Every five minutes during scheduled windows, Twitch streams in Just Chatting are filtered by the slot language and VTuber tags. Market averages exclude Ray and use completed scans. Top five share is the five largest audiences per scan divided by all viewers in those scans. Tags are self-reported. Overlap pairs consecutive samples of Ray and vedal987 across all categories.</dd>
+          <dt>Broadcast state</dt><dd>Live requires recent provider evidence and expires on this page after 150 seconds. A provider summary or confirmed end closes a broadcast. Unconfirmed records stay out of finished totals.</dd>
+          <dt>Ray gap</dt><dd>Silence between the last audible sample of one Ray utterance and the first of the next, when the comment was already waiting. Below 20 intervals the p95 is the sample value and is marked with its count.</dd>
+          <dt>Response times</dt><dd>Comment to on air runs from studio receipt to the first reply audio in the broadcast. Comment to viewer runs from the platform's comment time to audio detected on an independent player.</dd>
+          <dt>API use and cost</dt><dd>Calls include retries and discarded prefetched calls. Cost uses estimated USD list prices. Calls without a known price are counted separately.</dd>
+        </dl>
+        <p class="fine">The studio exports aggregate counts and timings. Account IDs and messages stay with the studio. The page checks for updates every 30 seconds. A failed collection keeps the last good snapshot and its timestamp.</p>
+      </details>
+
+      <footer class="footer"><span id="footerAge">$footer</span></footer>
+    </main>
+  </div>
+  <script type="module" src="../assets/ray-20261124.js?v=5"></script>
+</body>
+</html>

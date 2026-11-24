@@ -1,0 +1,13 @@
+[Unit]
+Description=Sample Twitch every five minutes during Ray's observation windows
+
+[Timer]
+OnCalendar=*-*-* 03..08,17..22:00/5:00 Asia/Tokyo
+OnCalendar=*-*-* 09,23:00:00 Asia/Tokyo
+OnCalendar=Tue,Thu,Sat,Sun *-*-* 11..12:00/5:00 Asia/Tokyo
+OnCalendar=Tue,Thu,Sat,Sun *-*-* 13:00:00 Asia/Tokyo
+AccuracySec=3s
+Persistent=false
+
+[Install]
+WantedBy=timers.target

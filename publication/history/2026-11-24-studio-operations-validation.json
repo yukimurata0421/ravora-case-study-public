@@ -1,0 +1,78 @@
+{
+  "status": "PASS_LOCAL_STUDIO_OPERATIONS_PORT",
+  "validated_at_jst": "2026-11-24T04:25:40+09:00",
+  "scope": "Portable live studio behavior, same-event YouTube operation, replay, sanitized incident timelines and player audio alignment.",
+  "checks": {
+    "checkout_python_tests": {
+      "tests": 460,
+      "failures": 0,
+      "errors": 0,
+      "skipped": 1
+    },
+    "installed_python_tests": {
+      "tests": 460,
+      "failures": 0,
+      "errors": 0,
+      "skipped": 1
+    },
+    "optional_test_skipped": "Phone alignment dependency unavailable in the local test environment.",
+    "python": "3.14.4",
+    "checkout_replays_match_examples": 4,
+    "installed_replays_match_examples": 4,
+    "dual_codec_reconnect": {
+      "checkout": "passed",
+      "installed": "passed",
+      "video_codecs": [
+        "h264",
+        "hevc"
+      ],
+      "audio_codec": "aac"
+    },
+    "browser_module_tests": {
+      "tests": 14,
+      "failures": 0,
+      "node": "24.19.0",
+      "changed_audiovisual_scripts_syntax_check": "passed"
+    },
+    "installed_config_checks": {
+      "twitch": "h264_nvenc",
+      "youtube": "hevc_nvenc"
+    },
+    "launcher": {
+      "systemd_unit_verifies": true,
+      "posix_shell_and_fixture_checks": true,
+      "native_windows_run": false
+    },
+    "synthetic_studio_benchmark": {
+      "from_turn_to_program_signal_ms": {
+        "complete_wav": 627.4,
+        "progressive_pcm": 366.26
+      }
+    },
+    "public_payload": {
+      "status": "PASS_PUBLIC_PAYLOAD",
+      "files": 222,
+      "hashes_checked": 220,
+      "unexpected_files": 0,
+      "private_defaults_found": 0,
+      "broken_local_links": 0
+    },
+    "secret_scan_findings": 0
+  },
+  "verification_history": [
+    "Early integration surfaced missing RMS VAD and private test helpers, historical fixtures using newer columns, and absent Japanese FTS fallback wiring. The final suite uses packaged prerequisites and schema-appropriate historical fixtures.",
+    "The replay snapshots moved from schema 16 to 19. Their remaining results match on checkout and installed paths."
+  ],
+  "historical_runtime_evidence": [
+    "docs/youtube-live-operations-20261124.md",
+    "docs/twitch-live-operations-20261124.md"
+  ],
+  "historical_viewer_measurement": {
+    "samples": 1,
+    "twitch_event_to_watch_audio_seconds": 4.437,
+    "new_live_test": false
+  },
+  "included_private_databases_or_recordings": false,
+  "new_inference_api_calls": 0,
+  "earlier_validation_preserved": "publication/history/2026-11-24-twitch-studio-validation.json"
+}

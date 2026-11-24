@@ -223,13 +223,13 @@ class LiveMicrophone:
             if self.handsfree:
                 self.handsfree.feed(pcm, gap=gap)
 
-    def allows_initiative(self):
+    def allows_initiative(self, *, during_playback=False):
         # Manual push-to-talk can capture in the browser before the WAV reaches
         # the server. Only hands-free mode can positively identify a quiet open mic.
         with self.lock:
             state = self.handsfree.status()['state'] if self.handsfree else 'off'
             if self.owner and self.clock() < self.expires:
-                return state == 'listening'
+                return state == 'listening' or (during_playback and state == 'playback')
             return state not in ('speaking','transcribing')
 
     def mix(self, program, *, ray_speaking=False, host_playback=False):

@@ -1,4 +1,5 @@
 """Sentence-at-a-time speech controller, bounded queues, and local SQLite memory."""
+from copy import copy
 import datetime as dt
 import json
 import logging
@@ -645,14 +646,35 @@ class SpeechController:
 class ConversationBridge:
     """One turn worker. Old events and duplicate chunk claims cannot reach playout."""
     def __init__(self,settings,store,output,fence,lock,*,providers=None,memory_extractor=None):
-        self.controller=SpeechController(settings,store,output,providers=providers,memory_extractor=memory_extractor);self.fence=fence;self.lock=lock
+        self.controller=SpeechController(settings,store,output,providers=providers,memory_extractor=memory_extractor)
+        self._init_playout(fence,lock)
+
+    def _init_playout(self,fence,lock):
+        self.fence=fence;self.lock=lock
+        self.playout_state = self.playout_hooks = None
         self.viewer=None;self.events=[];self.cancel_event=threading.Event();self.worker=None;self.token=None;self.claims=set();self.finished=False
+
+    def next_studio_turn(self):
+        """Generation is serial. Keep the playing turn's claims, callbacks and ACK independently fenced."""
+        with self.lock:
+            if not self.finished or self.worker.is_alive():
+                raise ValueError('TURN_BUSY')
+            character = self.controller.character
+            if character and self.playout_state is None:
+                turn = self.token['turn_id']
+                self.playout_state = character.playout_state(turn)
+                self.playout_hooks = character.hooks_for(turn)
+            branch = copy(self)
+            branch.controller = copy(self.controller)
+            branch._init_playout(type(self.fence)(), threading.RLock())
+            return branch
 
     def begin(self,comment,viewer='preview',*,on_begin=None,on_terminal=None,followup=None):
         if not isinstance(comment,str) or not 0<len(comment.strip())<=1000 or not isinstance(viewer,str) or not 0<len(viewer)<=100:raise ValueError('INVALID_COMMENT')
         with self.lock:
             if self.worker and self.worker.is_alive():raise ValueError('TURN_BUSY')
             self.viewer=viewer
+            self.playout_state = self.playout_hooks = None
             self.cancel_event=threading.Event();self.events=[];self.claims=set();self.finished=False
             self.token=self.fence.begin(uuid.uuid4().hex);token=dict(self.token)
             if on_begin:on_begin(token)
@@ -689,25 +711,27 @@ class ConversationBridge:
             self.cancel_event.set();self.fence.cancel();self.finished=True
             character = getattr(self.controller,'character',None)
             if character:
-                character.cancel()
+                character.cancel(event=self.token['turn_id'] if self.token else None)
 
     def mark_played(self,token,*,program_latency=None):
         with self.lock:
             audio_count=sum(e['kind']=='audio' for e in self.events)
             if not self.fence.current(token) or not self.finished or len(self.claims)!=audio_count or not any(e['kind']=='complete' for e in self.events):return False
             s=self.controller.s
+            character = self.controller.character
+            hooks = self.playout_hooks if self.playout_state else (character.hooks_for(token['turn_id']) if character else None)
             accepted=self.controller.store.played(token['turn_id'],scope=s.mode,memory_enabled=s.memory_enabled,
                 memory_ttl_days=s.memory_ttl_days,memory_capacity=s.memory_queue_size,
                 memory_policy=self.controller.memory_worker.policy,memory_model=self.controller.memory_worker.model,
                 memory_min_confidence=s.memory_min_confidence,relationship_enabled=s.memory_enabled and s.relationship_enabled,developer_id=s.developer_id,
                 program_latency=program_latency,
-                unspoken_hooks=self.controller.character.hooks_for(token['turn_id']) if self.controller.character else None)
+                unspoken_hooks=hooks)
             if accepted and s.memory_enabled and self.controller.store.memory_pending(self.viewer,s.mode):
                 self.controller.memory_worker.wake()
             if accepted and self.controller.character:
                 initiative = self.viewer.startswith('ray-initiative:')
                 turn = token['turn_id']
                 exchange = self.controller.store.followup_exchange(turn,self.viewer,s.mode) if s.character_initiative_enabled and not initiative else None
-                self.controller.character.played(turn,turn,self.viewer,exchange,initiative=initiative)
+                self.controller.character.played(turn,turn,self.viewer,exchange,initiative=initiative,playout_state=self.playout_state)
                 if not initiative:self.controller.memory_worker.offer_character(turn)
             return accepted

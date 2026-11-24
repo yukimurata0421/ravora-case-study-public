@@ -1,0 +1,110 @@
+"""Versioned count-only contract shared with the Pi collector."""
+SCHEMA = 'ravora.ray_public_observation.v4'
+MAX_BROADCASTS = 60
+P95_MIN_SAMPLES = 20
+CHAT_RANK_COVERAGE = .95
+PROVIDERS = ('gemini', 'jev', 'tts', 'stt', 'other')
+API_COUNTS = ('attempts', 'failed', 'retries', 'discarded_prefetch_attempts', 'outcome_unknown')
+# These values are also consumed by the Dell scheduler; Python weekday 0 is Monday.
+DAILY = tuple(range(7))
+EXTRA_DAYS = (1, 3, 5, 6)
+SLOTS = (
+    ('en-03', 3, DAILY), ('en-05', 5, DAILY), ('en-07', 7, DAILY),
+    ('en-11', 11, EXTRA_DAYS), ('ja-17', 17, DAILY), ('ja-19', 19, DAILY), ('ja-21', 21, DAILY),
+)
+SLOT_IDS = [name for name, _, _ in SLOTS]
+WEEKLY_SHOWS = sum(len(days) for _, _, days in SLOTS)
+
+
+def obj(**fields):
+    return {'type': 'object', 'properties': fields, 'required': list(fields), 'additionalProperties': False}
+
+
+def nullable(item):
+    return {'anyOf': [item, {'type': 'null'}]}
+
+
+def array(item, high, low=0):
+    return {'type': 'array', 'items': item, 'minItems': low, 'maxItems': high}
+
+
+COUNT = {'type': 'integer', 'minimum': 0, 'maximum': 10**12}
+NUMBER = {'type': 'number', 'minimum': 0, 'maximum': 10**12}
+NCOUNT, NNUMBER = nullable(COUNT), nullable(NUMBER)
+BOOL = {'type': 'boolean'}
+STAMP = {'type':'string', 'pattern':r'^\d{4}-\d{2}-\d{2}T\d{2}:\d{2}\+09:00$'}
+API = obj(**dict.fromkeys(API_COUNTS, COUNT))
+PROVIDER_USAGE = obj(**API['properties'], input_tokens=NCOUNT, output_tokens=NCOUNT, characters=NCOUNT,
+                     tokens_reported_calls=COUNT, estimated_usd_known=NNUMBER, unpriced_calls=COUNT)
+TIMING = obj(p50_ms=NNUMBER, p95_ms=NNUMBER, sample_p95_ms=NNUMBER, n=COUNT, missing=COUNT)
+GAP = obj(**TIMING['properties'], idle_excluded=COUNT, first_in_session=COUNT,
+          previous_end_unknown=COUNT, no_program_signal=COUNT)
+CHAT = obj(status={'enum':['complete','partial','unobserved','unknown']}, observed_seconds=NNUMBER,
+           window_seconds=NNUMBER, eligible=BOOL)
+COHORT = obj(first_seen=COUNT, replied=COUNT, spoke_again=COUNT)
+MARKET = obj(complete_samples=COUNT, partial_samples=COUNT, failed_samples=COUNT,
+             expected_samples=COUNT, avg_channels=NNUMBER, avg_viewers=NNUMBER,
+             top5_share_pct=nullable({'type':'number','minimum':0,'maximum':100}),
+             paired_ray_minutes=NNUMBER, overlap_minutes=NNUMBER)
+RUNS = obj(claimed=COUNT, blocked=COUNT, failed=COUNT, stopped_early=COUNT, unresolved=COUNT)
+ACTIVITY = obj(broadcasts=COUNT, live=COUNT, last_seen=COUNT, chat_broadcasts=COUNT, speakers=NCOUNT,
+               comments=NCOUNT, replied=NCOUNT, spoke_again=NCOUNT, cohort=nullable(COHORT), gap=nullable(GAP))
+SLOT = obj(activity=ACTIVITY, runs=RUNS, id={'enum':SLOT_IDS}, language={'enum':['en','ja']}, days={'enum':['daily','tue-thu-sat-sun']},
+           start={'enum':[f'{hour:02d}:00' for _,hour,_ in SLOTS]}, end={'enum':[f'{hour+2:02d}:00' for _,hour,_ in SLOTS]},
+           broadcasts=COUNT, eligible=COUNT, eligible_minutes=NUMBER, speakers=NCOUNT, spoke_again=NCOUNT,
+           unique_viewers=NCOUNT, viewer_summaries=COUNT, cohort=nullable(COHORT), market=MARKET)
+BROADCAST = obj(platform={'enum':['twitch','youtube']}, slot={'enum':[*SLOT_IDS,'off-plan']}, started_jst=STAMP,
+                state={'enum':['live','ended','unknown']}, state_source={'enum':['summary','helix','youtube','studio_stop','unconfirmed']},
+                live_until=NNUMBER, last_confirmed_at=NNUMBER, last_audience_at=NNUMBER, latest_viewers=NCOUNT,
+                minutes=NNUMBER, minutes_source={'enum':['summary','program','last_live',None]}, unique_viewers=NCOUNT, peak_viewers=NCOUNT, average_viewers=NNUMBER,
+                average_source={'enum':['summary','samples',None]},
+                peak_source={'enum':['summary','samples',None]}, viewer_samples=COUNT, chat=CHAT,
+                speakers=NCOUNT, comments=NCOUNT, selected=NCOUNT, replied=NCOUNT, unplayed=NCOUNT, prefetched=NCOUNT,
+                prefetched_ready=NCOUNT, prefetched_discarded=NCOUNT, audio_ready=nullable(TIMING), budget_stopped=NCOUNT, spoke_again=NCOUNT,
+                prefetch={'enum':['serial','prefetch','mixed','unknown']}, gap=nullable(GAP), reply=nullable(TIMING),
+                player=nullable(TIMING), api=nullable(obj(**API['properties'], by_provider=obj(**dict.fromkeys(PROVIDERS, PROVIDER_USAGE)))),
+                cost_usd=NNUMBER, cost_usd_known=NNUMBER, unpriced_calls=NCOUNT, cost_partial=BOOL, cohort=nullable(COHORT), market=nullable(MARKET))
+TOTALS = obj(broadcasts=COUNT, minutes=NNUMBER, viewer_summaries=COUNT, unique_viewers=NCOUNT,
+             speakers=NCOUNT, comments=NCOUNT, replied=NCOUNT, budget_stopped=NCOUNT, spoke_again=NCOUNT,
+             chat_broadcasts=COUNT, api_broadcasts=COUNT, cost_usd=NNUMBER, cost_usd_known=NNUMBER, unpriced_calls=NCOUNT, api=nullable(API),
+             cohort=nullable(COHORT),
+             repeat_viewers=nullable(obj(speakers=COUNT, on_two_or_more_days=COUNT)))
+LEGACY = obj(platform={'enum':['twitch','youtube']}, sessions=COUNT, retained_comments=COUNT, viewer_turns=COUNT, played_flags=COUNT)
+OBSERVED = obj(**TOTALS['properties'], live=COUNT, last_seen=COUNT, unknown=COUNT, gap=nullable(GAP))
+SOURCE_SCHEMA = obj(schema={'const':SCHEMA}, generated_at=NUMBER, pipeline=obj(observations_ready=BOOL),
+                    experiment=obj(weekly_broadcasts={'const':WEEKLY_SHOWS}, weekly_hours={'const':WEEKLY_SHOWS*2},
+                                   next_jst=STAMP, next_slot={'enum':SLOT_IDS}, min_chat_fraction={'const':CHAT_RANK_COVERAGE}),
+                    totals=TOTALS, observed=OBSERVED, legacy=array(LEGACY,2), slots=array(SLOT,len(SLOTS),len(SLOTS)), broadcasts=array(BROADCAST,MAX_BROADCASTS))
+
+
+def validate(value, now):
+    # Validation runs at the publication boundary. The Dell exporter needs only stdlib.
+    from jsonschema import Draft7Validator
+    if not Draft7Validator(SOURCE_SCHEMA).is_valid(value):
+        raise ValueError('SCHEMA')
+    if not now - 120 <= value['generated_at'] <= now + 10:
+        raise ValueError('GENERATED_AT')
+    actual = [(s['id'], s['language'], s['start'], s['end'], s['days']) for s in value['slots']]
+    expected = [(name, name[:2], f'{hour:02d}:00', f'{hour+2:02d}:00',
+                 'daily' if days == DAILY else 'tue-thu-sat-sun') for name, hour, days in SLOTS]
+    if actual != expected:
+        raise ValueError('SLOTS')
+    timings = [value['observed']['gap'], *(slot['activity']['gap'] for slot in value['slots'])]
+    for row in value['broadcasts']:
+        timings.extend(row[k] for k in ('gap','reply','audio_ready','player'))
+    for entry in timings:
+        if entry is None:
+            continue
+        n = entry['n']
+        median, sample, p95 = entry['p50_ms'], entry['sample_p95_ms'], entry['p95_ms']
+        if ((median is None) != (n == 0) or (sample is None) != (n == 0)
+                or (sample is not None and median > sample)
+                or p95 != (sample if n >= P95_MIN_SAMPLES else None)):
+            raise ValueError('TIMING')
+    # jsonschema allows Python's non-JSON NaN as a number.
+    import json
+    try:
+        json.dumps(value, allow_nan=False)
+    except ValueError:
+        raise ValueError('NONFINITE') from None
+    return value

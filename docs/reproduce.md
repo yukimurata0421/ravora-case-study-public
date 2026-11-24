@@ -27,7 +27,7 @@ sanitized synthetic result and refuses to overwrite an existing file.
 
 ```bash
 python3 -m venv .venv
-.venv/bin/python -m pip install '.[console]'
+.venv/bin/python -m pip install '.[console,observations]'
 .venv/bin/ravora-case-study replay
 .venv/bin/ravora-case-study early-reaction
 .venv/bin/ravora-case-study relationships
@@ -52,7 +52,7 @@ alignment test uses a locally synthesized utterance and requires the
 ## Test results
 
 The latest local checkout and installed-wheel results are in the
-[publication validation record](../publication/validation.json).
+[publication validation record](../publication/validation.json). The [broadcast observation replay](studio-observations.md#try-the-pipeline-offline) exercises the exporter, schema and static page with a fictional broadcast.
 
 The preceding November 23 media snapshot (`b1ea343`) has the following recorded results.
 The Python total includes skips. Each listed run finished with zero failures and

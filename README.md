@@ -125,6 +125,7 @@ details from Japanese and English conversations.
 **Design**
 
 - [Problem, architecture, and decisions](docs/case-study.md)
+- [Why Ray prioritizes Twitch for live conversation](docs/engineering-decisions/2026-11-24-interactive-live-platform.md)
 - [Implementation history through November 18: causes, decisions, and outcomes](docs/implementation-history.md)
 
 **Mechanisms**
@@ -140,6 +141,7 @@ details from Japanese and English conversations.
 - [Reproduction and validation](docs/reproduce.md)
 - [Live studio and YouTube broadcast](docs/youtube-live.md)
 - [Twitch studio and EventSub chat](docs/twitch-live.md)
+- [Broadcast observations, Ray gap, public dashboard and scheduled shows](docs/studio-observations.md)
 - [Shared studio operations and Windows launcher](docs/studio-operations.md)
 - [Automatic voice timing and human-reviewed transcription errors](docs/voice-evaluation.md)
 
@@ -162,9 +164,9 @@ environment are excluded from this snapshot.
 
 The portable slice retains the schema, turn fencing, provider boundaries, mock
 streaming, up to one reservation per reaction stage, character and reply-length policies,
-sharing approvals, and retrieval provenance. Its nineteen schema migrations preserve
+sharing approvals, and retrieval provenance. Its twenty-three schema migrations preserve
 earlier reaction attempts and add source-bound contact accounting, dialogue routing,
-and session and chat usage ledgers. The reference API adapters
+session and chat usage ledgers, broadcast timing, coverage and scheduled runs. The reference API adapters
 are available for inspection. The replay commands and console use mock providers
 and ignore dotenv files and inherited API credentials.
 

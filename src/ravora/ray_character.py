@@ -315,6 +315,7 @@ class CharacterRuntime:
         self.opening_available = True
         self.opening = None
         self.floor = None
+        self.input_thread = self.input_floor = None
         self.floor_until = 0.
         self.project = ''
         self.rng = random if rng is None else rng
@@ -349,6 +350,8 @@ class CharacterRuntime:
                          or re.search(r"\b(?:tell me more|go on|keep going)\b|続きを|続けて|もう少し詳しく|もっと詳しく",text,re.I))
                 if viewer != self.thread.owner or not stays or CLOSE_THREAD.search(text):
                     self.thread = None
+            # A pending viewer can start generation before the preceding playback ACK arrives.
+            self.input_thread, self.input_floor = self.thread, self.floor
             lower = text.casefold()
             emotion, intensity, desire, conflict, hint = 'curious', .5, 'learn_more', '', 'thinking'
             if re.search(r'\b(thank|wonderful|great|lovely|praise)\w*\b|かわいい|ありがとう|褒め', lower):
@@ -385,7 +388,9 @@ class CharacterRuntime:
 
     def opening_reference(self, epoch):
         with self.lock:
-            return self.floor if epoch == self.epoch else None
+            if epoch != self.epoch:
+                return None
+            return self.floor if self.played_event == self.event else self.input_floor
 
     def hooks_for(self, event):
         with self.lock:
@@ -430,7 +435,7 @@ class CharacterRuntime:
                 familiar = {'limited_history':'new','recurring_contact':'regular','established_contact':'regular'}.get(relationship.get('contact_history'),'known')
                 if relationship.get('recent_pattern')=='reconnecting_after_a_gap':familiar='returning'
                 if familiar not in ('new','regular','returning','known'): familiar = 'known'
-            topic = topics[0] if topics else (self.thread.topic if self.thread else '')
+            topic = topics[0] if topics else (self.input_thread.topic if self.input_thread else '')
             if not initiative and intent == 'resume_topic' and topic not in goals: topic = goals[0]
             old = self.state
             policy = old.dialogue_policy
@@ -475,34 +480,42 @@ class CharacterRuntime:
                 self.opening_available = False
                 self.floor = None
 
-    def played(self, event, turn, owner, exchange, *, initiative=False):
+    def playout_state(self, event):
         with self.lock:
-            if event != self.event or self.played_event == event:
+            if event == self.event:
+                return (event, self.state, self.opening, self.project, self.input_thread)
+            return None
+
+    def played(self, event, turn, owner, exchange, *, initiative=False, playout_state=None):
+        with self.lock:
+            snapshot = playout_state or self.playout_state(event)
+            if not snapshot or snapshot[0] != event or self.played_event == event:
                 return
+            _, state, opening, project, previous = snapshot
             self.played_event = event
             self.last_activity = self.clock()
-            previous, self.thread = self.thread, None
+            self.thread = None
             self.floor = None
             if initiative:
                 self.followups_played += 1
-                if self.opening:
-                    self.last_project = self.opening.topic
-                    self.floor = ConversationThread(turn,owner,self.opening.topic)
+                if opening:
+                    self.last_project = opening.topic
+                    self.floor = ConversationThread(turn,owner,opening.topic)
                     self.aired_openings.append(self.floor)
-                    self.recent_ideas.append((self.opening.topic,self.opening.angle))
+                    self.recent_ideas.append((opening.topic,opening.angle))
                     self.floor_until = self.clock() + 3 * self.idle_seconds
                 return
             if not exchange:
                 return
             text, speech = exchange
             discussed = topics_in(speech)
-            if self.project in discussed:
-                self.last_project = self.project
+            if project in discussed:
+                self.last_project = project
             if 0 <= self.max_initiatives <= self.initiatives:
                 return
             if (CLOSE_THREAD.search(text) or END_OF_TOPIC.search(text) or END_OF_TOPIC.search(speech) or CLOSE_THREAD.search(speech)
-                    or self.state.dialogue_policy in ('EMPATHY','SHIFT_TO_HOOK')
-                    or self.state.desire == 'correct_the_mistake'):
+                    or state.dialogue_policy in ('EMPATHY','SHIFT_TO_HOOK')
+                    or state.desire == 'correct_the_mistake'):
                 return
             # An unanswered question belongs to the listener. A self-directed
             # "I wonder..." or "なのかな？" can instead leave a line of thought open.
@@ -510,7 +523,7 @@ class CharacterRuntime:
             if asked_listener_in_japanese(speech) and not re.search(
                     r"^I (?:still )?wonder\b|(?:だろう|なのかな|だろうか|かなあ?)$",last_line,re.I):
                 return
-            if not OPEN_THOUGHT.search(speech) and self.project not in discussed:
+            if not OPEN_THOUGHT.search(speech) and project not in discussed:
                 if previous and previous.owner==owner and is_backchannel(text):
                     self.thread = previous
                 return

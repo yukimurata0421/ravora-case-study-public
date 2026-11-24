@@ -1,0 +1,16 @@
+[Unit]
+Description=Ray scheduled Twitch broadcast at %i JST
+After=network-online.target
+
+[Service]
+Type=exec
+WorkingDirectory=%h/ray-studio
+Environment=OPENBLAS_NUM_THREADS=1
+EnvironmentFile=-%h/ray-studio/.env
+UMask=0077
+NoNewPrivileges=true
+ExecStart=%h/ray-studio/.venv/bin/ravora-twitch-schedule run --hour %i
+Restart=no
+RuntimeMaxSec=2h 1min
+TimeoutStopSec=60s
+KillMode=mixed

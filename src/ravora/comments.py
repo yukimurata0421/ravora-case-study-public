@@ -186,15 +186,18 @@ class CommentInbox:
             return bool(db.execute("""SELECT 1 FROM comment_inbox WHERE session=? AND status='queued'
                 AND source!='ray-initiative' AND expires>? LIMIT 1""",(self.session,self.clock())).fetchone())
 
-    def take(self, *, prefer_source=None):
+    def take(self, *, prefer_source=None, viewer_only=False):
         now=self.clock()
         with self.store.connect() as db:
             db.execute('BEGIN IMMEDIATE')
             db.execute("UPDATE comment_inbox SET status='expired',reason='queue_expired' WHERE session=? AND status='queued' AND expires<=?",(self.session,now))
-            row=db.execute("SELECT receipt,source,display_name,text,viewer FROM comment_inbox WHERE session=? AND status='queued' ORDER BY (source=?) DESC,received,rowid LIMIT 1",(self.session,prefer_source)).fetchone()
-            if not row:return None
+            row=db.execute("SELECT receipt,source,display_name,text,viewer,expires FROM comment_inbox WHERE session=? AND status='queued' ORDER BY (source=?) DESC,received,rowid LIMIT 1",(self.session,prefer_source)).fetchone()
+            if not row or (viewer_only and row[1] not in VIEWER_CHAT_SOURCES):return None
             db.execute("UPDATE comment_inbox SET status='claimed' WHERE receipt=?",(row[0],))
-        return dict(zip(('receipt','source','display_name','comment','viewer'),row))
+        comment = dict(zip(('receipt','source','display_name','comment','viewer'),row))
+        if viewer_only:
+            comment['expires'] = row[5]
+        return comment
 
     def display_comments(self, selected):
         # Keep the active comment visible when six newer messages arrive.
@@ -213,13 +216,21 @@ class CommentInbox:
         if not row:raise ValueError('COMMENT_NO_LONGER_AVAILABLE')
         return row
 
-    def bind(self,receipt,turn_id):
+    def bind(self,receipt,turn_id,*,prefetched=False):
         with self.store.connect() as db:
             row=db.execute("UPDATE comment_inbox SET status='processing',turn_id=? WHERE receipt=? AND session=? AND status='claimed' AND expires>?",(turn_id,receipt,self.session,self.clock()))
+            if row.rowcount and prefetched:
+                db.execute('UPDATE studio_inputs SET prefetched=1 WHERE receipt=?', (receipt,))
             return row.rowcount==1
 
+    def playable(self, receipt):
+        with self.store.connect() as db:
+            return bool(db.execute("""SELECT 1 FROM comment_inbox WHERE receipt=? AND session=?
+                AND status IN ('processing','generated') AND expires>?""",
+                (receipt,self.session,self.clock())).fetchone())
+
     def finish(self,receipt,status,reason=None):
-        with self.store.connect() as db:db.execute("UPDATE comment_inbox SET status=?,reason=? WHERE receipt=? AND session=? AND status!='removed'",(status,reason,receipt,self.session))
+        with self.store.connect() as db:db.execute("UPDATE comment_inbox SET status=?,reason=? WHERE receipt=? AND session=? AND status NOT IN ('removed','expired','cancelled','played','failed','held')",(status,reason,receipt,self.session))
 
     def removed_turn(self,turn_id):
         with self.store.connect() as db:return bool(db.execute("SELECT 1 FROM comment_inbox WHERE turn_id=? AND status='removed'",(turn_id,)).fetchone())

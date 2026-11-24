@@ -11,7 +11,7 @@ import numpy as np
 from ravora.comments import Comment, VIEWER_CHAT_SOURCES, clean
 from ravora.developer_http import RequestError
 from ravora.edge_grpc import pcm_wave
-from ravora.live_media import Clip, FPS, RATE, SILENCE, SpeechPrefix, Stage
+from ravora.live_media import Clip, FPS, RATE, SAMPLES, SILENCE, SpeechPrefix, Stage
 from ravora.live_mic import LiveMicrophone
 from ravora.live_reverb import DEFAULT_RAY_REVERB_MIX, RayReverb
 from ravora.live_stt import CloudHostSTT
@@ -58,7 +58,7 @@ class MonitorClip:
 class LiveProgram:
     def __init__(self, pipeline, audio_directory, *, host_language=None, reply_profiles=None,
                  onset_dbfs=None, silence_ms=800, host_trim_db=0.0, host_mic_cleanup=True,
-                 ray_reverb_mix=DEFAULT_RAY_REVERB_MIX, bgm=None):
+                 ray_reverb_mix=DEFAULT_RAY_REVERB_MIX, bgm=None, prefetch=False, initiative_language=None):
         self.pipeline = pipeline
         self.bridge = pipeline.bridge
         self.audio_directory = audio_directory
@@ -69,6 +69,7 @@ class LiveProgram:
         self.cloud_stt = (CloudHostSTT(pipeline.s, pipeline.inbox.store, pipeline.inbox.session)
                           if pipeline.s.mode == 'cloud' and pipeline.s.api_enabled and pipeline.s.stt_api_enabled else None)
         self.reply_profiles = reply_profiles or {}
+        self.initiative_language = initiative_language or 'en'
         self.host_stt_counts = Counter()
         self.ingress = threading.Lock()
         self.stopped = threading.Event()
@@ -91,7 +92,11 @@ class LiveProgram:
         self.stt_final = None
         self.latency = {}
         self.last_latency = None
-        self.ray_signal = False
+        self.observations = None
+        self.prefetch = prefetch
+        self.prefetch_revision = None
+        self.prefetched_comment = None
+        self.frame_signal = self.last_signal = self.last_audible_turn = None
         self.stage = Stage()
         self.chat_status = {'status': {'youtube': 'waiting_for_live', 'twitch': 'connecting',
                                        'developer': 'host_only'}.get(pipeline.s.comment_source, 'fixture')}
@@ -125,6 +130,42 @@ class LiveProgram:
         self.generated = False
         self.reaction = 'neutral'
         self.action = ('neutral', 'none')
+
+    def observe(self, platform, stream_id=None, binding_source=None):
+        from ravora.studio_observations import StudioObservations
+        self.observations = StudioObservations(self.pipeline.inbox, platform, self.prefetch,
+                                               self.pipeline.s.comment_source, stream_id, binding_source,
+                                               sample_rate=RATE, fps=FPS)
+        return self.observations
+
+    def _profile(self, bridge, comment, language):
+        if self.reply_profiles:
+            if comment['source'] in VIEWER_CHAT_SOURCES:
+                language = youtube_reply_language(comment['comment'], language)
+            elif comment['source'] == 'ray-initiative':
+                language = self.initiative_language
+            controller = bridge.controller
+            controller.s, controller.text, controller.speech = self.reply_profiles[language]
+
+    def _prefetch_viewer(self):
+        pipeline = self.pipeline
+        pending = pipeline.prepared
+        if pending:
+            if not pending.discarded:
+                if pipeline.inbox.clock() >= pending.comment['expires']:
+                    pipeline.discard_prepared('queue_expired')
+                elif self._host_interrupt():
+                    pipeline.discard_prepared('host_interrupt')
+                elif not pending.bridge.worker.is_alive() and not any(e['kind']=='complete' for e in pending.bridge.poll(0)['events']):
+                    pipeline.discard_prepared('preparation_failed')
+            pipeline.reap_prepared()
+        elif (self.token and self.generated and self.last_signal and not self.stopped.is_set()
+              and not self.bridge.worker.is_alive() and not self._host_interrupt()):
+            # No SQLite polling at the encoder cadence. Recheck when the viewer queue changes.
+            revision = pipeline.inbox.display_revision
+            if self.prefetch_revision != revision:
+                self.prefetch_revision = revision
+                pipeline.prepare_viewer(lambda bridge, comment: self._profile(bridge, comment, self.conversation_language))
 
     @property
     def host_stt_provider(self):
@@ -235,10 +276,17 @@ class LiveProgram:
         quiet = self._quiet_for_followup()
         if not quiet and self.bridge.controller.character:
             self.bridge.controller.character.note_mic_activity()
-        value = self.pipeline.next(allow_host_input=True, allow_initiative=quiet)
-        if not value['available']:
-            return
-        comment = value['comment']
+        pending = self.pipeline.promote() if self.pipeline.prepared else None
+        if pending:
+            self.bridge = pending.bridge
+            comment = pending.comment
+        else:
+            if self.pipeline.prepared:
+                return
+            value = self.pipeline.next(allow_host_input=True, allow_initiative=quiet)
+            if not value['available']:
+                return
+            comment = value['comment']
         receipt = comment['receipt']
         viewer_comment = comment['source'] in VIEWER_CHAT_SOURCES
         language = self.conversation_language
@@ -248,22 +296,22 @@ class LiveProgram:
             _, language, self.stt_final, self.latency['stt_ms'] = self.host_recognition
             self.latency['stt_final_to_program_signal_ms'] = None
             self.host_recognition = None
-        if self.reply_profiles:
-            # next() admits a turn only after the preceding worker and playout finish.
-            if viewer_comment:
-                language = youtube_reply_language(comment['comment'], language)
-            elif comment['source'] == 'ray-initiative':
-                language = 'en'
-            controller = self.bridge.controller
-            controller.s, controller.text, controller.speech = self.reply_profiles[language]
-        self.turn_started = time.monotonic()
-        try:
-            self.token = self.pipeline.begin(receipt)
-        except ValueError as exc:
-            if str(exc) != 'COMMENT_NO_LONGER_AVAILABLE':
-                raise
-            self.pipeline.inbox.finish(receipt, 'expired')
-            return
+        self.prefetched_comment = comment if pending else None
+        self.prefetch_revision = None
+        if pending:
+            self.turn_started = pending.started
+            self.token = pending.token
+            self.prefix = pending.prefix
+        else:
+            self._profile(self.bridge, comment, language)
+            self.turn_started = time.monotonic()
+            try:
+                self.token = self.pipeline.begin(receipt)
+            except ValueError as exc:
+                if str(exc) != 'COMMENT_NO_LONGER_AVAILABLE':
+                    raise
+                self.pipeline.inbox.finish(receipt, 'expired')
+                return
         self.initiative_waiting = comment['source'] == 'ray-initiative'
         self.last_error = None
         self.selected = receipt if viewer_comment else None
@@ -279,19 +327,47 @@ class LiveProgram:
         self.reaction = 'neutral'
         self.action = ('neutral', 'none')
 
+    def _host_interrupt(self):
+        return (self.ingress.locked() or self.pending_host or self.host_recognition
+                or not self.mic.allows_initiative(during_playback=True))
+
     def _quiet_for_followup(self):
         return not (self.ingress.locked() or self.pending_host) and self.mic.allows_initiative()
 
     def _receive_pcm(self, turn_id, text, packet):
         with self.lock:
-            if (self.stopped.is_set() or not self.token or self.token['turn_id'] != turn_id
-                    or not self.bridge.fence.current(self.token)):
+            if self.stopped.is_set():
                 return
-            if self.prefix is None:
-                self.prefix = SpeechPrefix(text)
-            self.prefix.feed(packet)
+            pending = self.pipeline.prepared
+            if pending and pending.token['turn_id'] == turn_id:
+                if pending.discarded or not pending.bridge.fence.current(pending.token):
+                    return
+                if pending.prefix is None:
+                    pending.prefix = SpeechPrefix(text)
+                prefix = pending.prefix
+            elif self.token and self.token['turn_id'] == turn_id and self.bridge.fence.current(self.token):
+                if self.prefix is None:
+                    self.prefix = SpeechPrefix(text)
+                prefix = self.prefix
+            else:
+                return
+            was_ready = prefix.consumed or len(prefix.pending) >= prefix.window
+            prefix.feed(packet)
+            if self.observations and not was_ready and len(prefix.pending) >= prefix.window:
+                self.observations.ready(turn_id, time.time())
+
+    def _flush_signal(self):
+        if self.observations and self.last_signal:
+            self.observations.end_signal(self.token['turn_id'], *self.last_signal)
+        self.last_signal = None
 
     def _end(self, played=False):
+        self._flush_signal()
+        self.prefetched_comment = None
+        if self.pipeline.prepared:
+            if not played:
+                self.pipeline.discard_prepared('preceding_turn_interrupted')
+            self.next_check = 0
         if not played:
             self.monitor_reset += 1
             self.monitor_history.clear()
@@ -340,10 +416,15 @@ class LiveProgram:
                 character = getattr(self.bridge.controller,'character',None)
                 if character:
                     character.start_opening_window()
+            if self.prefetch:
+                self._prefetch_viewer()
             stage, pcm = self._turn_frame()
             # Measure Ray before mixing the host. Count the frame only after writer.write succeeds.
-            self.ray_signal = (stage.speaker == 'Ray' and self.latency.get('turn_to_program_signal_ms') is None
-                               and bool(np.any(np.abs(np.frombuffer(pcm,'<i2').astype(np.int32)) >= 33)))
+            self.frame_signal = None
+            if stage.speaker == 'Ray':
+                indices = np.flatnonzero(np.abs(np.frombuffer(pcm,'<i2').astype(np.int32)) >= 33)
+                if indices.size:
+                    self.frame_signal = (self.frame*SAMPLES + int(indices[0]), self.frame*SAMPLES + int(indices[-1]) + 1)
             inbox = self.pipeline.inbox
             key = (self.selected, inbox.display_revision)
             if key != self.chat_key:
@@ -428,6 +509,14 @@ class LiveProgram:
             self._begin()
         if self.token is None:
             return Stage(), SILENCE
+        if self.prefetched_comment and self.last_signal is None:
+            comment = self.prefetched_comment
+            reason = ('queue_expired' if self.pipeline.inbox.clock() >= comment['expires'] else
+                      'host_interrupt' if self._host_interrupt() else None)
+            if reason:
+                self.pipeline.cancel(reason)
+                self._end()
+                return Stage(), SILENCE
         if self.initiative_waiting:
             inbox = self.pipeline.inbox
             revision = (inbox.display_revision,self.host_recognition)
@@ -479,6 +568,10 @@ class LiveProgram:
         face, motion = self.action
         expression = face if face != 'neutral' else self.reaction
         if self.clip and not self.clip.done:
+            if self.prefetched_comment and self.last_signal is None and not self.pipeline.inbox.playable(self.prefetched_comment['receipt']):
+                self.pipeline.cancel('unavailable_before_playout')
+                self._end()
+                return Stage(), SILENCE
             if self.initiative_waiting and not self.pipeline.followup_available():
                 self.pipeline.cancel()
                 self._end()
@@ -522,23 +615,38 @@ class LiveProgram:
         with self.lock:
             if self.prefix and self.clip and stage.speaker == 'Ray':
                 self.latency['prefix_frames'] += 1
-            if self.ray_signal and self.token and self.latency.get('turn_to_program_signal_ms') is None:
-                now = time.monotonic()
-                self.latency['turn_to_program_signal_ms'] = round(1000*(now-self.turn_started), 2)
-                if self.stt_final is not None:
-                    self.latency['stt_final_to_program_signal_ms'] = round(1000*(now-self.stt_final), 2)
-            self.ray_signal = False
+            if self.frame_signal and self.token:
+                first, end = self.frame_signal
+                stamp = time.time()
+                if self.last_signal is None:
+                    now = time.monotonic()
+                    self.latency['turn_to_program_signal_ms'] = round(1000*(now-self.turn_started), 2)
+                    if self.stt_final is not None:
+                        self.latency['stt_final_to_program_signal_ms'] = round(1000*(now-self.stt_final), 2)
+                    if self.observations:
+                        self.observations.first_signal(self.token['turn_id'], self.last_audible_turn, first, stamp)
+                    self.last_audible_turn = self.token['turn_id']
+                self.last_signal = end, stamp
+            self.frame_signal = None
             self.stage = stage
             self.frame += 1
+            if self.observations:
+                reader = self.pipeline.reader
+                self.observations.chat_sample(reader is not None and reader.status == 'reading', time.time())
             while self.monitor_history and self.monitor_history[0].end_frame + 4 * FPS <= self.frame:
                 self.monitor_history.popleft()
 
     def close(self):
         self.stopped.set()
         self.handsfree.close()
+        with self.lock:
+            self._flush_signal()
         self.pipeline.close()
         worker = self.bridge.worker
         if worker:
             worker.join(timeout=self.pipeline.s.turn_timeout + self.pipeline.s.timeout + 1)
         self.bridge.controller.program_pcm = None
         self.stt.close()
+        if self.observations:
+            reader = self.pipeline.reader
+            self.observations.close(self.frame, reader.status if reader else self.chat_status['status'])

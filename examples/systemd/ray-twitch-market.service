@@ -1,0 +1,13 @@
+[Unit]
+Description=Sample Ray's Twitch market and competitor during scheduled hours
+After=network-online.target
+
+[Service]
+Type=oneshot
+WorkingDirectory=%h/ray-studio
+EnvironmentFile=-%h/ray-studio/.env
+UMask=0077
+NoNewPrivileges=true
+Nice=10
+ExecStart=%h/ray-studio/.venv/bin/ravora-twitch-schedule sample
+TimeoutStartSec=240s
