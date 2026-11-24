@@ -16,7 +16,7 @@
     "third-party renderer bundles",
     "host-specific installed units and production service controls"
   ],
-  "updated_at_jst": "2026-11-25T00:55:17+09:00",
+  "updated_at_jst": "2026-11-25T01:16:56+09:00",
   "files": [
     {
       "path": ".env.example",
@@ -2104,9 +2104,9 @@
       "path": "tests/test_youtube_stream.py",
       "kind": "adapted",
       "source": "tests/test_youtube_stream.py",
-      "sha256": "c423f8b8fc4e088240171566e312bf5a177cdae5503c0b0b007089d173b06b9a",
+      "sha256": "09820cb27f7d37006e6a74d7753a3c4295f2690087d3f165c02be0ccd12e842b",
       "source_sha256": "9d5fdff655518f9fb1b34248ba6a00ada76ea8cc1f106504fe5f7887717340ba",
-      "note": "Studio runtime or synthetic regression port from the development snapshot."
+      "note": "Managed broadcast lifecycle tests supply a temporary scene and exercise encoded H.265 video and AAC audio."
     }
   ]
 }

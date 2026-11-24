@@ -1,6 +1,6 @@
 {
   "status": "PASS_LOCAL_SCHEDULED_SPEECH_AND_REPLY_COVERAGE",
-  "validated_at_jst": "2026-11-25T01:06:41+09:00",
+  "validated_at_jst": "2026-11-25T01:16:56+09:00",
   "scope": "Per-speaker selection, short spontaneous turns, human input priority, audience sampling and broadcast reply coverage in the portable package.",
   "checks": {
     "checkout_python_tests": {
@@ -58,11 +58,19 @@
       "private_defaults_found": 0,
       "broken_local_links": 0
     },
-    "secret_scan_findings": 0
+    "secret_scan_findings": 0,
+    "managed_launcher_regression": {
+      "installed_wheel_tests": 4,
+      "failures": 0,
+      "errors": 0,
+      "skipped": 0,
+      "scene": "Temporary static PNG via the launcher scene directory."
+    }
   },
   "verification_history": [
     "The initial wheel-suite run outside the checkout could not import two checkout-only test helpers. Running from the checkout root provided those helpers. The package path was verified against the installed wheel.",
-    "An intermediate full run produced an empty retrieval candidate in the existing 40 ms semantic-memory fixture. The same test then passed five isolated runs with its original settings. The final complete suite used the standard unittest discovery command."
+    "An intermediate full run produced an empty retrieval candidate in the existing 40 ms semantic-memory fixture. The same test then passed five isolated runs with its original settings. The final complete suite used the standard unittest discovery command.",
+    "In the first hosted Python 3.13 run, Chromium startup failed in two managed broadcast tests before the encoder checks. All four launcher scenarios subsequently passed locally against the installed wheel with a temporary scene. The tests retain their assertions for stream input, provider lifecycle and encoded video and audio."
   ],
   "included_private_databases_or_recordings": false,
   "new_inference_api_calls": 0,

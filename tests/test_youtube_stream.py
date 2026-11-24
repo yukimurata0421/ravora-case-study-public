@@ -184,7 +184,8 @@ class StreamListTests(unittest.TestCase):
         import io
         import json
         import sys
-        from ravora.live_media import ProgramWriter, av
+        from PIL import Image
+        from ravora.live_media import ProgramWriter, SIZE, av
         from ravora.youtube_broadcast import BROADCAST, Broadcast
         from test_youtube_broadcast import FakeChannel
 
@@ -207,6 +208,9 @@ class StreamListTests(unittest.TestCase):
                        'GOOGLE_TTS_API_KEY=c\nRAVORA_CHARACTER_INITIATIVE_ENABLED=false\n')
         env.chmod(0o600)
         media = self.root/'program.flv'
+        scene_dir = self.root/'scene'
+        scene_dir.mkdir()
+        Image.new('RGB', SIZE).save(scene_dir/'neutral.png')
         (self.root/'config.toml').write_text('[youtube_live]\nvideo_encoder = "hevc_nvenc"\nmade_for_kids = false\n'
             '[youtube_live.metadata]\ntitle = "ライブ｜{date}"\ndescription = "Rayと話そう"\n'
             'tags = ["Ray", "AI VTuber"]\ncategory_id = "24"\n')
@@ -253,7 +257,7 @@ class StreamListTests(unittest.TestCase):
         with (patch.object(launcher, 'ROOT', self.root), patch.object(launcher.signal, 'signal', side_effect=signals.__setitem__),
               patch.object(launcher.ChannelAPI, 'connect', return_value=(api, 'owner')),
               patch.object(sys, 'argv', ['ravora-youtube-live','--config',str(self.root/'config.toml'),'--env',str(env),'--mode','cloud','--auto-broadcast',
-                                         *duration,'--port','0','--operator-url-link',str(console_link)]),
+                                         *duration,'--scene-dir',str(scene_dir),'--port','0','--operator-url-link',str(console_link)]),
               patch('ravora.live_media.ProgramWriter', LocalOutput),
               patch.object(Broadcast, 'wait_live', lambda b, **kwargs: wait(b, interval=.02, **kwargs)),
               patch.object(Broadcast, 'finish', lambda b: finish(b, interval=.02)),
@@ -276,6 +280,7 @@ class StreamListTests(unittest.TestCase):
             return
         result = json.loads(next((self.root/'.runtime').glob('youtube-live-*/summary.json')).read_text())
         self.assertTrue(result['live_confirmed'])
+        self.assertEqual(result['avatar_renderer'], 'custom_scene')
         self.assertEqual(result['video_encoder'], 'libx265')  # The local test writer actually opened this codec.
         self.assertEqual(result['live_chat_id'], 'test-chat')
         self.assertEqual(api.rows[BROADCAST][result['video_id']]['status']['lifeCycleStatus'], 'complete')
