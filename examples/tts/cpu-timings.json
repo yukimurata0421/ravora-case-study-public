@@ -1,0 +1,107 @@
+{
+  "date_jst": "2026-11-27",
+  "cpu": "Intel Xeon E5-2695 v4",
+  "cpu_limit": "Two logical CPUs on separate physical cores, quota of two CPUs. Services ran sequentially in separate network-isolated containers without a GPU device.",
+  "voices": {
+    "kokoro": "Kokoro-82M v1.0 FP32, en-US, ray-kanon-en-v1, CPUExecutionProvider, two intra-op threads, one inter-op thread",
+    "kanon": "AivisSpeech Engine 1.2.0, Kanon 1.0.0 Normal, style 1325133120, CPU mode"
+  },
+  "timing": "Monotonic client time from start of first local request to last byte of complete WAV. Kanon includes audio_query and synthesis. Outputs are 24000 Hz mono PCM16. Models were warmed with a separate phrase. Each request contains one whole passage.",
+  "gpu_reference": "Earlier warm runs on the same host and text. Kokoro used one socket request per text with a 4.25 GiB CUDA arena ceiling. Kanon used five HTTP loopback runs with default speech timing.",
+  "cases": [
+    {
+      "voice": "kokoro",
+      "text": "I can read that as text now.",
+      "characters": 28,
+      "cpu_wav_ms": [
+        1581.28,
+        1681.52,
+        1882.86
+      ],
+      "cpu_audio_frames_24khz": [
+        37376,
+        37376,
+        37376
+      ],
+      "gtx1070_wav_ms": [
+        375
+      ]
+    },
+    {
+      "voice": "kokoro",
+      "text": "I see the word sudo in your chat. What should we play?",
+      "characters": 54,
+      "cpu_wav_ms": [
+        2564.66,
+        2632.5,
+        2779.87
+      ],
+      "cpu_audio_frames_24khz": [
+        68608,
+        68608,
+        68608
+      ],
+      "gtx1070_wav_ms": [
+        424
+      ]
+    },
+    {
+      "voice": "kokoro",
+      "text": "That looks like a command typed into my chat.",
+      "characters": 45,
+      "cpu_wav_ms": [
+        2296.44,
+        2466.91,
+        2360.95
+      ],
+      "cpu_audio_frames_24khz": [
+        57856,
+        57856,
+        57856
+      ],
+      "gtx1070_wav_ms": [
+        346
+      ]
+    },
+    {
+      "voice": "kokoro",
+      "text": "I can see your text on my phone.",
+      "characters": 32,
+      "cpu_wav_ms": [
+        1782.4,
+        1842.9,
+        1831.67
+      ],
+      "cpu_audio_frames_24khz": [
+        43520,
+        43520,
+        43520
+      ],
+      "gtx1070_wav_ms": [
+        327
+      ]
+    },
+    {
+      "voice": "kanon",
+      "text": "今夜も遊びに来てくれてありがとう。あたたかい飲み物を用意して、もう少しだけ一緒にゆっくり話をしよう。",
+      "characters": 50,
+      "cpu_wav_ms": [
+        8395.46,
+        8285.98,
+        7760.76
+      ],
+      "cpu_audio_frames_24khz": [
+        195606,
+        196611,
+        197529
+      ],
+      "gtx1070_wav_ms": [
+        628.1,
+        637.83,
+        635.98,
+        647.75,
+        636.4
+      ]
+    }
+  ]
+}

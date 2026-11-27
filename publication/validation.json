@@ -1,64 +1,20 @@
 {
-  "status": "PASS_PORTABLE_BILINGUAL_TTS_AND_K3S_OBSERVER",
-  "validated_at_jst": "2026-11-27T09:35:08+09:00",
-  "scope": "Twitch voice selection and local GPU worker sources, aggregate program onset measurements, and a separate public-player observer for k3s.",
+  "status": "PASS_ISOLATED_CPU_TTS_MEASUREMENT",
+  "validated_at_jst": "2026-11-27T10:12:32+09:00",
+  "scope": "Warm whole-passage synthesis of four English fixtures and one Japanese fixture on a two-CPU budget. Portable GPU worker ceiling aligned with the measured GTX 1070 configuration.",
   "checks": {
-    "python": "3.14.4",
-    "checkout_python_tests_before_socket_regression": {
-      "run": 542,
-      "failures": 0,
-      "errors": 0,
-      "skipped": 2
-    },
-    "installed_python_tests_final": {
-      "run": 543,
-      "failures": 0,
-      "errors": 0,
-      "skipped": 2
-    },
-    "focused_offline_tests": 13,
-    "browser_module_tests": 14,
-    "package_files_matching_wheel": 145,
-    "installed_twitch_check": {
-      "ja": "aivis",
-      "en": "kokoro",
-      "threshold": 0.8,
-      "stream_key_set": false,
-      "required_google_tts_key": false
-    },
-    "local_voices": "Synthetic PCM over a real Unix socket, voice mismatch rejection, structured routing at and below threshold, local accounting, prefix ordering, failed tail and joined WAV.",
-    "worker_launchers": "Shell syntax and captured Docker arguments for both profiles. Checked socket permissions, resource limits, offline networking and refusal of a missing style asset.",
-    "kubernetes": {
-      "strict_schema": "v1.35",
-      "resources": [
-        "Namespace",
-        "StorageClass",
-        "PersistentVolumeClaim",
-        "Deployment"
-      ]
-    },
-    "observer_synthetic_media": {
-      "ffprobe_video_frames": 10,
-      "ffprobe_audio_frames": 25,
-      "first_segment": "advancing",
-      "repeated_segment": "same_segment"
-    },
-    "public_payload": {
-      "status": "PASS_PUBLIC_PAYLOAD",
-      "files": 294,
-      "hashes_checked": 292,
-      "unexpected_files": 0,
-      "private_defaults_found": 0,
-      "broken_local_links": 0
-    },
-    "secret_scan_findings": 0
+    "cpu_runs": 15,
+    "successful_non_silent_wavs": 15,
+    "pcm_format": "24000 Hz mono PCM16",
+    "compared_gpu_runs": 9,
+    "kokoro_regression_tests": 6
   },
   "included_private_databases_or_recordings": false,
   "new_inference_api_calls": 0,
   "new_live_broadcast": false,
   "limits": [
-    "The public GPU worker images were not built or started on a GPU in this port.",
-    "The Kubernetes manifest was validated offline. No deployment or new viewer-side measurement was performed."
+    "Kokoro GPU reference has one observation per input.",
+    "The isolated trials do not measure program onset, viewer playback or sustained allocator behavior."
   ],
-  "earlier_validation_preserved": "publication/history/2026-11-25-scheduled-speech-validation.json"
+  "earlier_validation_preserved": "publication/history/2026-11-27-bilingual-gpu-validation.json"
 }

@@ -42,7 +42,7 @@ curl --fail --unix-socket "$XDG_RUNTIME_DIR/ray-kokoro/kokoro.sock" http://local
 curl --fail --unix-socket "$XDG_RUNTIME_DIR/ray-aivis/kanon.sock" http://localhost/version
 ```
 
-Kokoro performs a synthesis and checks the ONNX Runtime profile for CUDA compute kernels before opening its socket. Its 3 GiB arena limit applies to the allocator. In a finite GTX 1070 segmentation trial, peak observed process VRAM was 2,390 MiB. In a separate Kanon test, the maximum observed across the reported runs was 1,412 MiB. These peaks came from different observation windows. The launcher sets host RAM limits of 4 GiB for Kokoro and 5 GiB for Kanon.
+Kokoro performs a synthesis and checks the ONNX Runtime profile for CUDA compute kernels before opening its socket. The CUDA allocator has a 4.25 GiB ceiling. Four English replies previously failed at the 3 GiB setting when a convolution requested about 1.08 GiB and the allocator had 109 MiB available. After restarting only the English worker with the higher ceiling, four short synthetic replies returned complete audio. The restart also cleared the allocator, so this check does not establish how it behaves after a long broadcast. In a finite GTX 1070 segmentation trial, peak observed process VRAM was 2,390 MiB. In a separate Kanon test, the maximum observed across the reported runs was 1,412 MiB. These peaks came from different observation windows. The launcher sets host RAM limits of 4 GiB for Kokoro and 5 GiB for Kanon.
 
 Before opening the publisher, the studio requests short readiness phrases from the selected local voices and checks for non-silent audio. It discards the audio locally. A voice that is unavailable during that check is logged as deferred so the broadcast can still open. Run the [studio configuration check](twitch-live.md#select-the-h264-encoder-and-start) to inspect provider choices separately from worker readiness.
 
@@ -80,6 +80,22 @@ An earlier isolated Japanese comparison timed synthetic comment receipt through 
 | Google Chirp, split after validating the reply | 18 | 1.731 s | 2.583 s |
 
 The early-synthesis experiment held the audio until the complete JSON passed validation. It measured a candidate design. The current Japanese studio worker receives a validated utterance.
+
+## CPU synthesis on the broadcast host
+
+With a two-core budget on a Xeon E5-2695 v4, the GTX 1070 returned a complete WAV sooner for all five passages. Each cell gives the warm median for one fixed passage. The GPU reference for each English passage is a single observation.
+
+| Voice | Characters | CPU runs | CPU complete WAV | GPU runs | GTX 1070 complete WAV |
+| --- | ---: | ---: | ---: | ---: | ---: |
+| Kokoro | 28 | 3 | 1.682 s | 1 | 0.375 s |
+| Kokoro | 54 | 3 | 2.632 s | 1 | 0.424 s |
+| Kokoro | 45 | 3 | 2.361 s | 1 | 0.346 s |
+| Kokoro | 32 | 3 | 1.832 s | 1 | 0.327 s |
+| Kanon | 50 | 3 | 8.286 s | 5 | 0.636 s |
+
+The CPU trials ran on November 27, 2026 (JST) inside separate containers with a two-CPU quota, two logical CPUs on different physical cores and no GPU device. Kokoro ran the production English blend with the ONNX Runtime CPU provider. Kanon ran AivisSpeech Engine 1.2.0 in CPU mode. Each worker synthesized a warm-up phrase before timing began. Each timed request produced non-silent audio.
+
+Timing starts before the first local HTTP request and ends when the client receives the entire 24 kHz mono WAV. Kanon includes both the text query and synthesis. CPU clients and the Kokoro GPU client used Unix sockets. The earlier Kanon GPU client used container loopback. CPU and GPU runs occurred at different times. Comment receipt, text generation, mixing and viewer playback are outside this interval. [Synthetic passages and per-run timings](../examples/tts/cpu-timings.json)
 
 ## Public player observer on k3s
 

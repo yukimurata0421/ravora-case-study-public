@@ -58,7 +58,8 @@ are retained unchanged.
 
 | Validated (JST) | Snapshot | Record |
 | --- | --- | --- |
-| 2026-11-27 | Bilingual GPU voice routing, response times and a portable k3s observer. [Guide](../docs/twitch-local-tts.md) | [Current](validation.json) |
+| 2026-11-27 | CPU synthesis for five English and Japanese passages, with matched GPU timings. [Measurements](../docs/twitch-local-tts.md#cpu-synthesis-on-the-broadcast-host) | [Current](validation.json) |
+| 2026-11-27 | Bilingual GPU voice routing, response times and a portable k3s observer. [Guide](../docs/twitch-local-tts.md) | [Record](history/2026-11-27-bilingual-gpu-validation.json) |
 | 2026-11-25 | Short spontaneous turns, priority for incoming speech, independent audience sampling and broadcast reply coverage. [Broadcast observations](../docs/studio-observations.md) | [Record](history/2026-11-25-scheduled-speech-validation.json) |
 | 2026-11-24 | Per-speaker admission, deadline-aware rotation and shared music questions. [Selection policy](../docs/studio-observations.md#selecting-speakers-when-chat-is-busy) | [Record](history/2026-11-24-chat-selection-validation.json) |
 | 2026-11-24 | Broadcast reporting, prepared replies, scheduled shows and a validated static observation page. [Observations](../docs/studio-observations.md) | [Record](history/2026-11-24-broadcast-observations-validation.json) |

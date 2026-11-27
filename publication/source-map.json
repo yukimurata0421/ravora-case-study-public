@@ -16,7 +16,7 @@
     "third-party renderer bundles",
     "host-specific installed units and production service controls"
   ],
-  "updated_at_jst": "2026-11-27T09:34:35+09:00",
+  "updated_at_jst": "2026-11-27T10:12:32+09:00",
   "files": [
     {
       "path": ".env.example",
@@ -249,7 +249,7 @@
       "path": "docs/twitch-local-tts.md",
       "kind": "generated",
       "source": "case-study",
-      "sha256": "7148dbdc1e70fdd4b983406deaeb2df9e9347f0e57ad9f381d1a5b1d53cd4bbb",
+      "sha256": "2db5d238fadc3cd69bbb1c94c33e71c93f2039f54b58fed8a87910d9daf18bdf",
       "note": "Portable setup, evidence or publication record for the bilingual Twitch studio."
     },
     {
@@ -401,6 +401,13 @@
       "note": "Portable setup, evidence or publication record for the bilingual Twitch studio."
     },
     {
+      "path": "examples/tts/cpu-timings.json",
+      "kind": "generated",
+      "source": "case-study",
+      "note": "Synthetic passages and individual warm whole-WAV timings.",
+      "sha256": "899b4918594fb03fa32e4b050badda0bbc36ff13fce55d138dbd579392c91099"
+    },
+    {
       "path": "examples/tts/kokoro-assets.json",
       "kind": "adapted",
       "source": "state/tts/kokoro-82m-v1.0/manifest.json",
@@ -419,7 +426,7 @@
       "path": "publication/README.md",
       "kind": "generated",
       "source": "case-study",
-      "sha256": "350d41554b0138cce3aad7b847cddad5e273763488fb8c7fccaf10215016af1d",
+      "sha256": "ff23f140bd4ab45e91aaff4ec8cd9f15aebf8cc78a27139cec9f120f616c16f6",
       "note": "Portable setup, evidence or publication record for the bilingual Twitch studio."
     },
     {
@@ -580,6 +587,13 @@
       "note": "Portable setup, evidence or publication record for the bilingual Twitch studio."
     },
     {
+      "path": "publication/history/2026-11-27-bilingual-gpu-validation.json",
+      "kind": "generated",
+      "source": "case-study",
+      "note": "Preserved previous publication validation.",
+      "sha256": "965103cf8cd01ac8c140fa02f191ff0e4415fc68fc84ace7f0d2f3c08e1cf951"
+    },
+    {
       "path": "publication/measurement-summary.json",
       "source": "demos/concept02-v13-early-expression/report.json",
       "source_sha256": "f59c0cd41ec8af9f09fd05cb5e4ebb2d1250988c5aa7dadce3c4b5fa05a764bf",
@@ -664,8 +678,8 @@
       "path": "scripts/kokoro_socket.py",
       "kind": "copied",
       "source": "scripts/kokoro_socket.py",
-      "source_sha256": "83b0aad942ee6a66f38c5bc6f66d7a7a7bdc0352de19108261ac38160b0cf58c",
-      "sha256": "83b0aad942ee6a66f38c5bc6f66d7a7a7bdc0352de19108261ac38160b0cf58c",
+      "source_sha256": "0f405c8f2815992a2b93d3c3834f28158c1d046d6e3d51798d1d1bcef508ad68",
+      "sha256": "0f405c8f2815992a2b93d3c3834f28158c1d046d6e3d51798d1d1bcef508ad68",
       "note": "Local GPU voice workers, configuration or per-turn speech routing for the Twitch studio."
     },
     {

@@ -20,7 +20,7 @@ LEGACY_VOICE = 'af_heart'
 KANON_BLEND = 0.425
 TUNING_REVISION = 'us-midpoint-20261127'
 KANON_GAIN = 10 ** (3.5 / 20)
-CUDA_ARENA_LIMIT = 3 * 1024**3
+CUDA_ARENA_LIMIT = 4352 * 1024**2
 SOCKET = Path('/socket/kokoro.sock')
 MODEL = Path('/model')
 
