@@ -163,6 +163,10 @@ class ProviderSettings:
     character_idle_seconds: int = 45
     character_max_initiatives: int = 4
 
+    twitch_ja_tts: str = 'aivis'
+    twitch_en_tts: str = 'kokoro'
+    tts_language_confidence: float = 0.80
+
     def validate(self):
         if (type(self.character_enabled) is not bool or type(self.character_initiative_enabled) is not bool
                 or type(self.character_idle_seconds) is not int or not 30<=self.character_idle_seconds<=1800
@@ -192,6 +196,12 @@ class ProviderSettings:
             raise SettingsError('INVALID_CONVERSATION_CONTEXT')
         if self.voice_profile not in ('fast_streaming','legacy') or self.voice_stt_region not in ('asia-southeast1','asia-northeast1','us','eu') or self.voice_stt_model not in ('chirp_2','chirp_3','long'):
             raise SettingsError('INVALID_VOICE_PROFILE_OR_STT')
+        if self.twitch_en_tts not in ('kokoro', 'google'):
+            raise SettingsError('INVALID_TWITCH_EN_TTS')
+        if self.twitch_ja_tts not in ('aivis', 'google'):
+            raise SettingsError('INVALID_TWITCH_JA_TTS')
+        if type(self.tts_language_confidence) not in (int, float) or not 0 < self.tts_language_confidence <= 1:
+            raise SettingsError('INVALID_TTS_LANGUAGE_CONFIDENCE')
         if self.voice_input_language not in CONVERSATION_LANGUAGES or self.voice_tts_region!='asia-northeast1' or not re.fullmatch(r'(?:en-US|ja-JP)-Chirp3-HD-[A-Za-z]{1,40}',self.voice_tts_voice):
             raise SettingsError('INVALID_STREAMING_VOICE')
         if type(self.voice_input_chunk_ms) is not int or not 20<=self.voice_input_chunk_ms<=200 or type(self.voice_jitter_buffer_ms) is not int or not 20<=self.voice_jitter_buffer_ms<=200:
@@ -247,13 +257,13 @@ class ProviderSettings:
         return VadConfig(self.stt_noise_percentile,self.stt_margin_db,self.stt_floor_db,self.stt_min_speech_ms,
             self.stt_silence_ms,self.stt_pad_ms,self.stt_min_output_ms)
 
-    def missing(self):
-        return [name for name, present in [('GEMINI_API_KEY',self.gemini_key),('JEV_API_KEY',self.jev_key),('GOOGLE_TTS_API_KEY or GOOGLE_CLOUD_ACCESS_TOKEN',self.tts_key or self.gcp_access_token)] if not present]
+    def missing(self, *, google_tts=True):
+        return [name for name, present in [('GEMINI_API_KEY',self.gemini_key),('JEV_API_KEY',self.jev_key),('GOOGLE_TTS_API_KEY or GOOGLE_CLOUD_ACCESS_TOKEN',not google_tts or self.tts_key or self.gcp_access_token)] if not present]
 
-    def require_ready(self):
+    def require_ready(self, *, google_tts=True):
         self.validate()
-        if self.mode == 'cloud' and self.api_enabled and self.missing():
-            raise SettingsError('MISSING_SETTINGS: '+', '.join(self.missing()))
+        if self.mode == 'cloud' and self.api_enabled and self.missing(google_tts=google_tts):
+            raise SettingsError('MISSING_SETTINGS: '+', '.join(self.missing(google_tts=google_tts)))
 
     def public(self):
         names=('mode','api_enabled','comment_source','comment_queue_size','comment_ttl','youtube_read_enabled','youtube_poll_seconds','youtube_max_requests','llm_provider','reaction_provider','tts_provider','gemini_model','jev_model','voice','language','speaking_rate','pitch','timeout','turn_timeout','max_reply_chars','sentence_chars','max_chunks','monthly_tts_chars','memory_turns','memory_enabled','memory_ttl_days','memory_queue_size','memory_wait_seconds','memory_extractor','memory_api_enabled','memory_model','memory_api_timeout','memory_min_confidence','stt_api_enabled','stt_model','stt_language','stt_timeout','stt_max_seconds','stt_monthly_audio_seconds','stt_session_requests','stt_min_rms')
@@ -287,6 +297,7 @@ def load_settings(path: Path, *, mode=None, environ=None, live_studio=False):
         'context_max_chars':('RAVORA_CONTEXT_MAX_CHARS',int),
         'voice_profile':('RAVORA_VOICE_PROFILE',str),'voice_stt_region':('RAVORA_VOICE_STT_REGION',str),
         'voice_stt_model':('RAVORA_VOICE_STT_MODEL',str),'voice_input_language':('RAVORA_VOICE_INPUT_LANGUAGE',str),
+        'twitch_ja_tts':('RAVORA_TWITCH_JA_TTS',str),'twitch_en_tts':('RAVORA_TWITCH_EN_TTS',str),'tts_language_confidence':('RAVORA_TTS_LANGUAGE_CONFIDENCE',float),
         'voice_tts_region':('RAVORA_VOICE_TTS_REGION',str),'voice_tts_voice':('RAVORA_VOICE_TTS_VOICE',str),
         'voice_input_chunk_ms':('RAVORA_VOICE_INPUT_CHUNK_MS',int),'voice_jitter_buffer_ms':('RAVORA_VOICE_JITTER_BUFFER_MS',int),
         'cloud_project':('GOOGLE_CLOUD_PROJECT',str)})

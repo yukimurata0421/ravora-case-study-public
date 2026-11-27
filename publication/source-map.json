@@ -1,7 +1,7 @@
 {
   "schema_version": 1,
   "kind": "allowlisted-case-study-port",
-  "source_state": "Scheduled speech priority, bounded chat selection, independent audience sampling and per-broadcast reply coverage.",
+  "source_state": "Bilingual GPU speech on the broadcast host and independent k3s public player observation.",
   "source_workspace_included": false,
   "controls_validated_structurally": [
     "publication/source-map.json",
@@ -16,14 +16,15 @@
     "third-party renderer bundles",
     "host-specific installed units and production service controls"
   ],
-  "updated_at_jst": "2026-11-25T01:19:24+09:00",
+  "updated_at_jst": "2026-11-27T09:34:35+09:00",
   "files": [
     {
       "path": ".env.example",
-      "kind": "generated",
-      "source": "case-study",
-      "sha256": "4a31d0d4da16025a8e630806e9807f3d889e7d52f12ea075d36ff0c7cafbae0f",
-      "note": "Portable settings examples with send switches off and empty credentials."
+      "kind": "adapted",
+      "source": ".env.example",
+      "source_sha256": "2a38a979ee985a5a9a5184f859274caab7b07c8416fb065f6e20118e9a2a4ff7",
+      "sha256": "d50d1456a16de68272ea27b01dd91a0a8a0d2300532a1c02d955af6964032315",
+      "note": "Portable setup, evidence or publication record for the bilingual Twitch studio."
     },
     {
       "path": ".github/workflows/ci.yml",
@@ -50,8 +51,32 @@
       "path": "README.md",
       "kind": "generated",
       "source": "case-study",
-      "sha256": "7bd28597b63444d87347510586dd9d603a53f5e910885b41fd7bdeb6a3d72a8e",
-      "note": "Studio features, operations and historical evidence index."
+      "sha256": "9181dd2fd60727352ec217691428b9049ab044a6ebcfca3d626a72dc41abadc2",
+      "note": "Portable setup, evidence or publication record for the bilingual Twitch studio."
+    },
+    {
+      "path": "deploy/k3s/ray-monitor/Dockerfile",
+      "kind": "copied",
+      "source": "deploy/k3s/ray-monitor/Dockerfile",
+      "source_sha256": "846fa1c9689ba0ce152d413c8601af711603cce189f4420b8470774d5d06ac7a",
+      "sha256": "846fa1c9689ba0ce152d413c8601af711603cce189f4420b8470774d5d06ac7a",
+      "note": "Portable read-only public Twitch player observer and deployment example."
+    },
+    {
+      "path": "deploy/k3s/ray-monitor/monitor.yaml",
+      "kind": "adapted",
+      "source": "deploy/k3s/ray-monitor/monitor.yaml",
+      "source_sha256": "24cbb0e150c0b93339b417a2cedfd1bc8a197f0cc2cbeb1a97e61ce1953775c5",
+      "sha256": "3ab8a135f849c3258d2fc8e7a391d47374ba49100c431fe3966350b4eab125c9",
+      "note": "Portable read-only public Twitch player observer and deployment example."
+    },
+    {
+      "path": "deploy/k3s/ray-monitor/observer.py",
+      "kind": "adapted",
+      "source": "deploy/k3s/ray-monitor/observer.py",
+      "source_sha256": "f93c1b06cc77513a26f47977a56c7cc1aebde6f3b35093cffc274a3a7bee0576",
+      "sha256": "8107777c325801a8b1040b40e2133c2765376b89e968c7726f40d33e1fc9333c",
+      "note": "Portable read-only public Twitch player observer and deployment example."
     },
     {
       "path": "docs/audio-timing.md",
@@ -193,11 +218,10 @@
     },
     {
       "path": "docs/studio-observations.md",
-      "kind": "adapted",
-      "source": "docs/studio-observations.md",
-      "source_sha256": "05ed7ee84e73fa2541ef86f4e39ab3826108845334a0b3a8a7f3f36da7d11b8d",
-      "sha256": "8516fba3f3ea710b74b3874dbca96fb67d505d09166eb34c070d6cfe647f194b",
-      "note": "Public reproduction and operation of the broadcast report, projection, schedule and site."
+      "kind": "generated",
+      "source": "case-study",
+      "sha256": "4e130788ef80ab88f93e976edea431222aef4f5d827ccc25476d49fc280b4d03",
+      "note": "Portable setup, evidence or publication record for the bilingual Twitch studio."
     },
     {
       "path": "docs/studio-operations.md",
@@ -215,10 +239,18 @@
     },
     {
       "path": "docs/twitch-live.md",
+      "kind": "adapted",
+      "source": "docs/twitch-live.md",
+      "source_sha256": "0ed69b775ed10946df3780edf73a70914b2d55531dc30b3508890d66541b59ef",
+      "sha256": "b8c0cb4d0829ed813c3be58969b8493e69702411b063e743347761447a379e2f",
+      "note": "Portable setup, evidence or publication record for the bilingual Twitch studio."
+    },
+    {
+      "path": "docs/twitch-local-tts.md",
       "kind": "generated",
       "source": "case-study",
-      "sha256": "4ba21cd3dd999b3408558e48eedb3a1ee9dcc6a28da298e02224fcbf8c8660ed",
-      "note": "Companion Twitch studio and continuous-operation documentation."
+      "sha256": "7148dbdc1e70fdd4b983406deaeb2df9e9347f0e57ad9f381d1a5b1d53cd4bbb",
+      "note": "Portable setup, evidence or publication record for the bilingual Twitch studio."
     },
     {
       "path": "docs/voice-evaluation.md",
@@ -291,6 +323,22 @@
       "note": "Portable encoding, audio and event metadata example."
     },
     {
+      "path": "examples/systemd/ray-kanon-tts.service",
+      "kind": "adapted",
+      "source": "deploy/systemd/user/ray-kanon-tts.service",
+      "source_sha256": "14995e1cd2cee645f6211fb87545a4f66bb601c408773d00cd0f5b4e944e3ee9",
+      "sha256": "d9e1ad39f81b82a3d78f9c2db2b9976cd0fafe16f3bf6c48e4df16e811e75826",
+      "note": "Local GPU voice workers, configuration or per-turn speech routing for the Twitch studio."
+    },
+    {
+      "path": "examples/systemd/ray-kokoro-tts.service",
+      "kind": "adapted",
+      "source": "deploy/systemd/user/ray-kokoro-tts.service",
+      "source_sha256": "af932b5979c7b1a89ff64ead7532f2eb7977bd31db935c179b758a4a24e4bda6",
+      "sha256": "e5b269dbdf7aeb6022a9ac8c6a6f9e5c2fa53e9e052f20009ca0ce1c13770f01",
+      "note": "Local GPU voice workers, configuration or per-turn speech routing for the Twitch studio."
+    },
+    {
       "path": "examples/systemd/ray-observation-site.service",
       "kind": "generated",
       "source": "case-study",
@@ -346,6 +394,21 @@
       "note": "Opt-in timer or service example for an operator-owned installation."
     },
     {
+      "path": "examples/tts/Dockerfile",
+      "kind": "generated",
+      "source": "case-study",
+      "sha256": "c58a77acdd88b9cdf8a5b1b62c0d8729e939784f0547f9037387ec8ba5ed1709",
+      "note": "Portable setup, evidence or publication record for the bilingual Twitch studio."
+    },
+    {
+      "path": "examples/tts/kokoro-assets.json",
+      "kind": "adapted",
+      "source": "state/tts/kokoro-82m-v1.0/manifest.json",
+      "source_sha256": "267042468da4578f203006ca1f846276b7a897e898516ab51817f5c1aa8bd338",
+      "sha256": "801f413adbe68fe4acfafb42f403def3c13f917c662806a976393019d4e70438",
+      "note": "Local GPU voice workers, configuration or per-turn speech routing for the Twitch studio."
+    },
+    {
       "path": "examples/voice-evaluation.toml",
       "kind": "generated",
       "source": "case-study",
@@ -356,8 +419,8 @@
       "path": "publication/README.md",
       "kind": "generated",
       "source": "case-study",
-      "sha256": "5faa0e7c11407ad5e546ce79cbbdbeb517df5a8a7e8b6bf9582bae411ab699f9",
-      "note": "Scope and retained validation history of the public studio port."
+      "sha256": "350d41554b0138cce3aad7b847cddad5e273763488fb8c7fccaf10215016af1d",
+      "note": "Portable setup, evidence or publication record for the bilingual Twitch studio."
     },
     {
       "path": "publication/audio-timing-evaluation-20261118.json",
@@ -510,6 +573,13 @@
       "note": "Earlier Twitch-only validation record."
     },
     {
+      "path": "publication/history/2026-11-25-scheduled-speech-validation.json",
+      "kind": "generated",
+      "source": "case-study",
+      "sha256": "c0c399087c9089e7c4fce069b39f33843e12fbd03b2a074da45a3a3c904263e0",
+      "note": "Portable setup, evidence or publication record for the bilingual Twitch studio."
+    },
+    {
       "path": "publication/measurement-summary.json",
       "source": "demos/concept02-v13-early-expression/report.json",
       "source_sha256": "f59c0cd41ec8af9f09fd05cb5e4ebb2d1250988c5aa7dadce3c4b5fa05a764bf",
@@ -537,6 +607,14 @@
       "source": "case-study",
       "sha256": "543d60971832ec6e7c65b13c445c7cd6200da852848671b2a0e93ede567d281b",
       "note": "Portable Windows SSH attach and console launcher."
+    },
+    {
+      "path": "scripts/aivis_socket.py",
+      "kind": "copied",
+      "source": "scripts/aivis_socket.py",
+      "source_sha256": "2f2084d6f45142ef7dbbbf9e42730849d591f2b5bfcbacdec047eff0ba1c629b",
+      "sha256": "2f2084d6f45142ef7dbbbf9e42730849d591f2b5bfcbacdec047eff0ba1c629b",
+      "note": "Local GPU voice workers, configuration or per-turn speech routing for the Twitch studio."
     },
     {
       "path": "scripts/collect_ray_public.py",
@@ -583,6 +661,14 @@
       "note": "Portable renderer or frame preparation code. Artwork is supplied separately."
     },
     {
+      "path": "scripts/kokoro_socket.py",
+      "kind": "copied",
+      "source": "scripts/kokoro_socket.py",
+      "source_sha256": "83b0aad942ee6a66f38c5bc6f66d7a7a7bdc0352de19108261ac38160b0cf58c",
+      "sha256": "83b0aad942ee6a66f38c5bc6f66d7a7a7bdc0352de19108261ac38160b0cf58c",
+      "note": "Local GPU voice workers, configuration or per-turn speech routing for the Twitch studio."
+    },
+    {
       "path": "scripts/measure_face_midline.py",
       "sha256": "9531bcf33164c7a07436a26aa522690402f977fdd966f9de3946727edbcacd85",
       "source": "scripts/measure_face_midline.py",
@@ -625,6 +711,13 @@
       "sha256": "632240575441d0b5b47448792875ed7f0f0a7a46267613ccb2c7a06912efefa8",
       "source_sha256": "2120c6cb74cf2d678b091fe845d8c0548d3584c2b6ebf252df2ad0589d3ce13f",
       "note": "Studio runtime or synthetic regression port from the development snapshot."
+    },
+    {
+      "path": "scripts/run_local_tts.sh",
+      "kind": "generated",
+      "source": "case-study",
+      "sha256": "4c701988fb94a5bad739f9388dcea0f26debb9abb8e65a6a7f7e9c1527a51b1d",
+      "note": "Portable setup, evidence or publication record for the bilingual Twitch studio."
     },
     {
       "path": "scripts/studio_report.py",
@@ -671,6 +764,14 @@
       "note": "Studio runtime or synthetic regression port from the development snapshot."
     },
     {
+      "path": "src/ravora/aivis_voice.py",
+      "kind": "copied",
+      "source": "src/ravora/aivis_voice.py",
+      "source_sha256": "7b7bfe7145cff0457f8b39fa03bcbc846447bc678a0b8eb83163a2d3e8445464",
+      "sha256": "7b7bfe7145cff0457f8b39fa03bcbc846447bc678a0b8eb83163a2d3e8445464",
+      "note": "Local GPU voice workers, configuration or per-turn speech routing for the Twitch studio."
+    },
+    {
       "path": "src/ravora/case_study.py",
       "kind": "generated",
       "source": "case-study",
@@ -711,11 +812,11 @@
     },
     {
       "path": "src/ravora/conversation.py",
-      "kind": "copied",
+      "kind": "adapted",
       "source": "src/ravora/conversation.py",
-      "source_sha256": "76fb504f478298d3bcda5cc8d0e757622e9e177d81de036e3984239d4c31d90d",
-      "sha256": "76fb504f478298d3bcda5cc8d0e757622e9e177d81de036e3984239d4c31d90d",
-      "note": "Public broadcast studio implementation."
+      "source_sha256": "37238ae2ff57236563ad0df8f0ca0109a75dfea67c4e54851f8cda81ba04ba2d",
+      "sha256": "42424970881f497d60882d987de0997e8e01f2782466820d43c36d9292c94b87",
+      "note": "Local GPU voice workers, configuration or per-turn speech routing for the Twitch studio."
     },
     {
       "path": "src/ravora/conversation_context.py",
@@ -822,6 +923,22 @@
       "note": "Adapted to the portable archive without host tooling or original media."
     },
     {
+      "path": "src/ravora/kokoro_profile.py",
+      "kind": "copied",
+      "source": "src/ravora/kokoro_profile.py",
+      "source_sha256": "754d1825bba2f22a1b4e0fd2edc7c04c9c05ad5d7dd567068414048339c73009",
+      "sha256": "754d1825bba2f22a1b4e0fd2edc7c04c9c05ad5d7dd567068414048339c73009",
+      "note": "Local GPU voice workers, configuration or per-turn speech routing for the Twitch studio."
+    },
+    {
+      "path": "src/ravora/kokoro_voice.py",
+      "kind": "copied",
+      "source": "src/ravora/kokoro_voice.py",
+      "source_sha256": "f1bcdb0851a7df6bdf5e8d98dfd08b22700a0ed5453cd0f6873d3cef68242c73",
+      "sha256": "f1bcdb0851a7df6bdf5e8d98dfd08b22700a0ed5453cd0f6873d3cef68242c73",
+      "note": "Local GPU voice workers, configuration or per-turn speech routing for the Twitch studio."
+    },
+    {
       "path": "src/ravora/live_avatar.py",
       "kind": "copied",
       "source": "src/ravora/live_avatar.py",
@@ -897,9 +1014,9 @@
       "path": "src/ravora/live_program.py",
       "kind": "adapted",
       "source": "src/ravora/live_program.py",
-      "source_sha256": "903d59bd5f250bd591775aa9eb42734522edb5d1519b0dfc10519b1cf687fec4",
-      "sha256": "ffe4b54806b628f372e616f1ce5f3bc6268c2f27d708dc5897e58630b2886403",
-      "note": "Sample-clock observation, cancellable single-reply prefetch and the public studio monitor."
+      "source_sha256": "2c79bf19af01467ca5e12c6b860e8d3025ac65f15e50849f91568ccc2ee751fa",
+      "sha256": "dab658a16029153479adb114b4eeb69262496da6e50c0f53f9025b2dbca76986",
+      "note": "Local GPU voice workers, configuration or per-turn speech routing for the Twitch studio."
     },
     {
       "path": "src/ravora/live_reverb.py",
@@ -929,9 +1046,9 @@
       "path": "src/ravora/live_voice.py",
       "kind": "copied",
       "source": "src/ravora/live_voice.py",
-      "sha256": "4464719db68f1fba4696587e289e687a13bf7f8c4d83866b406458705247630c",
-      "source_sha256": "4464719db68f1fba4696587e289e687a13bf7f8c4d83866b406458705247630c",
-      "note": "Studio runtime or synthetic regression port from the development snapshot."
+      "source_sha256": "b53777dbd53178bc1a394f6e7f58f5c56d36c977ba773bd5771870e17fce9447",
+      "sha256": "b53777dbd53178bc1a394f6e7f58f5c56d36c977ba773bd5771870e17fce9447",
+      "note": "Local GPU voice workers, configuration or per-turn speech routing for the Twitch studio."
     },
     {
       "path": "src/ravora/local_stt.py",
@@ -1241,9 +1358,9 @@
       "path": "src/ravora/providers.py",
       "kind": "adapted",
       "source": "src/ravora/providers.py",
-      "source_sha256": "04074c5f1669cbb1f4ddd4f8ed25cbcd219126865b0c548d27ef53d3b987cf36",
-      "sha256": "c46f06340f0cb6b41192e7f8c26376ac93a5672f78843f7a9efb9ebacdc761f4",
-      "note": "Portable provider adapters with turn-specific instructions for short greetings and spontaneous speech."
+      "source_sha256": "2d91efde88f9586746d2d1c98a82c14ea760f501b9228dfaf4d6e51b137e444e",
+      "sha256": "98d695703568f4cf043cbb089097dfe661c7c295146a0b0364734453d2fa5cfa",
+      "note": "Local GPU voice workers, configuration or per-turn speech routing for the Twitch studio."
     },
     {
       "path": "src/ravora/public_output.py",
@@ -1255,11 +1372,11 @@
     },
     {
       "path": "src/ravora/ray_character.py",
-      "kind": "copied",
+      "kind": "adapted",
       "source": "src/ravora/ray_character.py",
-      "source_sha256": "ef9ce19df815160ae2ba7ecb3a80828c6e09b97424bd7b85ae493937e96803f5",
-      "sha256": "ef9ce19df815160ae2ba7ecb3a80828c6e09b97424bd7b85ae493937e96803f5",
-      "note": "Public broadcast studio implementation."
+      "source_sha256": "a42ef9296cbe2d5b0f4bc6b94237f6b898eeeaead67919f6f49f992d11504939",
+      "sha256": "1cffd3f533d9852b66864a48c2b9ad72781ccfde20bb2d5dc5a7f2940c6695b3",
+      "note": "Local GPU voice workers, configuration or per-turn speech routing for the Twitch studio."
     },
     {
       "path": "src/ravora/ray_memory.py",
@@ -1335,9 +1452,9 @@
       "path": "src/ravora/settings.py",
       "kind": "adapted",
       "source": "src/ravora/settings.py",
-      "sha256": "16dc369282fd524aeee1962b06539c47a0140105ffdab65ec1e0be527bb12656",
-      "source_sha256": "9e351bec94d47e9afa4e3842529afa79baf94c9118792fb10afca7f138d3d29c",
-      "note": "Portable studio/profile defaults, local activity thresholds and YouTube quota settings."
+      "source_sha256": "32943f45ced8d7c6027b335cfea6120dba317ad8ebc38a1d46336102cb6850b5",
+      "sha256": "d6ba760eb9f4f8dcdf5e873e8fb17887d8c4fd3d5efe04dcf5f74cfc62e0cfd3",
+      "note": "Local GPU voice workers, configuration or per-turn speech routing for the Twitch studio."
     },
     {
       "path": "src/ravora/speech.py",
@@ -1458,6 +1575,14 @@
       "source_sha256": "d946795d4bcfd45bc6dfc0d929e9e51d2092d29f1f727b8c114fabd6e3ed4f34",
       "sha256": "4b48cb6361cb8475dbbcc19a92d085a5e39f508d41f176a1454c43fbaadf58a5",
       "note": "Public broadcast studio implementation."
+    },
+    {
+      "path": "src/ravora/twitch_voice.py",
+      "kind": "copied",
+      "source": "src/ravora/twitch_voice.py",
+      "source_sha256": "030ae524950fb59359f7f1f0a0f12d742558b3d9b359ddcb1e5b9e11fc65bdf3",
+      "sha256": "030ae524950fb59359f7f1f0a0f12d742558b3d9b359ddcb1e5b9e11fc65bdf3",
+      "note": "Local GPU voice workers, configuration or per-turn speech routing for the Twitch studio."
     },
     {
       "path": "src/ravora/twitch_welcome.py",
@@ -1743,9 +1868,9 @@
       "path": "src/ravora/youtube_live.py",
       "kind": "adapted",
       "source": "scripts/youtube_live.py",
-      "source_sha256": "91daaf1d6116e9a00eddced450dd72035d75c38eca0146feb72ba3d87295dc92",
-      "sha256": "5a2c1ae5815035fb2f3e5597417e26ed38a7ba5a7c58794dc0f5563cc637c1d6",
-      "note": "Recording, identity binding and scheduled slots with the portable studio configuration."
+      "source_sha256": "ec99887a64d77933f7eee29e45199321bb2b5a3fc7860d4d84bd0617cc829591",
+      "sha256": "3b19b4586e0961412b94067766e4a68832a542e38ff81e408e6e4700ad5902c3",
+      "note": "Local GPU voice workers, configuration or per-turn speech routing for the Twitch studio."
     },
     {
       "path": "src/ravora/youtube_proto/__init__.py",
@@ -1999,6 +2124,14 @@
       "note": "Synthetic regression for the broadcast and observation pipeline."
     },
     {
+      "path": "tests/test_ray_twitch_observer.py",
+      "kind": "copied",
+      "source": "tests/test_ray_twitch_observer.py",
+      "source_sha256": "aae2bade209443c87e8859021b845b78377d0f4b26780b40bcc18c628c52008b",
+      "sha256": "aae2bade209443c87e8859021b845b78377d0f4b26780b40bcc18c628c52008b",
+      "note": "Offline regression for the public studio or player observer."
+    },
+    {
       "path": "tests/test_relationships.py",
       "kind": "adapted",
       "source": "tests/test_relationships.py",
@@ -2061,12 +2194,28 @@
       "source_sha256": "8a3c1ddcb46a706ca299c8cab7417c2863eecf35315ec1f12977cd9e87e208d0"
     },
     {
+      "path": "tests/test_twitch_kokoro.py",
+      "kind": "adapted",
+      "source": "tests/test_twitch_kokoro.py",
+      "source_sha256": "9ee6ee9f2666c021ad81deda0767d005e48221339a24fb414dd6fb1dfbd2dea6",
+      "sha256": "95c940775dac03f52ce61c0057235407168989f8cea866df231a74ccec661b06",
+      "note": "Offline regression for the public studio or player observer."
+    },
+    {
       "path": "tests/test_twitch_schedule.py",
       "kind": "adapted",
       "source": "tests/test_twitch_schedule.py",
       "source_sha256": "4a45e2173b50d6fd87af8aaf7eeadd9409cf6f46a0de088f00ba6d76c3aae95d",
       "sha256": "18a9ff94ee8945769a13f99cb781cb9347d8f8406e19737d781dc1af1594579c",
       "note": "Synthetic regression for the broadcast and observation pipeline."
+    },
+    {
+      "path": "tests/test_twitch_voice_routing.py",
+      "kind": "adapted",
+      "source": "tests/test_twitch_voice_routing.py",
+      "source_sha256": "3a3723e2d4258f6ba34c32fb523f6face53bde71182c70e4af83f7334aed68b3",
+      "sha256": "d32a54ec71b882cd5e5a9f57151dcb99d9ea6b0f1b0eda78b6f52a501b3a1a3a",
+      "note": "Offline regression for the public studio or player observer."
     },
     {
       "path": "tests/test_twitch_welcome.py",

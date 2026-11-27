@@ -9,6 +9,8 @@ platform and account.
 
 The [scheduled broadcast and observation guide](studio-observations.md#scheduled-twitch-shows-and-prepared-replies) covers the weekly slots, market sampling, welcome pin and overlapping reply preparation.
 
+See [bilingual GPU speech and the k3s player observer](twitch-local-tts.md) for voice setup, fallback settings and observed reply times.
+
 ## Configure the channel
 
 Install the studio and prepare the private working directory as described in

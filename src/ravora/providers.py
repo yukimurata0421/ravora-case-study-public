@@ -16,7 +16,7 @@ from ravora.speech import LocalSpeech
 from ravora.context_prompt import CONTEXT_RULES,context_text
 from ravora.relationships import RELATIONSHIP_RULES,relationship_text
 from ravora.persona import DEVELOPER_SPEAKER, conversation_prompt, listener_instruction, name_question_instruction, reply_style_context
-from ravora.ray_character import CHALLENGE_OUTLOOK, PUBLIC_OUTPUT_SCHEMA, public_prompt
+from ravora.ray_character import CHALLENGE_OUTLOOK, LANGUAGE_OUTPUT_SCHEMA, PUBLIC_OUTPUT_SCHEMA, public_prompt
 
 
 class ProviderError(RuntimeError):
@@ -158,13 +158,13 @@ class GeminiText:
 
     def set_relationship(self,background):self.relationship=background
 
-    def stream(self,comment,history,*,developer_speaker=False,before_send=None,live_host=False,japanese_turn='',brief_opening=False,greet_room=False):
+    def stream(self,comment,history,*,developer_speaker=False,before_send=None,live_host=False,japanese_turn='',brief_opening=False,greet_room=False,language_route=None):
         prompt=self.prompt+listener_instruction(self.retrieval_strategy,self.listener_reaction)
         if developer_speaker:prompt+=DEVELOPER_SPEAKER
         if live_host:
             prompt += '\nThe person speaking now is your on-air co-host. Address them directly. Your reply is audible to the audience.'
         if self.character_plan is not None:
-            prompt=public_prompt(prompt,self.character_plan)
+            prompt=public_prompt(prompt,self.character_plan,language_route=language_route)
         style,reports=reply_style_context(comment,history,self.memories,developer_speaker=developer_speaker,language=self.s.language)
         prompt+=name_question_instruction(comment,history)+style+japanese_turn
         if brief_opening:
@@ -184,7 +184,7 @@ class GeminiText:
         parts.append({'text':comment});contents.append({'role':'user','parts':parts})
         payload={'systemInstruction':{'parts':[{'text':prompt}]},'contents':contents,'generationConfig':{'maxOutputTokens':400,'temperature':.7}}
         if self.character_plan is not None:
-            payload['generationConfig'].update(responseMimeType='application/json',responseJsonSchema=PUBLIC_OUTPUT_SCHEMA)
+            payload['generationConfig'].update(responseMimeType='application/json',responseJsonSchema=LANGUAGE_OUTPUT_SCHEMA if language_route else PUBLIC_OUTPUT_SCHEMA)
         url=f'https://generativelanguage.googleapis.com/v1beta/models/{self.s.gemini_model}:streamGenerateContent?alt=sse'
         ended=False;size=0
         if before_send is not None:
@@ -286,6 +286,10 @@ class JevReaction:
 
 
 class WaveNetSpeech:
+    @property
+    def voice(self):
+        return self.s.voice
+
     def __init__(self,settings,transport=None):self.s=settings;self.http=transport or Transport(settings.timeout,enabled=settings.api_enabled)
 
     def headers(self):

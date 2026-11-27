@@ -48,6 +48,7 @@ def run(args, *, scheduled=None):
     from ravora.live_metrics import StudioMetrics
     s = load_settings(args.env, mode=args.mode, live_studio=True)
     twitch = args.publish_twitch
+    google_speech = not twitch or 'google' in (s.twitch_en_tts, s.twitch_ja_tts)
     publishing = args.publish or args.auto_broadcast or twitch
     destination = ('twitch' if twitch else 'youtube') if publishing else None
     host_input_only = args.host_only or twitch
@@ -106,7 +107,7 @@ def run(args, *, scheduled=None):
     if args.check:
         if twitch and stream_key:
             twitch_publish_target(base, stream_key)
-        report = {'conversation_api_enabled': s.api_enabled, 'missing_conversation_keys': s.missing(),
+        report = {'conversation_api_enabled': s.api_enabled, 'missing_conversation_keys': s.missing(google_tts=google_speech),
                   'stream_key_set': bool(stream_key), 'video_encoder': video_encoder, 'host_trim_db': host_trim_db,
                   'host_mic_cleanup': host_mic_cleanup, 'ray_reverb_mix': ray_reverb_mix,
                   'character_initiative_enabled': s.character_enabled and s.character_initiative_enabled and s.character_max_initiatives != 0,
@@ -115,6 +116,8 @@ def run(args, *, scheduled=None):
                   'bgm_missing_tracks': [track.stem for track in playlist if not track.is_file()]}
         if twitch:
             from ravora.twitch_chat import cli_config_path
+            report.update(twitch_ja_tts=s.twitch_ja_tts, twitch_en_tts=s.twitch_en_tts,
+                          tts_language_confidence=s.tts_language_confidence)
             report.update(publish_destination=destination, chat_input='twitch' if twitch_chat else 'host_only',
                           scheduled_audience_required=scheduled_idle is not None, interrupt_initiatives=bool(scheduled),
                           twitch_chat_cli_config_exists=cli_config_path().is_file())
@@ -132,7 +135,7 @@ def run(args, *, scheduled=None):
     if args.mode == 'cloud':
         if not s.api_enabled:
             raise SettingsError('RAVORA_API_ENABLED_REQUIRED')
-        s.require_ready()
+        s.require_ready(google_tts=google_speech)
         if not host_input_only and not s.youtube_read_enabled:
             raise SettingsError('YOUTUBE_READ_ENABLED_REQUIRED')
         if not host_input_only and not managed and not (s.youtube_key and configured_target):
@@ -203,9 +206,12 @@ def run(args, *, scheduled=None):
         if s.mode == 'cloud':
             from ravora.live_voice import live_reply_profiles
             from ravora.providers import JevReaction
-            if s.voice_profile == 'fast_streaming' and not s.tts_key:
+            if google_speech and s.voice_profile == 'fast_streaming' and not s.tts_key:
                 raise SettingsError('GOOGLE_TTS_API_KEY_REQUIRED_FOR_CHIRP')
-            profiles = live_reply_profiles(s)
+            profiles = live_reply_profiles(s, twitch=twitch)
+            if twitch:
+                from ravora.twitch_voice import warm_twitch_voices
+                warm_twitch_voices(profiles, allow_unavailable=True)
             s, text, speech = profiles[default_locale[:2] if language == 'auto' else language]
             providers = text, JevReaction(s), speech
         bridge = ConversationBridge(s, store, audio, TurnFence(), threading.RLock(), providers=providers)
@@ -220,6 +226,7 @@ def run(args, *, scheduled=None):
                               onset_dbfs=onset, silence_ms=silence, host_trim_db=host_trim_db,
                               host_mic_cleanup=host_mic_cleanup, ray_reverb_mix=ray_reverb_mix, bgm=bgm, prefetch=args.prefetch,
                               initiative_language=scheduled.language if scheduled else None, interrupt_initiatives=bool(scheduled))
+        program.voice_env_file = args.env
         stack.callback(program.close)
         print('Host STT:', program.host_stt_provider, flush=True)
         if program.cloud_stt and language != 'auto':

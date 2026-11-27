@@ -21,6 +21,7 @@ extracted source files with hashes. Generated case-study files are also listed.
 - aggregate historical observations with explicit measurement limits;
 - sanitized operations records for the YouTube and Twitch studio runs;
 - a count-only public observation schema, static page and fictional broadcast fixture;
+- bilingual GPU speech workers, language routing, program-onset measurements and a k3s public-player observer;
 - portable, opt-in per-slot, market and publication timers, user-service and launcher examples.
 
 The working tree keeps three media files: the
@@ -57,7 +58,8 @@ are retained unchanged.
 
 | Validated (JST) | Snapshot | Record |
 | --- | --- | --- |
-| 2026-11-25 | Short spontaneous turns, priority for incoming speech, independent audience sampling and broadcast reply coverage. [Broadcast observations](../docs/studio-observations.md) | [Current](validation.json) |
+| 2026-11-27 | Bilingual GPU voice routing, response times and a portable k3s observer. [Guide](../docs/twitch-local-tts.md) | [Current](validation.json) |
+| 2026-11-25 | Short spontaneous turns, priority for incoming speech, independent audience sampling and broadcast reply coverage. [Broadcast observations](../docs/studio-observations.md) | [Record](history/2026-11-25-scheduled-speech-validation.json) |
 | 2026-11-24 | Per-speaker admission, deadline-aware rotation and shared music questions. [Selection policy](../docs/studio-observations.md#selecting-speakers-when-chat-is-busy) | [Record](history/2026-11-24-chat-selection-validation.json) |
 | 2026-11-24 | Broadcast reporting, prepared replies, scheduled shows and a validated static observation page. [Observations](../docs/studio-observations.md) | [Record](history/2026-11-24-broadcast-observations-validation.json) |
 | 2026-11-24 | Progressive studio PCM, program audio and subtitle controls, transport and API graphs, conversational initiative and recall, YouTube same-event recovery and chat admission. [Studio operations](../docs/studio-operations.md) | [Record](history/2026-11-24-studio-operations-validation.json) |

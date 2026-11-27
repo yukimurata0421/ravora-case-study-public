@@ -141,6 +141,7 @@ details from Japanese and English conversations.
 
 - [Reproduction and validation](docs/reproduce.md)
 - [Live studio and YouTube broadcast](docs/youtube-live.md)
+- [Bilingual GPU speech, measured reply times and the k3s player observer](docs/twitch-local-tts.md)
 - [Twitch studio and EventSub chat](docs/twitch-live.md)
 - [Broadcast observations, Ray gap, public dashboard and scheduled shows](docs/studio-observations.md)
 - [Shared studio operations and Windows launcher](docs/studio-operations.md)

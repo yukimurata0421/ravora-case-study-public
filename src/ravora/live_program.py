@@ -21,6 +21,7 @@ from ravora.local_stt import LocalSTT
 from ravora.providers import ProviderError
 from ravora.ray_character import EXPRESSIONS, MOTIONS
 from ravora.stt import AudioPacket
+from ravora.twitch_voice import profile_live_turn, refresh_english_voice
 
 
 _CHAT_DECORATIONS = re.compile(r'https?://\S+|www\.\S+|(?<!\w)@[\w.-]+|:[\w+-]+:', re.IGNORECASE)
@@ -150,17 +151,7 @@ class LiveProgram:
             self.observations.speech_policy(self.frame,self.speech_policy.version)
         return self.observations
 
-    def _profile(self, bridge, comment, language):
-        if self.reply_profiles:
-            if comment['source'] in VIEWER_CHAT_SOURCES:
-                language = youtube_reply_language(comment['comment'], language)
-            elif comment['source'] == 'ray-initiative':
-                language = self.initiative_language
-            controller = bridge.controller
-            controller.s, text, controller.speech = self.reply_profiles[language]
-            # Gemini stores per-turn prompt context and usage; a fenced worker may still be unwinding.
-            from copy import copy
-            controller.text = copy(text)
+    _profile = profile_live_turn
 
     def _prefetch_viewer(self, *, sentence_end=False):
         pipeline = self.pipeline
@@ -375,6 +366,7 @@ class LiveProgram:
         from ravora import speech_priority
         with self.lock:
             replacement = importlib.reload(speech_priority).SpeechPriority()
+            refresh_english_voice(self)
             if self.observations and replacement.version != self.speech_policy.version:
                 self.observations.speech_policy(self.frame,replacement.version)
             self.speech_policy = replacement

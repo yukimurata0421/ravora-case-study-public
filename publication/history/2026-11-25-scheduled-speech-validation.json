@@ -1,0 +1,88 @@
+{
+  "status": "PASS_LOCAL_SCHEDULED_SPEECH_AND_REPLY_COVERAGE",
+  "validated_at_jst": "2026-11-25T01:19:24+09:00",
+  "scope": "Per-speaker selection, short spontaneous turns, human input priority, audience sampling and broadcast reply coverage in the portable package.",
+  "checks": {
+    "checkout_python_tests": {
+      "tests": 530,
+      "failures": 0,
+      "errors": 0,
+      "skipped": 2
+    },
+    "installed_python_tests": {
+      "tests": 530,
+      "failures": 0,
+      "errors": 0,
+      "skipped": 2
+    },
+    "python": "3.14.4",
+    "optional_tests_skipped": [
+      "Speech billing metadata requires the optional gRPC voice dependencies.",
+      "Phone alignment requires the optional alignment dependency."
+    ],
+    "browser_module_tests": {
+      "tests": 14,
+      "failures": 0,
+      "node": "24.19.0"
+    },
+    "checkout_replays_match_examples": 4,
+    "installed_replays_match_examples": 4,
+    "wheel_contents": {
+      "packaged_source_files": 141,
+      "migrations": 25,
+      "source_bytes_match": true
+    },
+    "migration_compatibility": {
+      "read_only_source_versions": [
+        23,
+        24
+      ],
+      "upgraded_version": 25,
+      "integrity_and_foreign_keys_checked": true,
+      "idempotent_reopen": true,
+      "historical_speech_policy": "unrecorded"
+    },
+    "fictional_broadcast": {
+      "schema": "ravora.ray_public_observation.v5",
+      "state": "ended",
+      "speech_policy": "short-turn-v1",
+      "eligible_comments": 4,
+      "reply_starts_within_five_seconds": 3,
+      "budget_held": 1
+    },
+    "public_payload": {
+      "status": "PASS_PUBLIC_PAYLOAD",
+      "files": 275,
+      "hashes_checked": 273,
+      "unexpected_files": 0,
+      "private_defaults_found": 0,
+      "broken_local_links": 0
+    },
+    "secret_scan_findings": 0,
+    "managed_launcher_regression": {
+      "installed_wheel_tests": 4,
+      "failures": 0,
+      "errors": 0,
+      "skipped": 0,
+      "scene": "Temporary static PNG via the launcher scene directory."
+    },
+    "semantic_memory_regression": {
+      "installed_wheel_tests": 34,
+      "failures": 0,
+      "errors": 0,
+      "skipped": 0,
+      "default_deadline_ms": 350,
+      "late_result_test_deadline_ms": 40
+    }
+  },
+  "verification_history": [
+    "The initial wheel-suite run outside the checkout could not import two checkout-only test helpers. Running from the checkout root provided those helpers. The package path was verified against the installed wheel.",
+    "An intermediate full run produced an empty retrieval candidate in the existing 40 ms semantic-memory fixture. The same test then passed five isolated runs with its original settings. The final complete suite used the standard unittest discovery command.",
+    "In the first hosted Python 3.13 run, Chromium startup failed in two managed broadcast tests before the encoder checks. All four launcher scenarios subsequently passed locally against the installed wheel with a temporary scene. The tests retain their assertions for stream input, provider lifecycle and encoded video and audio.",
+    "The short deadline also expired in a later checkout run of the test that expects an on-time retrieval. The semantic voice fixture now uses the normal 350 ms setting, and the gated late-result test still uses 40 ms. All 34 semantic memory tests passed locally against the installed wheel after this change."
+  ],
+  "included_private_databases_or_recordings": false,
+  "new_inference_api_calls": 0,
+  "new_live_broadcast": false,
+  "earlier_validation_preserved": "publication/history/2026-11-24-chat-selection-validation.json"
+}

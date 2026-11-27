@@ -361,6 +361,7 @@ class SpeechController:
         self.text,self.reaction,self.speech=providers or adapters(settings)
         self.program_pcm = None
         self.initiative_audio_limit = None
+        self.language_voices = None
         self.memory_worker=MemoryWorker(store,settings,extractor=memory_extractor)
         self.character=CharacterRuntime(idle_seconds=settings.character_idle_seconds,max_initiatives=settings.character_max_initiatives) if settings.character_enabled else None
 
@@ -375,6 +376,10 @@ class SpeechController:
                     return {}
                 character_epoch = self.character.begin(turn_id,comment,initiative=initiative,viewer=viewer,opening=followup)
         metrics={'mode':self.s.mode,'first_text_ms':None,'first_sentence_ms':None,'first_audio_ready_ms':None,'reaction_ms':None,'chunks':0,'characters':0,'provider_requests':0}
+        speech = self.speech
+        voices = self.language_voices if self.character and isinstance(self.text, GeminiText) and not initiative else None
+        fallback = self.s.language[:2]
+        threshold = self.s.tts_language_confidence
         reply=[];sentences=queue.Queue(maxsize=2);producer_error=[];worker_stop=threading.Event();aux=[];metrics_lock=threading.Lock()
         def current():return not cancel.is_set() and not worker_stop.is_set() and self.clock()<deadline
         def publish(kind,**data):
@@ -476,19 +481,22 @@ class SpeechController:
             return metrics
 
         def prepared(provider,operation,summary):
-            key=self.store.prepare_call(turn_id,provider,operation,summary,model=models[provider],mode=self.s.mode)
+            local = provider == 'tts' and getattr(speech, 'local', False)
+            model = getattr(speech, 'voice', models['tts']) if provider == 'tts' else models[provider]
+            key=self.store.prepare_call(turn_id,provider,operation,summary,model=model,mode='local' if local else self.s.mode)
             publish('call_prepared',call_id=key,provider=provider,operation=operation)
             return key
         def dispatch(key,provider):
             if not current():self.store.call_state(key,'cancelled_before_send');return False
             if provider=='gemini':prepare_context(key)
-            remote=self.s.mode=='cloud'
+            local = provider == 'tts' and getattr(speech, 'local', False)
+            remote = self.s.mode == 'cloud' and not local
             if provider=='gemini' and remote and self.s.monthly_reply_llm_usd:
                 return True  # GeminiText supplies the assembled payload size immediately before send.
-            self.store.call_state(key,'dispatched' if remote else 'simulated',attempted=remote)
+            self.store.call_state(key,'dispatched' if remote or local else 'simulated',attempted=remote or local)
             if remote:
                 with metrics_lock:metrics['provider_requests']+=1
-            publish('call_dispatched' if remote else 'call_simulated',call_id=key,provider=provider)
+            publish('call_dispatched' if remote or local else 'call_simulated',call_id=key,provider=provider)
             return True
         def received(key,provider):
             self.store.call_state(key,'response_received');publish('call_response_received',call_id=key,provider=provider)
@@ -499,7 +507,7 @@ class SpeechController:
             code=str(exc) if isinstance(exc,ProviderError) else 'PROVIDER_STAGE_FAILED'
             uncertain='CONNECTION_FAILED' in code or 'DEADLINE' in code or 'STREAM_INTERRUPTED' in code
             state='outcome_unknown' if uncertain else 'failed'
-            adapter={'gemini':self.text,'jev':self.reaction,'tts':self.speech}[provider]
+            adapter={'gemini':self.text,'jev':self.reaction,'tts':speech}[provider]
             self.store.call_usage(key,getattr(adapter,'usage',{}))
             self.store.call_state(key,state,code=code);publish('call_failed',call_id=key,provider=provider,code=code,state=state)
             return code
@@ -532,10 +540,12 @@ class SpeechController:
                         with metrics_lock:metrics['provider_requests']+=1
                         publish('call_dispatched',call_id=key,provider='gemini')
                     speaker['before_send']=before_send
+                if voices:
+                    speaker['language_route'] = (fallback, threshold)
                 plan=generation_decision.get('character_plan')
-                decoder=PublicDecoder(structured=bool(getattr(self.text.stream,'ray_public_output',False)),buffer=buffer,plan=plan,limit=self.s.max_reply_chars) if self.character else None
+                decoder=PublicDecoder(structured=bool(getattr(self.text.stream,'ray_public_output',False)),buffer=buffer,plan=plan,limit=self.s.max_reply_chars,language_routing=bool(voices)) if self.character else None
                 def enqueue(sentence):
-                    nonlocal characters
+                    nonlocal characters, speech
                     if metrics['first_sentence_ms'] is None:
                         metrics['first_sentence_ms']=round((self.clock()-start)*1000,2)
                     if not isinstance(sentence,PublicOutput):
@@ -544,6 +554,15 @@ class SpeechController:
                     characters+=len(sentence.speech)
                     if characters>self.s.max_reply_chars:raise ProviderError('REPLY_CHARACTER_LIMIT')
                     metrics.setdefault('public_output_ready_ms',round((self.clock()-start)*1000,2))
+                    if voices:
+                        detected, confidence = decoder.language_result
+                        use_model = detected in voices and confidence >= threshold
+                        language = detected if use_model else fallback
+                        speech = voices[language]
+                        metrics['tts_route'] = {'input_language': detected, 'confidence': confidence,
+                                                'threshold': threshold, 'fallback_language': fallback,
+                                                'language': language, 'voice': speech.voice,
+                                                'decision': 'model' if use_model else 'fallback'}
                     pieces = [sentence.speech]
                     if initiative and self.program_pcm and decoder.structured:
                         # The complete structured response has passed validation. Each media
@@ -637,12 +656,13 @@ class SpeechController:
                 publish('sentence',index=index,text=sentence)
                 key=prepared('tts','synthesize',{'characters':len(sentence),'chunk':index});reservation=None
                 try:
-                    if self.s.mode=='cloud':reservation=self.store.reserve(len(sentence),self.s.monthly_tts_chars)
+                    if self.s.mode=='cloud' and not getattr(speech, 'local', False):
+                        reservation=self.store.reserve(len(sentence),self.s.monthly_tts_chars)
                     if not dispatch(key,'tts'):break
                     tts_start=self.clock()
                     options = {}
                     sink = self.program_pcm
-                    if not brief and self.character and sink and getattr(self.speech, 'streams_program_pcm', False) and index == 0:
+                    if not brief and self.character and sink and getattr(speech, 'streams_program_pcm', False) and index == 0:
                         def on_pcm(packet):
                             if not current():
                                 raise ProviderError('TURN_CANCELLED')
@@ -650,7 +670,7 @@ class SpeechController:
                                 metrics['first_pcm_ms'] = round((self.clock()-start)*1000,2)
                             sink(turn_id, sentence, packet)
                         options['on_pcm'] = on_pcm
-                    timing=self.speech.create(sentence,path,**options);received(key,'tts')
+                    timing=speech.create(sentence,path,**options);received(key,'tts')
                     duration=timing.get('duration',0)
                     if not isinstance(duration,(int,float)) or not 0<duration<=60 or not path.is_file() or path.stat().st_size>12*1024*1024:raise ProviderError('INVALID_TTS_RESULT')
                     if reservation:self.store.usage_complete(reservation)

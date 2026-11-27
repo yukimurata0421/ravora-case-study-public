@@ -1,0 +1,19 @@
+[Unit]
+Description=Ray local Japanese voice (AivisSpeech Kanon on CUDA)
+StartLimitIntervalSec=300
+StartLimitBurst=3
+
+[Service]
+Type=simple
+UMask=0077
+RuntimeDirectory=ray-aivis
+RuntimeDirectoryMode=0700
+EnvironmentFile=-%h/ray-studio/tts.env
+ExecStart=%h/ray-studio/scripts/run_local_tts.sh kanon
+ExecStop=/usr/bin/docker stop --time 10 ray-kanon-tts
+TimeoutStopSec=20
+Restart=on-failure
+RestartSec=10
+
+[Install]
+WantedBy=default.target

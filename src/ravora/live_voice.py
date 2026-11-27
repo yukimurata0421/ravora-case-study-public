@@ -10,7 +10,7 @@ from ravora.providers import GeminiText, ProviderError, WaveNetSpeech
 from ravora.settings import default_wavenet_voice, streaming_voice
 
 
-def live_reply_profiles(settings):
+def live_reply_profiles(settings, *, twitch=False):
     profiles = {}
     fast = settings.voice_profile == 'fast_streaming'
     for code, locale in (('ja', 'ja-JP'), ('en', 'en-US')):
@@ -18,6 +18,12 @@ def live_reply_profiles(settings):
         if (fast and settings.language != locale) or settings.language[:2] != code:
             localized = replace(settings, language=locale, voice=default_wavenet_voice(locale)).validate()
         speech = LiveChirpSpeech(localized) if fast else WaveNetSpeech(localized)
+        if twitch and code == 'ja' and settings.twitch_ja_tts == 'aivis':
+            from ravora.aivis_voice import KanonSpeech
+            speech = KanonSpeech(localized)
+        if twitch and code == 'en' and settings.twitch_en_tts == 'kokoro':
+            from ravora.kokoro_voice import KokoroSpeech
+            speech = KokoroSpeech(localized)
         profiles[code] = localized, GeminiText(localized), speech
     return profiles
 

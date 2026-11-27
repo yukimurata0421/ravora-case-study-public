@@ -5,6 +5,8 @@ observations and API attempts in its local SQLite database. The report groups st
 sessions by the provider's broadcast ID. A separate exporter selects counts and timings
 for the public site. [Live example](https://yukimurata0421.dev/ray/)
 
+The [Twitch voice measurements and public player observer](twitch-local-tts.md) describe the two measurement endpoints.
+
 ## Try the pipeline offline
 
 From the checkout with a virtual environment active, run the following commands on Linux.
