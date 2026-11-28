@@ -203,13 +203,39 @@ class Overlay:
     def _chat(self, stage):
         layer = Image.new('RGBA',(562,601))
         y = 0
+        if stage.prompt_title:
+            title = stage.prompt_title
+            ja = stage.language.startswith('ja')
+            banner = Image.new('RGBA', (561, 64))
+            bd = ImageDraw.Draw(banner)
+            bd.rounded_rectangle((0, 0, 559, 63), radius=14,
+                                 fill=(30, 24, 20, 224), outline=(244, 183, 106, 110), width=1)
+            bw = badge(bd, 12, 16, 'お題' if ja else 'TOPIC', AMBER, '#1A120C', 12)
+            tfont = typeface(title, 16, True)
+            bd.text((22 + bw, 20), ellipsize(title, tfont, 520 - bw), font=tfont, fill=CREAM, anchor='lt')
+            layer.alpha_composite(banner, (0, y))
+            y += 74
         count = len(stage.chat)
-        for i, comment in enumerate(stage.chat):
+        # Reserve room for the reply target, then the newest messages. Paint in chat order.
+        gap = 12
+        remaining = layer.height - y
+        cards = {}
+        priority = sorted(range(count), key=lambda i: (i == stage.selected, i), reverse=True)
+        for i in priority:
+            text = stage.chat[i].text
+            face = typeface(text, 19)
+            max_lines = 2 if count < 5 or i in (stage.selected, count - 1) else 1
+            body = lines(text, face, 468, limit=max_lines)
+            height = 54 + 25 * len(body)
+            if height <= remaining:
+                cards[i] = face, body, height
+                remaining -= height + gap
+
+        for i in sorted(cards):
+            comment = stage.chat[i]
+            f, body, height = cards[i]
             picked = i==stage.selected
             avatar, name_color = author_colors(comment.name)
-            f = typeface(comment.text,19)
-            body = lines(comment.text,f,468,limit=1 if count==6 else 2)
-            height = 54 + 25*len(body)
             card = Image.new('RGBA',(561,height))
             draw = ImageDraw.Draw(card)
             draw.rounded_rectangle((0,0,559,height-1),radius=16,
@@ -229,7 +255,7 @@ class Overlay:
             if opacity<1:
                 card.putalpha(card.getchannel('A').point(lambda v:round(v*opacity)))
             layer.alpha_composite(card,(0,y))
-            y += height+12
+            y += height + gap
         return layer
 
     def _subtitles(self, stage):
@@ -310,7 +336,7 @@ class Overlay:
         return panel
 
     def compose(self, stage, portrait=None):
-        chat_key=(stage.expression,stage.chat,stage.selected,stage.replying)
+        chat_key=(stage.expression,stage.chat,stage.selected,stage.replying,stage.prompt_title,stage.language)
         if chat_key!=self._chat_key:
             self._base=self.backgrounds.get(stage.expression,self.backgrounds['neutral']).copy()
             self._header(ImageDraw.Draw(self._base))

@@ -18,6 +18,17 @@ EXPLORATION_START = int(datetime(2026, 11, 26, 1, tzinfo=JST).timestamp())
 EXPLORATION_END = EXPLORATION_START + 14*86400
 ARMS = {name: hour for name, hour, _ in SLOTS}
 
+TOPIC_TITLES = (
+    ('Add 1 magic key to your keyboard?', 'キーボードに1個だけ謎キーを足すなら？'),
+    ('Late snack: sweet or savory?', '夜食は甘い派？しょっぱい派？'),
+    ('One real-life Undo button — when do you press it?', '現実世界に「1回だけやり直しボタン」があったら？'),
+    ('Upgrade one everyday object?', '日常の道具に1つだけ新機能を足すなら？'),
+    ('Invent a comeback rule for losing players', '負けてる側だけ使える必殺ルールを考えよう'),
+    ('Best cozy background sound?', 'いちばん落ち着く環境音はどれ？'),
+    ('Name a brand-new constellation!', '新しい星座を勝手に名付けるなら？'),
+    ('One small thing you tried recently?', '最近ちょっとハマってること・試したこと'),
+)
+
 
 @dataclass(frozen=True)
 class Slot:
@@ -27,6 +38,13 @@ class Slot:
     @property
     def language(self):
         return self.arm[:2]
+
+    @property
+    def prompt_title(self):
+        start = datetime.fromtimestamp(self.start, JST)
+        index = (start.toordinal() * 12 + start.hour // 2) % len(TOPIC_TITLES)
+        english, japanese = TOPIC_TITLES[index]
+        return japanese if self.language == 'ja' else english
 
     @property
     def end(self):

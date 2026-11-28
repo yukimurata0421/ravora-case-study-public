@@ -49,6 +49,33 @@ the corresponding message. If both connections are down, messages during that
 interval may be lost. The operator status identifies which route is reading.
 [Twitch receiver](../src/ravora/twitch_chat.py) · [IRC tests](../tests/test_twitch_irc.py)
 
+## What viewers see in chat
+
+Scheduled Twitch slots rotate the topic banner every two hours using the slot's
+start time and language. When a new comment arrives while Ray is speaking, the
+reply target keeps its blue `REPLYING` badge and the new comment appears below
+it. Both fit beneath the banner even when six comments are available. The
+compositor gives these two cards up to two lines each, then fits recent history
+in the remaining space and draws the cards in arrival order. The encoded program
+and the browser preview share this layout.
+
+During the November 28, 2026 live check, the broadcaster sent two labeled
+comments. The Twitch viewer feed showed both beneath the topic while Ray
+answered the first, then showed the reply badge move to the second.
+A 100-second recording spanning the update and both replies decoded continuously
+through 3,000 video frames and 4,687 audio frames. The six-card case is covered
+by the offline test below.
+
+To reproduce the layout, install the media dependencies and fonts in the
+[studio installation guide](youtube-live.md#start-a-local-recording), then run
+these tests from the repository root.
+
+```bash
+PYTHONPATH=tests python -m unittest \
+  test_youtube_live.LiveTests.test_busy_chat_draws_reply_target_and_latest_below_topic \
+  test_youtube_live.LiveTests.test_slot_topic_reaches_the_rendered_program_frame
+```
+
 ## Select the H.264 encoder and start
 
 The default Twitch encoder is `libx264`. Add this section to your local

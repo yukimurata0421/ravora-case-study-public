@@ -72,4 +72,4 @@ delivery to the viewer and playback on their device were outside the trial.
 
 The public replay uses fictional questions and contains no broadcast recordings.
 It reproduces text selection. The GPU measurements above come from the earlier
-isolated studio run. [Public package validation](../publication/validation.json) · [Other speech measurements](twitch-local-tts.md)
+isolated studio run. [Public package validation](../publication/history/2026-11-28-character-interview-validation.json) · [Other speech measurements](twitch-local-tts.md)

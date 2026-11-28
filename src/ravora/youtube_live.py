@@ -231,7 +231,8 @@ def run(args, *, scheduled=None):
         program = LiveProgram(pipeline, audio, host_language=language, reply_profiles=profiles,
                               onset_dbfs=onset, silence_ms=silence, host_trim_db=host_trim_db,
                               host_mic_cleanup=host_mic_cleanup, ray_reverb_mix=ray_reverb_mix, bgm=bgm, prefetch=args.prefetch,
-                              initiative_language=scheduled.language if scheduled else None, interrupt_initiatives=bool(scheduled))
+                              initiative_language=scheduled.language if scheduled else None, interrupt_initiatives=bool(scheduled),
+                              prompt_title=scheduled.prompt_title if twitch and scheduled else '')
         program.voice_env_file = args.env
         stack.callback(program.close)
         from ravora.studio_operator import configure

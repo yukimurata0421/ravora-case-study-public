@@ -1094,6 +1094,73 @@ class LiveTests(unittest.TestCase):
                 inbox._remove(db,'youtube','stream','0')
             self.assertNotIn(messages[0].receipt,[r[0] for r in inbox.display_comments(messages[0].receipt)])
 
+    def test_busy_chat_draws_reply_target_and_latest_below_topic(self):
+        from itertools import groupby
+        from ravora.live_overlay import ChatLine, Overlay
+
+        overlay = Overlay()
+        chat = tuple(ChatLine('Ray fan', text) for text in (
+            '本棚を整理するときは、好きな色で並べたい？それとも新しく買った順番で並べたい？',
+            'One', 'Two', 'Three', 'Four',
+            'Would you spend a quiet afternoon building a model or painting a picture?',
+        ))
+
+        def tiles(stage):
+            layer = overlay._chat(stage)
+            # The middle column crosses every card, including its top and bottom edges.
+            groups = groupby(range(layer.height), lambda y: bool(layer.getpixel((280, y))[3]))
+            result = []
+            for visible, rows in groups:
+                if visible:
+                    ys = list(rows)
+                    result.append(layer.crop((0, ys[0], layer.width, ys[-1] + 1)).tobytes())
+            return result
+
+        for title in ('今日のお題', ''):
+            for selected in (0, 3, 5, -1):
+                with self.subTest(title=title, selected=selected):
+                    stage = Stage(chat=chat, selected=selected, replying=True, prompt_title=title)
+                    actual = tiles(stage)
+                    newest = tiles(replace(stage, chat=chat[-1:], selected=0 if selected == 5 else -1))
+                    self.assertTrue(actual[-1] == newest[-1], 'latest card is missing or clipped')
+                    if title:
+                        self.assertTrue(actual[0] == newest[0], 'topic banner missing')
+                    if selected >= 0:
+                        active = tiles(replace(stage, chat=(chat[selected],), selected=0))[-1]
+                        self.assertTrue(active in actual, 'reply card or REPLYING badge missing')
+                        if selected < 5:
+                            self.assertLess(actual.index(active), len(actual)-1)
+
+    def test_slot_topic_reaches_the_rendered_program_frame(self):
+        from datetime import datetime
+        from ravora.live_overlay import Overlay
+        from ravora.twitch_schedule import JST, Slot
+
+        start = int(datetime(2026, 11, 28, 23, tzinfo=JST).timestamp())
+        slot = Slot(start, 'ja-23')
+        self.assertEqual(slot.prompt_title, '日常の道具に1つだけ新機能を足すなら？')
+        morning = int(datetime(2026, 11, 28, 7, tzinfo=JST).timestamp())
+        self.assertEqual(Slot(morning, 'en-07').prompt_title, 'Upgrade one everyday object?')
+        with tempfile.TemporaryDirectory() as directory:
+            root = Path(directory)
+            settings = replace(ProviderSettings(), character_initiative_enabled=False)
+            store = MemoryStore(root/'studio.db')
+            bridge = ConversationBridge(settings, store, root, TurnFence(), threading.RLock(),
+                                        providers=(Text(), Reaction(), Speech()))
+            program = LiveProgram(InputPipeline(settings, store, bridge, []), root,
+                                  initiative_language=slot.language, prompt_title=slot.prompt_title)
+            try:
+                stage, _ = program.next_frame()
+                self.assertEqual((stage.prompt_title, stage.language), (slot.prompt_title, 'ja'))
+                overlay = Overlay()
+                def banner(view):
+                    return overlay.compose(view).crop((64, 181, 625, 245)).tobytes()
+                japanese_frame = banner(stage)
+                self.assertNotEqual(banner(replace(stage, language='en')), japanese_frame)
+                self.assertNotEqual(banner(replace(stage, prompt_title='')), japanese_frame)
+            finally:
+                program.close()
+
     def test_adaptive_pages_and_word_emphasis_follow_pcm_positions(self):
         clip = Clip('Ray', 'early late', microphone_wav(), word_starts=[.1, .3])
         active = []

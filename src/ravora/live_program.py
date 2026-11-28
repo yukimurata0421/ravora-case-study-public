@@ -60,7 +60,7 @@ class LiveProgram:
     def __init__(self, pipeline, audio_directory, *, host_language=None, reply_profiles=None,
                  onset_dbfs=None, silence_ms=800, host_trim_db=0.0, host_mic_cleanup=True,
                  ray_reverb_mix=DEFAULT_RAY_REVERB_MIX, bgm=None, prefetch=False, initiative_language=None,
-                 interrupt_initiatives=False):
+                 interrupt_initiatives=False, prompt_title=''):
         self.pipeline = pipeline
         self.bridge = pipeline.bridge
         self.audio_directory = audio_directory
@@ -72,6 +72,7 @@ class LiveProgram:
                           if pipeline.s.mode == 'cloud' and pipeline.s.api_enabled and pipeline.s.stt_api_enabled else None)
         self.reply_profiles = reply_profiles or {}
         self.initiative_language = initiative_language or 'en'
+        self.prompt_title = prompt_title
         self.slot_draining = False
         self.drain_host = False
         self.interrupt_initiatives = interrupt_initiatives
@@ -529,6 +530,7 @@ class LiveProgram:
             elif not stage.speaker and not self.token and previous:
                 caption_font = self.previous_font
             return replace(stage, chat=self.chat, selected=selected, previous=previous, caption_font=caption_font,
+                           prompt_title=self.prompt_title, language=self.initiative_language,
                            host_caption=self.host_caption, replying=bool(self.last_spoken),
                            thinking=bool(self.token and not stage.speaker and not self.last_spoken)), mixed
 

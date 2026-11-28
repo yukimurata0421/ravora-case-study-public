@@ -1,7 +1,7 @@
 {
   "schema_version": 1,
   "kind": "allowlisted-case-study-port",
-  "source_state": "Bilingual character interviews and viewer dialogue, durable chat intake, local speech retries and program-audio measurements.",
+  "source_state": "Bilingual character interviews, viewer dialogue, local speech and scheduled Twitch chat layout.",
   "source_workspace_included": false,
   "controls_validated_structurally": [
     "publication/source-map.json",
@@ -16,7 +16,7 @@
     "third-party renderer bundles",
     "host-specific installed units and production service controls"
   ],
-  "updated_at_jst": "2026-11-28T20:59:30+09:00",
+  "updated_at_jst": "2026-11-28T23:35:22+09:00",
   "files": [
     {
       "path": ".env.example",
@@ -95,7 +95,7 @@
       "path": "docs/character-interview.md",
       "kind": "generated",
       "source": "case-study",
-      "sha256": "8d52bc76df950706b5e4275b62b858f2d6a64186fc82ca4c0d276454a664f463",
+      "sha256": "49218c1bbb87427e889db18b47aaa7f46dd70245a7816bef0453d430b4c45ab9",
       "note": "Public guide, historical validation, synthetic example or portable schedule."
     },
     {
@@ -250,7 +250,7 @@
       "kind": "adapted",
       "source": "docs/twitch-live.md",
       "source_sha256": "b85315deeb71e1045b7e6a61bf299337356393e9f7ffb69a058afe8652f4bc3f",
-      "sha256": "4103a3231f1e0e61dee9237e29cde086c5bac3225178fad6f2844b9b7bcd9f22",
+      "sha256": "caaa48408438b225ed2693172015ab1aa9234f06c8ae1fca5039f5a859e3d072",
       "note": "Public guide, historical validation, synthetic example or portable schedule."
     },
     {
@@ -441,7 +441,7 @@
       "path": "publication/README.md",
       "kind": "generated",
       "source": "case-study",
-      "sha256": "84ee702a8c74619814b1b266035dd398f94d2964c219bab866bf2e9db8ddd328",
+      "sha256": "7f74bc3e122a80ee056f5046d0e163bba006107361f8e9091895f335de3e7be6",
       "note": "Public guide, historical validation, synthetic example or portable schedule."
     },
     {
@@ -614,6 +614,13 @@
       "source": "case-study",
       "sha256": "c58c0baaf058f9631755cb068ab2b822f439368fdc2b27e51d56ec1a43d752a7",
       "note": "Public guide, historical validation, synthetic example or portable schedule."
+    },
+    {
+      "path": "publication/history/2026-11-28-character-interview-validation.json",
+      "kind": "generated",
+      "source": "case-study",
+      "sha256": "30af12ac5ca3e9e70efcc7dced95c9e7dff966d08b6b2313f38635c258974a43",
+      "note": "Previous public validation record, preserved unchanged."
     },
     {
       "path": "publication/measurement-summary.json",
@@ -1034,9 +1041,9 @@
       "path": "src/ravora/live_media.py",
       "kind": "adapted",
       "source": "src/ravora/live_media.py",
-      "source_sha256": "4e26a3ca643816c806c15ba7e72019eb476322dc93c2d25802f6ae0d2d842474",
-      "sha256": "81a836fddad82477dca106f9da0ed5464a69bbdfc89442f19d2047421bf96cae",
-      "note": "Portable conversation studio, playback, observation or configuration."
+      "source_sha256": "da5f3b5b9309ca4ab4a015e9d73368385bbf5153097ce61a8e475445f0cb69a0",
+      "sha256": "6bc5ce207f93478a00ec2b6133631f6f94f1ff7c7276e915ceed6e69ff8e8027",
+      "note": "Add optional topic text to the shared stage."
     },
     {
       "path": "src/ravora/live_metrics.py",
@@ -1058,17 +1065,17 @@
       "path": "src/ravora/live_overlay.py",
       "kind": "adapted",
       "source": "src/ravora/live_overlay.py",
-      "sha256": "1d76132cd20b50e2355d6d0f8c8b9ff5f1b139834f4e8992df29e3a7d235e737",
-      "source_sha256": "39be17727a53632684fe8e2cff898f74e033752530abc95be80a533415f4cdf1",
-      "note": "Width-aware caption placement with the public font and caller-supplied artwork path."
+      "sha256": "ce14db0c5d73b1a11c7c5d65c83a71995a111ec2a9920591ef40e03b9730300b",
+      "source_sha256": "ab826c6267dd1789593352af553c5a92b9d0831c2af7462f55405e5d8535fca3",
+      "note": "Height-aware chat cards and scheduled topic banner, rendered with the public fonts."
     },
     {
       "path": "src/ravora/live_program.py",
-      "kind": "copied",
+      "kind": "adapted",
       "source": "src/ravora/live_program.py",
-      "source_sha256": "fe8e59e23504206326d24dedc7d24627c9eac7c973a5533911db7143278584c4",
-      "sha256": "fe8e59e23504206326d24dedc7d24627c9eac7c973a5533911db7143278584c4",
-      "note": "Portable conversation studio, playback, observation or configuration."
+      "source_sha256": "9191c4a6c1c36bc9787ae34d9da2a8580e542baeda8c5518387f0fb1c7c72055",
+      "sha256": "add1c11e979e1b2a7030114d951cfa57be8fd2472d1f483f60a917887a54442a",
+      "note": "Carry the slot title and language to the program frame."
     },
     {
       "path": "src/ravora/live_reverb.py",
@@ -1758,11 +1765,17 @@
     },
     {
       "path": "src/ravora/twitch_schedule.py",
-      "kind": "copied",
+      "kind": "adapted",
       "source": "src/ravora/twitch_schedule.py",
       "source_sha256": "2fab4872631b397fb862b3891f20c0ddfd53f9c72811b0378c253bc8cea83604",
-      "sha256": "2fab4872631b397fb862b3891f20c0ddfd53f9c72811b0378c253bc8cea83604",
-      "note": "Portable conversation studio, playback, observation or configuration."
+      "sha256": "01b4b8805d7b25994d28a7ea42f6f024d50d27ce61e05990e492a65dd7f11414",
+      "note": "Select the English or Japanese display title by the two-hour slot in Japan.",
+      "additional_sources": [
+        {
+          "source": "src/ravora/what_if_board.py",
+          "source_sha256": "fe93668cc224c9b26f3d5894f5001ddd5fb309a4c6728325da9dcb9b79d7b48d"
+        }
+      ]
     },
     {
       "path": "src/ravora/twitch_schedule_api.py",
@@ -2096,9 +2109,9 @@
       "path": "src/ravora/youtube_live.py",
       "kind": "adapted",
       "source": "scripts/youtube_live.py",
-      "source_sha256": "ff05e303046f537cec26117e8491203a9fa444c234dd7224e5cab8d74c11f850",
-      "sha256": "73a73747c7d501d3a37165fd150715b49fb2d8d072b2f95a240a34844969ec22",
-      "note": "Portable conversation studio, playback, observation or configuration."
+      "source_sha256": "5f0dcb83bd3093b980653b536f49159a7cbafd05faa0c9ee2992c4107cac4950",
+      "sha256": "7a8e832ea9da186b9d4120bb1171d8a898400bb78752f4facdbba2aa9388fe3d",
+      "note": "Supply the topic when starting a scheduled Twitch program."
     },
     {
       "path": "src/ravora/youtube_proto/__init__.py",
@@ -2569,9 +2582,9 @@
       "path": "tests/test_youtube_live.py",
       "kind": "adapted",
       "source": "tests/test_youtube_live.py",
-      "source_sha256": "e594b5445deeb68f44008dc3d6a7b36a2e3def910369ec847e67578ccf45e21c",
-      "sha256": "17d43d7b3d39b08b8b6b6a747df4262dcca2659034ea2fe691f4bbf17c033eb9",
-      "note": "Offline studio regression using synthetic inputs."
+      "source_sha256": "92c5918b294541a3e18a35ea9f1e3e85faf42b001a64000be3bd9db6ed5a6f77",
+      "sha256": "e0f8959bf96750e12a2d6905280ec0c8b01d23439256143a6c93f04622b9ce72",
+      "note": "Exercise the banner and reply selection with synthetic comments and the portable renderer."
     },
     {
       "path": "tests/test_youtube_stream.py",

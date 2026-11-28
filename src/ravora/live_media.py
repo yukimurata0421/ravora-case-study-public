@@ -84,6 +84,8 @@ class Stage:
     mouth: str = 'closed'
     host_caption: str = ''
     caption_font: tuple[int, bool] = (38, False)  # pixel size and CJK face used to wrap this page
+    prompt_title: str = ''
+    language: str = 'en'
 
 
 def caption_pages(text):
