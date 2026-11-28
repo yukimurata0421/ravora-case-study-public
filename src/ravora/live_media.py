@@ -232,6 +232,7 @@ class ProgramWriter:
         self.bgm = None
         self.frames = 0
         self.encoded_bytes = 0
+        self.twitch = twitch
         self.transport = None
         self.closed = False
         # In live mode this local container owns only the encoder headers. Encoded
@@ -288,7 +289,10 @@ class ProgramWriter:
         if self.transport is not None or self.closed:
             raise RuntimeError('PROGRAM_PUBLISH_ALREADY_STARTED_OR_CLOSED')
         streams = (self.video, self.audio)
-        self.transport = PublishFIFO(lambda: rtmps_output(target, streams))
+        from ravora.twitch_ack import TwitchPeer
+        self.transport = PublishFIFO(lambda: rtmps_output(target, streams),
+                                     recovery_seconds=75 if self.twitch else None,
+                                     peer=TwitchPeer(target) if self.twitch else None)
         self.mux = self.transport.put
 
     def write(self, stage, pcm):

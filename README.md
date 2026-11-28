@@ -33,6 +33,19 @@ This take has a known defect: at the first reply onset the browser recorded an
 [Later jaw revision and same-audio comparison](docs/audio-timing.md#current-mouth-and-jaw) ·
 [Earlier recordings and their measurements](docs/recording-history.md)
 
+## Ask Ray why she streams
+
+Ray says she streams to meet people who see ordinary things differently. Ask for
+an example and she imagines someone hearing an umbrella as an instrument. Ask
+again and she suggests tapping its handle in time with the rain. The example
+stays hypothetical across turns.
+
+Run `python3 scripts/demo.py character-interview` to follow that exchange and a
+second one about losing a guessing game. The replay uses the same English and
+Japanese character selector as the studio. A separate GPU trial measured when the
+Japanese voice first reached program audio and checked the entire reply waveform.
+[Interview design, sample answers and timing results](docs/character-interview.md)
+
 ## What this demonstrates, and how to check it
 
 | Claim | Evidence | Check it yourself |
@@ -57,6 +70,7 @@ latency guarantees.
 python3 scripts/demo.py replay
 python3 scripts/demo.py early-reaction
 python3 scripts/demo.py relationships
+python3 scripts/demo.py character-interview
 python3 scripts/demo.py media-timing
 ```
 
@@ -69,6 +83,7 @@ and generated audio on exit. All sample conversations are fictional.
 | `replay` | PCM reaches the output sink before text generation finishes. Acknowledged replies become retrievable, in the order developer dialogue, comment exchanges, prior answers. A public reply receives only a reviewed developer summary, and revoking it removes the summary. Cancellation rejects late audio and the playback acknowledgement. | Acknowledgements are simulated, so it cannot prove that a person heard audio or that an animation stayed synchronized. | [replay](examples/replay-report.json) |
 | `early-reaction` | Low-stability hypotheses pass through the real controller. A provisional reaction arrives while input is open, generation receives only the final transcript, and each reaction stage uses its own durable reservation. | No API requests and no real transcription latency. | [early reaction](examples/early-reaction-report.json) |
 | `relationships` | Fictional new, regular and returning contacts. Daily caps, receipt and playback idempotency, unplayed replies, owner/scope separation. | No reply is generated, so it makes no claim about conversation quality. | [relationships](examples/relationship-report.json) |
+| `character-interview` | Two synthetic interviews use acknowledged exchanges to select successive reasons and examples. | Text only, with simulated acknowledgements. | [Interview](examples/character-interview.json) |
 | `media-timing` | A fictional phone sequence and PCM sample positions produce mouth cues and video timestamps. A missing frame checks that later frames keep their original audio clock. | No avatar is drawn. | [media timing](examples/media-timing-report.json) |
 
 [Full reproduction, installed-package tests and test results](docs/reproduce.md)
@@ -166,7 +181,7 @@ environment are excluded from this snapshot.
 
 The portable slice retains the schema, turn fencing, provider boundaries, mock
 streaming, up to one reservation per reaction stage, character and reply-length policies,
-sharing approvals, and retrieval provenance. Its twenty-five schema migrations preserve
+sharing approvals, and retrieval provenance. Its thirty-two schema migrations preserve
 earlier reaction attempts and add source-bound contact accounting, dialogue routing,
 session and chat usage ledgers, broadcast timing, coverage and scheduled runs. The reference API adapters
 are available for inspection. The replay commands and console use mock providers

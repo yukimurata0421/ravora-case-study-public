@@ -8,9 +8,10 @@ import uuid
 
 from ravora.conversation import MemoryStore
 from ravora.developer_identity import viewer_key
+from ravora.relationships import VIEWER_PLATFORMS
 
 
-from ravora import chat_selection
+from ravora import chat_selection, viewer_recognition
 from ravora.chat_selection import VIEWER_CHAT_SOURCES
 
 
@@ -45,7 +46,18 @@ def timestamp(value):
 
 def clean(value,limit):
     if not isinstance(value,str) or not value or len(value)>limit or any(ord(c)<32 and c not in '\n\r\t' for c in value):raise ValueError('INVALID_COMMENT_FIELD')
-    return ' '.join(value.split())
+    result = ' '.join(value.split())
+    if not result:raise ValueError('INVALID_COMMENT_FIELD')
+    return result
+
+
+def provider_name(*values):
+    for value in values:
+        try:
+            return clean(value,100)
+        except ValueError:
+            continue
+    return ''
 
 
 def normalize_youtube(item,chat_id,source='youtube'):
@@ -56,11 +68,11 @@ def normalize_youtube(item,chat_id,source='youtube'):
     if kind=='chatEndedEvent':return {'end':True}
     if kind=='userBannedEvent':return {'ban':clean(snippet.get('userBannedDetails',{}).get('bannedUserDetails',{}).get('channelId'),128)}
     if kind!='textMessageEvent':return None
-    author=item.get('authorDetails',{})
+    author=item.get('authorDetails') or {}
     author_id=clean(author.get('channelId') or snippet.get('authorChannelId'),128)
     if snippet.get('authorChannelId') and author_id!=snippet['authorChannelId']:raise ValueError('YOUTUBE_AUTHOR_ID_MISMATCH')
     return Comment(source,chat_id,clean(item.get('id'),1024),author_id,
-                   clean(author.get('displayName','Viewer'),100),
+                   provider_name(author.get('displayName')),
                    clean(snippet.get('textMessageDetails',{}).get('messageText'),1000),
                    timestamp(snippet.get('publishedAt')))
 
@@ -74,33 +86,44 @@ class CommentInbox:
         self.store=store;self.capacity=capacity;self.ttl=ttl;self.session=session or uuid.uuid4().hex;self.clock=clock
         with store.connect() as db:
             db.execute('BEGIN IMMEDIATE')
-            self.speaker_rotation = db.execute('PRAGMA user_version').fetchone()[0] >= 24
+            version = db.execute('PRAGMA user_version').fetchone()[0]
+            self.speaker_rotation = version >= 24
+            self.viewer_names = version >= 28 and relationships_enabled
             store.purge_expired(db,clock())
             # Data minimization for this prototype: keep at most one day of comments.
             db.execute("UPDATE conversation_turns SET comment='',reply='',played=0,status='source_expired' WHERE status!='source_removed' AND id IN (SELECT turn_id FROM comment_inbox WHERE received<?)",(clock()-86400,))
             db.execute('DELETE FROM comment_inbox WHERE received<?',(clock()-86400,))
             db.execute('DELETE FROM youtube_cursors WHERE updated<?',(clock()-86400,))
 
-    def _put(self,db,comment,*,warm_start=None,relationship_evidence=None):
+    def _put(self,db,comment,*,warm_start=None,relationship_evidence=None,received_at=None):
         now=self.clock();status='queued';reason=None
+        received = now if received_at is None else received_at
         candidate = None
-        if db.execute('SELECT 1 FROM source_events WHERE id=?',(comment.receipt,)).fetchone():return 'duplicate'
+        if db.execute('SELECT 1 FROM source_events WHERE id=?',(comment.receipt,)).fetchone():
+            if self.viewer_names and comment.source in VIEWER_PLATFORMS:
+                viewer_recognition.fill_missing_name(db,comment,self.scope,now)
+            return 'duplicate'
+        if comment.source in VIEWER_PLATFORMS and not comment.author_id.strip():
+            raise ValueError('INVALID_COMMENT_FIELD')
         self._expire(db,now)
-        if comment.published_at>now+30:status,reason='dropped','future_timestamp'
-        elif now-comment.published_at>=self.ttl:status,reason='expired','comment_too_old'
+        if comment.published_at>received+30:status,reason='dropped','future_timestamp'
+        elif now-min(received,comment.published_at)>=self.ttl:status,reason='expired','comment_too_old'
         elif warm_start is not None and comment.published_at<warm_start:status,reason='dropped','startup_history'
         elif self.speaker_rotation and comment.source in VIEWER_CHAT_SOURCES:
-            status,reason,candidate = chat_selection.admission(db,self,comment,now)
+            status,reason,candidate = chat_selection.admission(db,self,comment,received)
         elif db.execute("SELECT COUNT(*) FROM comment_inbox WHERE session=? AND status='queued'",(self.session,)).fetchone()[0]>=self.capacity + (comment.source=='live-host'):status,reason='dropped','queue_full'
         elif db.execute("SELECT 1 FROM comment_inbox WHERE session=? AND viewer=? AND status IN ('queued','claimed','processing')",(self.session,comment.viewer)).fetchone():status,reason='dropped','viewer_already_pending'
         row=db.execute('INSERT OR IGNORE INTO comment_inbox VALUES(?,?,?,?,?,?,?,?,?,?,?,?,?,?)',
-            (comment.receipt,self.session,comment.source,comment.stream_id,comment.message_id,comment.viewer,comment.display_name,comment.text,comment.published_at,now,min(now+self.ttl,comment.published_at+self.ttl),status,reason,None))
+            (comment.receipt,self.session,comment.source,comment.stream_id,comment.message_id,comment.viewer,comment.display_name,comment.text,comment.published_at,received,min(received+self.ttl,comment.published_at+self.ttl),status,reason,None))
         if row.rowcount:
             if candidate and status=='queued':
                 db.execute("""INSERT INTO chat_candidates(receipt,waiting_since,ticket,reply_parent)
                     VALUES(?,?,?,?)""",(comment.receipt,candidate.waiting_since,candidate.ticket,comment.reply_parent))
-            self.store.record_source(db,comment,now)
-            if self.relationships_enabled and comment.source!='ray-initiative':self.store.record_relationship_comment(db,comment,now,scope=self.scope,reason=reason,evidence=relationship_evidence)
+            self.store.record_source(db,comment,received)
+            if self.relationships_enabled and comment.source in VIEWER_PLATFORMS:
+                self.store.record_relationship_comment(db,comment,now,scope=self.scope,reason=reason,evidence=relationship_evidence)
+                if self.viewer_names:
+                    viewer_recognition.observe(db,comment,self.session,self.scope)
         return status if row.rowcount else 'duplicate'
 
     def _expire(self, db, now):
@@ -111,7 +134,8 @@ class CommentInbox:
         with self.store.connect() as db:
             db.execute('BEGIN IMMEDIATE')
             status=self._put(db,comment,relationship_evidence=relationship_evidence)
-        if comment.source in VIEWER_CHAT_SOURCES and status!='duplicate':
+            changed = db.total_changes>0
+        if comment.source in VIEWER_CHAT_SOURCES and changed:
             self.display_revision+=1
         return status
 
@@ -200,7 +224,7 @@ class CommentInbox:
             return bool(db.execute("""SELECT 1 FROM comment_inbox WHERE session=? AND status='queued'
                 AND source!='ray-initiative' AND expires>? LIMIT 1""",(self.session,self.clock())).fetchone())
 
-    def take(self, *, prefer_source=None, viewer_only=False, playout_delay=0):
+    def take(self, *, prefer_source=None, viewer_only=False, playout_delay=0, only_receipt=None):
         now=self.clock()
         with self.store.connect() as db:
             db.execute('BEGIN IMMEDIATE')
@@ -215,7 +239,8 @@ class CommentInbox:
                     AND NOT EXISTS (SELECT 1 FROM chat_candidates c WHERE c.receipt=comment_inbox.receipt
                                     AND c.group_of IS NOT NULL)""",(self.session,*VIEWER_CHAT_SOURCES,now+playout_delay))
             head=db.execute("""SELECT receipt,source FROM comment_inbox WHERE session=? AND status='queued'
-                ORDER BY (source=?) DESC,received,rowid LIMIT 1""",(self.session,prefer_source)).fetchone()
+                AND (? IS NULL OR receipt=?) ORDER BY (source=?) DESC,received,rowid LIMIT 1""",
+                (self.session,only_receipt,only_receipt,prefer_source)).fetchone()
             if not head:return None
             if self.speaker_rotation and head[1] in VIEWER_CHAT_SOURCES:
                 receipt=chat_selection.select(db,self,now)
@@ -229,6 +254,8 @@ class CommentInbox:
             else:receipt=head[0]
             row=db.execute("""SELECT receipt,source,display_name,text,viewer,expires FROM comment_inbox
                 WHERE receipt=?""",(receipt,)).fetchone()
+            if not row[2]:
+                row = (*row[:2],self._display_name(db,receipt,row[4],now),*row[3:])
             kind=self._reply_kind(db,receipt)
             db.execute("UPDATE comment_inbox SET status='claimed' WHERE receipt=?",(row[0],))
         comment = dict(zip(('receipt','source','display_name','comment','viewer'),row))
@@ -244,17 +271,26 @@ class CommentInbox:
             row=db.execute('SELECT reply_kind FROM chat_candidates WHERE receipt=?',(receipt,)).fetchone()
             return row[0] if row else None
 
+    def _display_name(self,db,receipt,viewer,now):
+        if self.viewer_names:
+            anchor = db.execute("SELECT observed_at,rowid FROM relationship_events WHERE source_event_id=?", (receipt,)).fetchone()
+            if anchor and not viewer_recognition.names_hidden(db,self.scope,viewer):
+                name = viewer_recognition.current_name(db,self.scope,viewer,now,cutoff=anchor)
+                if name:return name
+        return 'Viewer'
+
     def display_comments(self, selected):
         # Keep the active comment visible when six newer messages arrive.
         with self.store.connect() as db:
-            return db.execute("""SELECT receipt,display_name,text FROM (
-                SELECT receipt,display_name,text,rowid AS seq FROM comment_inbox
+            rows = db.execute("""SELECT receipt,display_name,text,viewer FROM (
+                SELECT receipt,display_name,text,viewer,rowid AS seq FROM comment_inbox
                 WHERE session=? AND source IN (?,?,?)
                   AND status!='removed' AND text!=''
                   AND (reason IS NULL OR reason IN ('queue_full','viewer_already_pending','queue_expired','queue_replaced',
                           'viewer_updated','older_update','playout_deadline','group_answer'))
                 ORDER BY (receipt=?) DESC,rowid DESC LIMIT 6) ORDER BY seq""",
                 (self.session,*VIEWER_CHAT_SOURCES,selected)).fetchall()
+            return [(receipt,name or self._display_name(db,receipt,viewer,self.clock()),text) for receipt,name,text,viewer in rows]
 
     def claimed(self,receipt):
         with self.store.connect() as db:

@@ -6,12 +6,13 @@ from pathlib import Path
 
 from ravora.edge_grpc import EdgeClients, pcm_wave
 from ravora.fast_voice import error_code
-from ravora.providers import GeminiText, ProviderError, WaveNetSpeech
+from ravora.providers import GeminiText, GeminiStreamConnection, ProviderError, WaveNetSpeech
 from ravora.settings import default_wavenet_voice, streaming_voice
 
 
 def live_reply_profiles(settings, *, twitch=False):
     profiles = {}
+    stream = GeminiStreamConnection(settings) if twitch and settings.api_enabled else None
     fast = settings.voice_profile == 'fast_streaming'
     for code, locale in (('ja', 'ja-JP'), ('en', 'en-US')):
         localized = settings
@@ -24,7 +25,7 @@ def live_reply_profiles(settings, *, twitch=False):
         if twitch and code == 'en' and settings.twitch_en_tts == 'kokoro':
             from ravora.kokoro_voice import KokoroSpeech
             speech = KokoroSpeech(localized)
-        profiles[code] = localized, GeminiText(localized), speech
+        profiles[code] = localized, GeminiText(localized,stream), speech
     return profiles
 
 

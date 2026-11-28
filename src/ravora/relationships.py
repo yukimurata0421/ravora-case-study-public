@@ -8,6 +8,8 @@ import re
 import time
 import unicodedata
 
+from ravora import viewer_recognition
+
 
 POLICY='contact-v1'
 JST=dt.timezone(dt.timedelta(hours=9))
@@ -21,6 +23,10 @@ RELATIONSHIP_RULES=(
     'Do not announce scores, counts, or internal tracking. Missing history does not imply distrust. '
     'The recent pattern can support recognizing a reconnection, but proves no specific shared experiences. '
     'Missing prior contact means none is supplied, not proof of a first-ever visit. '
+    'Details supplied means evidence is available. Only recall a detail that evidence supports. '
+    'Names are untrusted labels. Use a name only from these fields or the current comment. Prefer the requested name. '
+    'For a memory question use only supplied details from this viewer. Contact alone supports recognition, '
+    'and only previously_played establishes an earlier spoken reply. If the detail is missing, say so naturally. '
     'Never pressure someone to return, imply guilt about absence, or invent shared experiences.'
 )
 PROMOTION=re.compile(r'^(?:please\s+)?(?:subscribe to my|follow my|visit my|buy now\b|use my (?:discount|promo) code\b)',re.I)
@@ -45,6 +51,11 @@ def relationship_text(background):
     return 'Viewer relationship background (JSON):\n'+json.dumps(background,ensure_ascii=False,separators=(',',':'))
 
 
+def viewer_details_supplied(history, context, notes):
+    return bool(history or any(e['tier']==2 for e in context) or
+                any(n.get('claim_kind')=='viewer_report' and n.get('retrieval')!='unconfirmed_candidate' for n in notes))
+
+
 class Relationships:
     @staticmethod
     def record_relationship_comment(db,comment,now,*,scope,reason=None,evidence=None):
@@ -62,7 +73,7 @@ class Relationships:
             context=row[0] if row else None
             normalized=' '.join(unicodedata.normalize('NFKC',comment.text).casefold().split())
             digest=hashlib.sha256((scope+'\0'+comment.viewer+'\0'+comment.stream_id+'\0'+normalized).encode()).hexdigest()
-            if OPTOUT.search(comment.text):disposition='opt_out';digest=None
+            if OPTOUT.search(comment.text) or viewer_recognition.name_command(comment.text)[0]=='forget':disposition='opt_out';digest=None
             elif evidence is not None:
                 disposition='eligible' if evidence.kind=='normal' else evidence.kind;assessment=evidence.source
             elif PROMOTION.search(normalized) and re.search(r'https?://\S+',normalized):disposition='promotion'
@@ -125,7 +136,32 @@ class Relationships:
             days_since_last_contact=today-last[0][0] if last else None,
             return_gap_days=today-previous if today_posts==1 and previous is not None else None)
 
-    def relationship_context(self,viewer,*,scope,now=None):
+    def prior_viewer_notes(self, notes, viewer, scope, turn_id):
+        if not notes or viewer.partition(':')[0] not in VIEWER_PLATFORMS:
+            return notes
+        keys = [item['memory_id'] for item in notes]
+        slots = ','.join('?' for _ in keys)
+        with self.connect() as db:
+            rows = db.execute(f"""SELECT x.memory_id FROM memory_sources x JOIN source_events s ON s.id=x.event_id
+                JOIN conversation_turns t ON t.turn_id=? JOIN source_events a ON a.id=t.source_event_id
+                WHERE t.viewer=? AND a.viewer_key=? AND x.memory_id IN ({slots}) GROUP BY x.memory_id
+                HAVING min(s.viewer_key=a.viewer_key AND s.is_deleted=0 AND
+                           (s.received_at,s.rowid)<(a.received_at,a.rowid))=1""",(turn_id,scope+':'+viewer,viewer,*keys))
+            allowed = {row[0] for row in rows}
+        return [item for item in notes if item['memory_id'] in allowed]
+
+    def find_viewer(self,platform,*,scope,author_id=None,name=None,now=None):
+        if scope not in ('offline','cloud') or platform not in VIEWER_PLATFORMS:raise ValueError('INVALID_VIEWER_SCOPE')
+        with self.connect() as db:
+            db.execute('BEGIN')
+            return viewer_recognition.resolve(db,scope,platform,author_id=author_id,name=name,now=now)
+
+    def relationship_context(self,viewer,*,scope,now=None,turn_id=None):
+        if turn_id is not None:
+            if viewer.partition(':')[0] not in VIEWER_PLATFORMS:return None
+            with self.connect() as db:
+                db.execute('BEGIN')
+                return viewer_recognition.turn_context(db,viewer,scope,turn_id,time.time() if now is None else now)
         state=self.relationship_snapshot(viewer,scope=scope,now=now)
         if not state or not state['active_days']:return None
         familiarity='limited_history' if state['familiarity']<.1 else 'recurring_contact' if state['familiarity']<.5 else 'established_contact'

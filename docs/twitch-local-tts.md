@@ -16,6 +16,17 @@ For an English viewer reply of at least 64 characters, the studio looks for a na
 
 The English profile uses US English phonemes, 57.5% `af_heart`, 42.5% `jf_tebukuro`, and 3.5 dB gain with a soft peak ceiling. Set `RAVORA_TWITCH_EN_TTS=google` or `RAVORA_TWITCH_JA_TTS=google` to select the cloud voice for that language. Supply the corresponding Google credentials. A failed local voice request records a failure. The program does not automatically spend a second request on a cloud voice. See the [configuration example](../.env.example).
 
+For viewer replies the English worker splits long continuations at word boundaries.
+If a request returns HTTP 503, the client divides that part at the whitespace
+nearest its midpoint and requests each half once. It joins both successful halves
+before releasing their audio. A failed half or an indivisible word still reports
+an error. The regression tests exercise both a recovered reply and a second
+failure. Fixed clarification phrases can be synthesized during voice warm-up
+and reused locally. [Speech regression tests](../tests/test_viewer_voice_latency.py)
+
+For Japanese replies, the [isolated interview trial](character-interview.md#measuring-comment-to-speech)
+checks the first audible sample and the whole waveform.
+
 ## GPU voice workers on Linux
 
 Use a Linux x86-64 host with Docker, the NVIDIA Container Toolkit, a compatible GPU driver, and CUDA 12 / cuDNN 9 runtime libraries. The [launcher](../scripts/run_local_tts.sh) starts each worker as the studio user, with no container network, a read-only root filesystem and a private Unix socket. In the user-service examples the checkout is at `$HOME/ray-studio`. Install the studio from that checkout as described in the [studio guide](youtube-live.md).

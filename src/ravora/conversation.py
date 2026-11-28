@@ -1,10 +1,13 @@
 """Sentence-at-a-time speech controller, bounded queues, and local SQLite memory."""
 from copy import copy
+from functools import partial
+from ravora import ray_self_disclosure, session_window, viewer_dialogue
 import datetime as dt
 import json
 import logging
 from pathlib import Path
 import queue
+import random
 import re
 import threading
 import time
@@ -13,17 +16,25 @@ import wave
 import sqlite3
 
 from ravora.speech import utterance_word_starts
-from ravora.providers import ProviderError, GeminiText, JevReaction, adapters
+from ravora.twitch_language_hint import reply_language as clear_reply_language
+from .spoken_language import (explicit_unsupported_request, fixed_reply, japanese_reply_parts,
+                              normalize_voice_name, readable, RecordedReply)
+from ravora.providers import ProviderError, JevReaction, adapters
+from .providers import GeminiText
 from ravora.database import Connection as closing_connection
 from ravora.developer_identity import DEVELOPER_PLATFORMS, viewer_key
 from ravora.memory import MemoryRepository
 from ravora.memory_worker import MemoryWorker
 from ravora.conversation_context import ConversationContext, sensitive
 from ravora.memory_extraction import acknowledgment, banter_preference
+from ravora.relationships import viewer_details_supplied
 from ravora.persona import JAPANESE_QUESTION_WINDOW, asked_listener_in_japanese, japanese_question_direction
-from ravora.relationships import Relationships,relationship_text
+from ravora.relationships import Relationships,relationship_text,VIEWER_PLATFORMS
+from ravora.viewer_recognition import name_command
 from ravora.semantic_memory import SemanticMemory, speech_background
-from ravora.ray_character import CharacterOpening,CharacterRuntime,CharacterError,PublicDecoder,PublicOutput
+from ravora import twitch_recall, viewer_recall as viewer_recall_search
+from ravora.ray_character import CharacterOpening, CharacterRuntime
+from .ray_character import CharacterError, PublicDecoder, PublicOutput
 from ravora.dialogue_router import DialogueRoute
 from ravora.ray_memory import character_source_allowed, claim_hook, played_hooks
 
@@ -52,12 +63,26 @@ class SentenceBuffer:
 
 
 class MemoryStore(Relationships,ConversationContext,SemanticMemory,MemoryRepository):
-    def start(self,turn_id,viewer,comment,*,developer_id=None):
+    scheduled_budget = False
+
+    window = None
+
+    def remove_source(self, db, receipt, now):
+        super().remove_source(db,receipt,now)
+        if self.window:
+            self.window.invalidate()
+
+    def delete_memory(self, key, *, reason='user_request'):
+        super().delete_memory(key, reason=reason)
+        if self.window:
+            self.window.invalidate()
+
+    def start(self,turn_id,viewer,comment,*,developer_id=None,window_binding=None):
         """Start a turn and identify the configured developer from its bound input."""
         now=time.time()
         with self.connect() as db:
             db.execute('BEGIN IMMEDIATE')
-            source=db.execute('''SELECT s.id,s.is_deleted,s.raw_purged_at,i.session
+            source=db.execute('''SELECT s.id,s.is_deleted,s.raw_purged_at,i.session,s.stream_id,s.received_at,s.viewer_key
                 FROM source_events s JOIN comment_inbox i ON i.receipt=s.id WHERE i.turn_id=?''',(turn_id,)).fetchone()
             status='source_removed' if source and source[1] else 'source_expired' if source and source[2] is not None else 'running'
             db.execute('''INSERT INTO conversation_turns(id,turn_id,source_event_id,viewer,comment,status,started,state,created_at,usage_session)
@@ -67,6 +92,9 @@ class MemoryStore(Relationships,ConversationContext,SemanticMemory,MemoryReposit
             scope,_,owner=viewer.partition(':')
             platform=owner.partition(':')[0]
             developer_speaker=False
+            if window_binding is not None and source and source[6]==owner and platform=='twitch':
+                version = db.execute('SELECT version FROM session_evidence_revision WHERE id=1').fetchone()[0]
+                window_binding.update(key=(viewer,source[4]), received=source[5],revision=version)
             if (source and developer_id and scope in ('cloud','offline') and platform in DEVELOPER_PLATFORMS
                     and owner==viewer_key(platform,developer_id)):
                 developer_speaker=db.execute('''SELECT 1 FROM developer_memory_sources d
@@ -93,13 +121,17 @@ class MemoryStore(Relationships,ConversationContext,SemanticMemory,MemoryReposit
                 ON current.stream_id=prior.stream_id AND current.viewer_key=prior.viewer_key
                 JOIN conversation_turns active ON active.source_event_id=current.id
                 WHERE prior.id=t.source_event_id AND active.turn_id=? AND active.viewer=t.viewer
+                AND (prior.received_at,prior.rowid)<(current.received_at,current.rowid)
+                AND NOT EXISTS(SELECT 1 FROM relationship_events r WHERE r.source_event_id=prior.id
+                    AND r.played_at>current.received_at)
                 AND prior.is_deleted=0 AND prior.raw_purged_at IS NULL AND prior.expires_at>?)'''
             args.extend((turn_id,time.time()))
         with self.connect() as db:
             rows=db.execute('SELECT t.comment,t.reply FROM conversation_turns t WHERE '+where+
                             ' ORDER BY t.rowid DESC LIMIT ?',(*args,count*4 if turn_id else count)).fetchall()
         if turn_id is not None:
-            rows=[(q, '' if sensitive(a) else a) for q,a in rows if not sensitive(q)]
+            viewer_chat = owner.partition(':')[0] in VIEWER_PLATFORMS
+            rows=[(q, '' if sensitive(a) else a) for q,a in rows if not sensitive(q) and not (viewer_chat and name_command(q)[0])]
             # Keep the latest exchange and reserve space for content-bearing input.
             # A run of backchannels should not evict the speaker's last real question.
             rows=rows[:1]+[pair for pair in rows[1:] if not acknowledgment(pair[0])]
@@ -163,7 +195,14 @@ class MemoryStore(Relationships,ConversationContext,SemanticMemory,MemoryReposit
             status=CASE WHEN status IN ('source_removed','source_expired','cancelled') THEN status ELSE ? END,
             metrics=? WHERE id=?""",(reply,status,status,status,time.time(),status,json.dumps(metrics),turn_id))
 
-    def played(self,turn_id,*,scope='offline',memory_enabled=True,memory_ttl_days=30,memory_capacity=16,
+    def played(self, turn_id, **kwargs):
+        capture = []
+        result = self._played(turn_id, capture=capture, **kwargs)
+        if result and capture:
+            self.window.remember(*capture[0])
+        return result
+
+    def _played(self,turn_id,*,capture,scope='offline',memory_enabled=True,memory_ttl_days=30,memory_capacity=16,
                memory_policy=None,memory_model=None,memory_min_confidence=.7,relationship_enabled=True,developer_id=None,program_latency=None,
                unspoken_hooks=None):
         now=time.time()
@@ -177,6 +216,8 @@ class MemoryStore(Relationships,ConversationContext,SemanticMemory,MemoryReposit
                 if row[1].partition(':')[2].startswith('audience:'):
                     memory_enabled = relationship_enabled = False
                     unspoken_hooks = None
+                if row[1].partition(':')[2].partition(':')[0] in VIEWER_PLATFORMS and name_command(row[2])[0]:
+                    memory_enabled = False
                 if program_latency is not None:
                     db.execute("UPDATE conversation_turns SET metrics=json_set(metrics,'$.live_program',json(?)) WHERE turn_id=?",
                                (json.dumps(program_latency),turn_id))
@@ -189,7 +230,12 @@ class MemoryStore(Relationships,ConversationContext,SemanticMemory,MemoryReposit
                         logging.getLogger(__name__).warning('dialogue_hook_save_unavailable')
                     finally:
                         db.execute('RELEASE played_dialogue_hooks')
-                source=db.execute('SELECT platform FROM source_events WHERE id=?',(row[0],)).fetchone()
+                source=db.execute('SELECT platform,stream_id,viewer_key FROM source_events WHERE id=?',(row[0],)).fetchone()
+                if self.window and source and source[0]=='twitch' and row[1]==scope+':'+source[2]:
+                    ver,generated = db.execute("""SELECT version,json_extract(t.metrics,'$.session_window.revision')
+                            FROM session_evidence_revision, conversation_turns t WHERE t.turn_id=?""",(turn_id,)).fetchone()
+                    if generated is None or generated==ver:
+                        capture.append(((row[1],source[1]), session_window.Exchange(row[0],turn_id,now,row[2],row[3],ver)))
                 if source and source[0]=='ray-initiative':memory_enabled=False;relationship_enabled=False
                 if relationship_enabled:self.record_relationship_played(db,turn_id,scope,now)
                 db.execute("UPDATE utterances SET status='playback_acknowledged',playback_ack_at=COALESCE(playback_ack_at,?) WHERE turn_id=? AND status='claimed'",(now,turn_id))
@@ -256,6 +302,13 @@ class MemoryStore(Relationships,ConversationContext,SemanticMemory,MemoryReposit
         db.execute('''UPDATE api_usage SET status=?,attempted=MAX(attempted,?),
             latency_ms=CASE WHEN ? IN ('accepted','failed','outcome_unknown','discarded_after_cancel')
                 THEN MAX(0,(?-created_at)*1000) ELSE latency_ms END WHERE id=?''',(state,int(attempted),state,now,key))
+
+    def dispatch_scheduled_reaction(self,key):
+        from ravora.scheduled_budget import reserve_auxiliary
+        with self.connect() as db:
+            db.execute('BEGIN IMMEDIATE')
+            reserve_auxiliary(db,key,time.time())
+            self._call_state(db,key,'dispatched',attempted=True)
 
     def dispatch_budgeted_reply(self,key,input_bytes,output_tokens,attempts,monthly_usd):
         """Reserve estimated Flash-Lite cost in integer microdollars, including concurrent hedges."""
@@ -345,6 +398,9 @@ class MemoryStore(Relationships,ConversationContext,SemanticMemory,MemoryReposit
                     AND t.played=1 AND t.status='completed' AND t.viewer=memory_jobs.scope||':'||s.viewer_key)""",
                 (job['turn_id'],key,job['claim_token'],now,job['text'],now))
             if not row.rowcount:return False
+            if self.scheduled_budget:
+                from ravora.scheduled_budget import reserve_auxiliary
+                reserve_auxiliary(db,key,now)
             db.execute("UPDATE provider_calls SET state='dispatched',attempted=1,updated=? WHERE id=?",(now,key))
             db.execute("UPDATE api_usage SET status='dispatched',attempted=1 WHERE id=?",(key,))
         return True
@@ -356,12 +412,18 @@ class MemoryStore(Relationships,ConversationContext,SemanticMemory,MemoryReposit
 
 
 class SpeechController:
+    checks_spoken_language = True
+    pins_reply_language = True
+
     def __init__(self,settings,store,output,*,providers=None,clock=time.monotonic,memory_extractor=None):
         self.s=settings;self.store=store;self.output=Path(output);self.clock=clock
         self.text,self.reaction,self.speech=providers or adapters(settings)
+        if settings.twitch_recall_mode=='session' and settings.memory_enabled and (not store.window or store.window.closed):
+            store.window = session_window.SessionWindow()
         self.program_pcm = None
         self.initiative_audio_limit = None
         self.language_voices = None
+        self.reply_playable = None
         self.memory_worker=MemoryWorker(store,settings,extractor=memory_extractor)
         self.character=CharacterRuntime(idle_seconds=settings.character_idle_seconds,max_initiatives=settings.character_max_initiatives) if settings.character_enabled else None
 
@@ -390,36 +452,90 @@ class SpeechController:
                 except queue.Full:pass
         live_host = viewer == viewer_key('live-host','host')
         memory_viewer=self.s.mode+':'+viewer
-        developer_speaker=self.store.start(turn_id,memory_viewer,comment,developer_id=self.s.developer_id)
+        session_mode = bool(self.s.twitch_recall_mode=='session' and getattr(self.store,'window',None) and
+                            self.s.memory_enabled and viewer.startswith('twitch:'))
+        binding = {}
+        developer_speaker=self.store.start(turn_id,memory_viewer,comment,developer_id=self.s.developer_id,
+                                           window_binding=binding if session_mode else None)
+        ram_rows = ()
+        def read_window(*, touch=False):
+            if not binding:
+                return ()
+            return tuple(r for r in self.store.window.previous(binding['key'],binding['received'],touch=touch)
+                         if r.revision==binding['revision'])
+        if session_mode:
+            ram_rows = read_window(touch=True)
+            metrics['session_window'] = dict(hit=bool(ram_rows), input_pairs=len(ram_rows),revision=binding.get('revision'))
         if self.character:self.memory_worker.wake()
-        history=self.store.history(memory_viewer,self.s.memory_turns,turn_id=turn_id)
-        recent_for_route = history if self.s.memory_turns >= 4 or not self.character else self.store.history(memory_viewer,4,turn_id=turn_id)
+        def prior(count):
+            if session_mode:
+                return session_window.messages(ram_rows,count)
+            return self.store.history(memory_viewer,count,turn_id=turn_id)
+        history=prior(self.s.memory_turns)
+        recent_for_route = history if self.s.memory_turns >= 4 or not self.character else prior(4)
         recent_for_route = recent_for_route + self.store.opening_history(self.character,character_epoch,self.s.mode)
         route = self.character.route(character_epoch, comment, recent_for_route,
                                      initiative=initiative) if self.character else DialogueRoute()
         audience = viewer.startswith('audience:')
         rag = route.allow_retrieval(metrics, comment) and not audience
         memory_wait=self.clock()
-        semantic_enabled=rag and self.s.memory_enabled and self.s.semantic_memory_mode!='off'
+        viewer_recall = (self.s.twitch_recall_mode if viewer.startswith('twitch:') and self.s.memory_enabled else 'off')
+        use_viewer_recall = viewer_recall != 'off'
+        semantic_enabled=rag and self.s.memory_enabled and self.s.semantic_memory_mode!='off' and not use_viewer_recall
         if semantic_enabled:self.memory_worker.wake()
         # A live reply uses committed memories while the remote extraction runs in the background.
-        if rag and not (semantic_enabled or self.memory_worker.live_extraction) and not self.memory_worker.wait_for(viewer,cancel=cancel):
+        if rag and not (use_viewer_recall or semantic_enabled or self.memory_worker.live_extraction) and not self.memory_worker.wait_for(viewer,cancel=cancel):
             metrics['total_ms']=round((self.clock()-start)*1000,2)
             self.store.finish(turn_id,'','failed',metrics)
             if not cancel.is_set():emit({'kind':'error','status':'failed','code':'MEMORY_WORKER_NOT_READY','metrics':metrics})
             return metrics
         metrics['memory_wait_ms']=round((self.clock()-memory_wait)*1000,2)
-        memories,strategy=self.store.conversation_memories(viewer,comment,self.s) if rag else ([], 'dialogue_gate')
-        candidates=self.store.episode_candidates(viewer,comment,scope=self.s.mode,
-            limit=self.s.semantic_candidate_limit,max_chars=self.s.semantic_max_chars) if semantic_enabled else []
         semantic_done=threading.Event();semantic_result={};generation_decision={}
-        previous_message=self.store.semantic_previous_message(viewer,scope=self.s.mode,turn_id=turn_id) if candidates else ''
+        if use_viewer_recall:
+            lookup = twitch_recall.candidates
+            if session_mode:
+                lookup = partial(viewer_recall_search.candidates,multiple=True)
+            begin = self.clock()
+            eligible = rag and twitch_recall.asks_for_memory(comment)
+            if session_mode and rag and viewer_recall_search.COMPARISON.search(comment) and (
+                    not ram_rows or viewer_recall_search.has_named_topics(comment)):
+                from ravora.gemini_memory import source_block_reason
+                eligible = eligible or not source_block_reason(comment)
+            if session_mode and ram_rows and viewer_recall_search.recent_reference(comment):
+                eligible = False
+            candidates = lookup(self.store, viewer, comment, self.s, turn_id) if eligible else []
+            recall = metrics['twitch_recall'] = dict(mode=viewer_recall, candidate_count=len(candidates),
+                sqlite_ms=round((self.clock()-begin)*1000, 3) if eligible else 0, wait_ms=0,
+                outcome='pending' if candidates else 'empty' if eligible else 'skipped', prompt_items=0)
+            memories = []
+        else:
+            memories,_=self.store.conversation_memories(viewer,comment,self.s) if rag else ([], 'dialogue_gate')
+            candidates=self.store.episode_candidates(viewer,comment,scope=self.s.mode,
+                limit=self.s.semantic_candidate_limit,max_chars=self.s.semantic_max_chars) if semantic_enabled else []
+        wait_for_selection = bool(candidates) and (viewer_recall == 'jev' if use_viewer_recall else self.s.semantic_memory_mode=='jev')
+        previous_message=self.store.semantic_previous_message(viewer,scope=self.s.mode,turn_id=turn_id) if candidates and not use_viewer_recall else ''
+        topic_evidence = None
         generation_history=history
-        def prepare_context(key):
-            nonlocal generation_history
+        def prepare_context(key, *, repair=False):
+            nonlocal generation_history, ram_rows, topic_evidence
             # Refresh before dispatch: a removed source cannot survive in the
             # adapter's context from an earlier turn.
-            notes,method=self.store.conversation_memories(viewer,comment,self.s,judgment=generation_decision.get('value')) if rag else ([], 'dialogue_gate')
+            if use_viewer_recall:
+                notes, method = [], 'twitch_' + viewer_recall
+                selected = candidates[0]['memory_id'] if candidates and viewer_recall == 'sqlite' else (generation_decision.get('value') or {}).get('memory_id')
+                if session_mode:
+                    fresh = lookup(self.store,viewer,comment,self.s,turn_id) if candidates else []
+                    notes = list(candidates) if fresh==candidates else []
+                    if candidates:
+                        recall['outcome'] = 'selected' if notes else 'no_longer_eligible'
+                elif selected:
+                    fresh = lookup(self.store, viewer, comment, self.s, turn_id)
+                    notes = [note for note in fresh if note['memory_id'] == selected and note in candidates]
+                    recall['outcome'] = 'selected' if notes else 'no_longer_eligible'
+                recall['prompt_items'] = len(notes)
+            else:
+                notes,method=self.store.conversation_memories(viewer,comment,self.s,judgment=generation_decision.get('value')) if rag else ([], 'dialogue_gate')
+                notes = self.store.prior_viewer_notes(notes,viewer,self.s.mode,turn_id)
             if rag and metrics['knowledge_rag'] != 'explicit_recall' and developer_speaker and isinstance(self.text,GeminiText):
                 notes+=self.store.developer_banter_memory(viewer,self.s)
             if isinstance(self.text,GeminiText):
@@ -428,18 +544,28 @@ class SpeechController:
             supported=hasattr(self.text,'set_memories')
             if supported:self.text.set_memories(notes)
             self.store.record_retrievals(turn_id,notes,context_prepared=supported,strategy=method,call_id=key)
+            if use_viewer_recall and candidates:
+                decision = generation_decision.get('value') if viewer_recall == 'jev' else {'memory_id':selected}
+                if session_mode:
+                    decision = {'memory_ids':[n['memory_id'] for n in notes]}
+                self.store.record_semantic_retrieval(turn_id,comment,candidates,decision,used=bool(notes and supported))
             if semantic_enabled:
                 self.store.record_semantic_retrieval(turn_id,comment,candidates,generation_decision.get('value'),used=generation_decision.get('value') is not None)
             context=self.store.recall_context(viewer,comment,scope=self.s.mode,developer_id=self.s.developer_id,
-                limit=self.s.context_max_items,max_chars=self.s.context_max_chars,turn_id=turn_id) if rag and self.s.memory_enabled and self.s.context_enabled else []
+                limit=self.s.context_max_items,max_chars=self.s.context_max_chars,turn_id=turn_id) if not session_mode and rag and self.s.memory_enabled and self.s.context_enabled else []
             pace_questions=self.s.language=='ja-JP' and not initiative
-            recent=self.store.history(memory_viewer,self.s.memory_turns,turn_id=turn_id)
+            if session_mode:
+                began = time.perf_counter()
+                ram_rows = session_window.validated(self.store,binding.get('key'),read_window())
+                metrics['session_window'].update(sent_pairs=len(ram_rows), validate_ms=round((time.perf_counter()-began)*1000,3))
+            recent=prior(self.s.memory_turns)
             if pace_questions:
-                cadence_history=recent if self.s.memory_turns>=JAPANESE_QUESTION_WINDOW else self.store.history(memory_viewer,JAPANESE_QUESTION_WINDOW,turn_id=turn_id)
+                cadence_history=recent if self.s.memory_turns>=JAPANESE_QUESTION_WINDOW else prior(JAPANESE_QUESTION_WINDOW)
                 questions=[asked_listener_in_japanese(line) for role,line in cadence_history if role=='model']
                 generation_decision['japanese_turn']=japanese_question_direction(questions[-JAPANESE_QUESTION_WINDOW:], comment)
-            generation_history,context=speech_background(self.s,comment,bool(candidates),generation_decision.get('value'),
+            generation_history,context=speech_background(self.s,comment,bool(candidates) and not use_viewer_recall,generation_decision.get('value'),
                 recent,context,selected=notes)
+            own_detail = viewer_details_supplied(generation_history,context,notes)
             if followup is not None:
                 generation_history = self.store.followup_history(followup,self.s.mode)
                 context = []
@@ -449,7 +575,9 @@ class SpeechController:
             if context_supported:self.text.set_context(context)
             self.store.record_context_retrievals(turn_id,context,call_id=key,prepared=context_supported)
             begin=time.monotonic()
-            background=self.store.relationship_context(viewer,scope=self.s.mode) if not audience and self.s.memory_enabled and self.s.relationship_enabled else None
+            background=self.store.relationship_context(viewer,scope=self.s.mode,turn_id=turn_id) if not audience and self.s.memory_enabled and self.s.relationship_enabled else None
+            if background is not None:
+                background['viewer_details_supplied'] = own_detail
             relationship_supported=hasattr(self.text,'set_relationship')
             if relationship_supported:self.text.set_relationship(background)
             metrics['relationship_lookup_ms']=round((time.monotonic()-begin)*1000,3)
@@ -461,9 +589,42 @@ class SpeechController:
             character_begin=time.monotonic()
             memories=self.memory_worker.character_memories(viewer,route,comment) if self.character and not audience else ()
             if not current():raise ProviderError('TURN_CANCELLED')
+            if repair:
+                return  # Sources have been revalidated. Keep the plan and hook already claimed by this turn.
             hook=claim_hook(self.store,self.s.mode,viewer,turn_id,comment,route.unspoken_hooks) if route.dialogue_policy=='SHIFT_TO_HOOK' else ''
             plan=self.character.plan(comment,memories,background,initiative=initiative,epoch=character_epoch,
                                      host_speaking=live_host or developer_speaker,hook=hook) if self.character else None
+            dialogue_mode = ''
+            disclosure, public_lines = '', ()
+            labels, exchange_count = (), 0
+            if session_mode and voices and plan is not None:
+                disclosure, public_lines = ray_self_disclosure.disclosure(comment, recent, self.s.language[:2])
+                dialogue_mode = 'self_disclosure' if disclosure else viewer_dialogue.kind(comment)
+                if not dialogue_mode and viewer_dialogue.asks_choice_reason(comment, recent):
+                    dialogue_mode = 'choice_reason'
+                if not public_lines:
+                    public_lines = viewer_dialogue.capability_choices(dialogue_mode, comment, recent, self.s.language[:2])
+                if dialogue_mode in ('day','shift','story','joke','wish','recap') and ram_rows and self.s.memory_turns:
+                    topic_evidence = viewer_dialogue.session_topics(self.store, binding, turn_id)
+                    labels, exchange_count = topic_evidence
+            if isinstance(self.text,GeminiText):
+                self.text.grounded_choices = (public_lines or viewer_dialogue.grounded_choices(
+                    dialogue_mode, comment, recent, labels, self.s.language[:2])
+                    if session_mode and voices and plan is not None else ())
+                if public_lines and not eligible:
+                    # Both sources above accept whole authored questions. An entirely
+                    # Japanese question such as たとえば？ also identifies its language.
+                    language = clear_reply_language(comment)
+                    if not language and re.fullmatch(r'[ぁ-ゖァ-ヺ一-龯々ー、。？！?! 　]+', comment) and re.search(r'[ぁ-ゖ]', comment):
+                        language = 'ja'
+                    if language == self.s.language[:2]:
+                        generation_decision['public_line'] = random.choice(public_lines)
+            if dialogue_mode:
+                instruction = disclosure or viewer_dialogue.direction(dialogue_mode, labels, exchange_count, viewer_dialogue.topics_in(comment), self.s.language[:2])
+                if dialogue_mode == 'wish' and len(recent) >= 2 and viewer_dialogue.kind(recent[-2][1]) == 'wish':
+                    instruction = 'Continue the concrete wish in your immediately previous answer; give one specific first step.'
+                plan = viewer_dialogue.apply_plan(plan, dialogue_mode, instruction)
+                metrics['viewer_dialogue'] = dict(mode=dialogue_mode, topics=labels)
             if hasattr(self.text,'set_character_plan'):self.text.set_character_plan(plan)
             generation_decision['character_plan']=plan
             self.memory_worker.character_referenced(memories)
@@ -486,14 +647,22 @@ class SpeechController:
             key=self.store.prepare_call(turn_id,provider,operation,summary,model=model,mode='local' if local else self.s.mode)
             publish('call_prepared',call_id=key,provider=provider,operation=operation)
             return key
-        def dispatch(key,provider):
+        def dispatch(key,provider,*,repair=False):
             if not current():self.store.call_state(key,'cancelled_before_send');return False
-            if provider=='gemini':prepare_context(key)
+            if provider=='gemini':
+                prepare_context(key,repair=repair)
+                if not repair and 'public_line' in generation_decision:
+                    self.store.call_state(key, 'held', code='AUTHORED_PUBLIC_REPLY')
+                    publish('call_held',call_id=key,provider=provider,code='AUTHORED_PUBLIC_REPLY')
+                    return True
             local = provider == 'tts' and getattr(speech, 'local', False)
             remote = self.s.mode == 'cloud' and not local
             if provider=='gemini' and remote and self.s.monthly_reply_llm_usd:
                 return True  # GeminiText supplies the assembled payload size immediately before send.
-            self.store.call_state(key,'dispatched' if remote or local else 'simulated',attempted=remote or local)
+            if provider=='jev' and remote and self.store.scheduled_budget:
+                self.store.dispatch_scheduled_reaction(key)
+            else:
+                self.store.call_state(key,'dispatched' if remote or local else 'simulated',attempted=remote or local)
             if remote:
                 with metrics_lock:metrics['provider_requests']+=1
             publish('call_dispatched' if remote or local else 'call_simulated',call_id=key,provider=provider)
@@ -513,14 +682,48 @@ class SpeechController:
             return code
 
         def generate():
+            nonlocal speech
             buffer=SentenceBuffer(self.s.sentence_chars);characters=0;key=None;got_response=False
+
+            def select_fixed(action, target, *, verify_memory=False):
+                nonlocal speech
+                text, recorded_voice = fixed_reply(action, target, speech)
+                output = PublicOutput(text)
+                if verify_memory:
+                    checked = checked_memory_output(output, target)
+                    if checked is not output:
+                        return checked
+                speech = recorded_voice
+                metrics['speech_language_guard'].update(outcome=action, recorded=isinstance(speech, RecordedReply))
+                return output
+
             try:
-                if candidates and self.s.semantic_memory_mode=='jev':
+                if voices and explicit_unsupported_request(comment):
+                    if not current():return
+                    speech = voices[fallback]
+                    metrics['tts_route'] = {'input_language':'und', 'confidence':None, 'threshold':threshold,
+                                            'fallback_language':fallback, 'language':fallback, 'voice':speech.voice,
+                                            'decision':'explicit_unsupported_request'}
+                    metrics['speech_language_guard'] = {'language':fallback,'action':'available'}
+                    sentence = select_fixed('available', fallback)
+                    metrics['first_sentence_ms'] = metrics['public_output_ready_ms'] = round((self.clock()-start)*1000,2)
+                    publish('character_action',**sentence.action())
+                    put(sentence)
+                    return
+                if wait_for_selection:
                     wait_started=time.monotonic();deadline_at=wait_started+self.s.semantic_wait_ms/1000
                     semantic_done.wait(self.s.semantic_wait_ms/1000)
                     if semantic_result.get('ready_at',float('inf'))<=deadline_at:
                         generation_decision.update(value=semantic_result['value'],reaction=semantic_result['reaction'])
                     metrics['semantic_wait_ms']=round((time.monotonic()-wait_started)*1000,3)
+                    if use_viewer_recall:
+                        recall['wait_ms'] = metrics['semantic_wait_ms']
+                        value = generation_decision.get('value') or {}
+                        if value.get('reference') == 'unavailable' or (not value and semantic_done.is_set() and not semantic_result):
+                            recall['outcome'] = 'unavailable'
+                        else:
+                            recall['outcome'] = 'abstained' if value else 'deadline'
+
                 key=prepared('gemini','generate',{'comment_characters':len(comment),'history_turns':len(history)//2})
                 if not dispatch(key,'gemini'):return
                 speaker={'developer_speaker':developer_speaker} if isinstance(self.text,GeminiText) else {}
@@ -542,28 +745,109 @@ class SpeechController:
                     speaker['before_send']=before_send
                 if voices:
                     speaker['language_route'] = (fallback, threshold)
+                    pinned_language = clear_reply_language(comment)
+                    if pinned_language:
+                        speaker['reply_language'] = pinned_language
+                    if ('Kokoro' in voices['en'].voice and
+                            re.search(r'\b(?:tts|voice|engine|qwen[\d.]*|kokoro)\b|音声(?:合成|モデル)', comment, re.I)):
+                        speaker['english_voice_fact'] = True
                 plan=generation_decision.get('character_plan')
-                decoder=PublicDecoder(structured=bool(getattr(self.text.stream,'ray_public_output',False)),buffer=buffer,plan=plan,limit=self.s.max_reply_chars,language_routing=bool(voices)) if self.character else None
+                decoder=PublicDecoder(structured=bool(getattr(self.text.stream,'ray_public_output',False)),buffer=buffer,plan=plan,limit=self.s.max_reply_chars,language_routing=bool(voices), expand_wire=getattr(self.text,'expand_studio_output',None)) if self.character else None
+                pending = None
                 def enqueue(sentence):
-                    nonlocal characters, speech
+                    nonlocal pending, speech
+                    if session_mode and eligible and recall.get('clarified'):
+                        return
                     if metrics['first_sentence_ms'] is None:
                         metrics['first_sentence_ms']=round((self.clock()-start)*1000,2)
                     if not isinstance(sentence,PublicOutput):
-                        put(sentence)
+                        line = checked_memory_output(sentence, fallback)
+                        if line is not None:
+                            put(line)
                         return
-                    characters+=len(sentence.speech)
-                    if characters>self.s.max_reply_chars:raise ProviderError('REPLY_CHARACTER_LIMIT')
                     metrics.setdefault('public_output_ready_ms',round((self.clock()-start)*1000,2))
                     if voices:
                         detected, confidence = decoder.language_result
                         use_model = detected in voices and confidence >= threshold
-                        language = detected if use_model else fallback
+                        language = pinned_language or (detected if use_model else fallback)
                         speech = voices[language]
                         metrics['tts_route'] = {'input_language': detected, 'confidence': confidence,
                                                 'threshold': threshold, 'fallback_language': fallback,
                                                 'language': language, 'voice': speech.voice,
-                                                'decision': 'model' if use_model else 'fallback'}
+                                                'decision': 'local_clear' if pinned_language else ('model' if use_model else 'fallback')}
+                    target = language if voices else fallback
+                    if not (voices and decoder.unsupported_language_requested):
+                        sentence = checked_memory_output(sentence, target)
+                        if sentence is None:
+                            return
+                    if voices or (initiative and getattr(speech, 'local', False)):
+                        if voices and decoder.unsupported_language_requested:
+                            pending = ('available', target)
+                            return
+                        if voices:
+                            sentence = normalize_name(sentence, target)
+                        if not readable(sentence.speech, target):
+                            pending = ('repair', target)
+                            return
+                    emit_speech(sentence)
+
+                def normalize_name(sentence, target):
+                    text = normalize_voice_name(sentence.speech, target)
+                    if text == sentence.speech:
+                        return sentence
+                    metrics['tts_name_normalized'] = True
+                    return PublicOutput(text, sentence.expression, sentence.motion)
+
+                def checked_memory_output(sentence, language):
+                    nonlocal speech
+                    if session_mode and ram_rows:
+                        live_rows = read_window()
+                        if not all(r in live_rows for r in ram_rows) or session_window.validated(self.store,binding['key'],ram_rows)!=ram_rows:
+                            raise ProviderError('VIEWER_MEMORY_SOURCE_REVOKED')
+                    if topic_evidence is not None and viewer_dialogue.session_topics(self.store, binding, turn_id) != topic_evidence:
+                        raise ProviderError('VIEWER_MEMORY_SOURCE_REVOKED')
+                    if session_mode and eligible:
+                        began = time.monotonic()
+                        answered = semantic_done.wait(.020)
+                        recall['verify_wait_ms'] = round((time.monotonic()-began)*1000,3)
+                        decision = semantic_result.get('value') or {}
+                        ids = [n['memory_id'] for n in candidates]
+                        if len(ids)>1:
+                            confirmed = decision.get('reference')=='combined' and decision.get('memory_ids')==ids
+                        elif ids:
+                            confirmed = decision.get('memory_id')==ids[0]
+                        else:
+                            confirmed = decision.get('reference')=='none'
+                        if not answered or decision.get('reference') in (None, 'unavailable') or metrics.get('memory_ids') != ids:
+                            raise ProviderError('VIEWER_MEMORY_REPLY_HELD')
+                        fresh = lookup(self.store,viewer,comment,self.s,turn_id) if ids else []
+                        if not all(n in fresh for n in candidates):
+                            raise ProviderError('VIEWER_MEMORY_SOURCE_REVOKED')
+                        if recall.get('clarified'):
+                            return None
+                        if not confirmed or (not ids and not ram_rows):
+                            reference = decision.get('reference')
+                            reason = {'none': 'no_supporting_report', 'uncertain': 'low_confidence'}.get(reference, 'different_evidence')
+                            kind = viewer_recall_search.clarification_kind(comment)
+                            line, speech = fixed_reply(kind, language, speech)
+                            recall.update(clarified=True, clarification_reason=reason,
+                                          clarification_kind=kind, recorded=isinstance(speech, RecordedReply))
+                            return PublicOutput(line) if isinstance(sentence, PublicOutput) else line
+                    return sentence
+
+                def emit_speech(sentence):
+                    nonlocal characters
+                    characters+=len(sentence.speech)
+                    if characters>self.s.max_reply_chars:raise ProviderError('REPLY_CHARACTER_LIMIT')
                     pieces = [sentence.speech]
+                    if (viewer.startswith('twitch:') and self.program_pcm and self.s.max_chunks >= 2
+                            and not isinstance(speech, RecordedReply)
+                            and metrics.get('tts_route', {}).get('language') == 'ja'):
+                        # The producer has validated the full reply. The consumer numbers and
+                        # publishes each sentence while the previous one plays.
+                        parts = japanese_reply_parts(sentence.speech)
+                        if not hasattr(speech, 'can_release_lead') or speech.can_release_lead(parts):
+                            pieces = parts
                     if initiative and self.program_pcm and decoder.structured:
                         # The complete structured response has passed validation. Each media
                         # segment can now finish independently, including a streaming prefix.
@@ -586,6 +870,24 @@ class SpeechController:
                     for piece in pieces:
                         publish('character_action',**sentence.action())
                         put(PublicOutput(piece,sentence.expression,sentence.motion))
+                if 'public_line' in generation_decision:
+                    if not current():
+                        return
+                    # Any validation failure below belongs to this local turn; Gemini stayed held.
+                    key = None
+                    language = self.s.language[:2]
+                    speech = voices[language]
+                    line = generation_decision['public_line']
+                    output = PublicOutput.validate(dict(speech=line,expression=plan.expression,motion=plan.motion),
+                                                   limit=self.s.max_reply_chars)
+                    checked = checked_memory_output(output, language)
+                    if checked is not None and current():
+                        metrics['tts_route'] = dict(input_language=language,confidence=None,threshold=threshold,
+                                                    fallback_language=fallback,language=language,voice=speech.voice,
+                                                    decision='authored_public_reply')
+                        metrics['first_sentence_ms'] = metrics['public_output_ready_ms'] = round((self.clock()-start)*1000, 2)
+                        emit_speech(checked)
+                    return
                 for delta in self.text.stream(comment,generation_history,**speaker):
                     if not got_response:received(key,'gemini');got_response=True
                     if not current():break
@@ -600,12 +902,59 @@ class SpeechController:
                     for sentence in (decoder.feed('',final=True) if decoder else buffer.feed('',final=True)):
                         enqueue(sentence)
                 self.store.call_usage(key,getattr(self.text,'usage',{}));accepted(key,'gemini')
+                if pending and current():
+                    action, target = pending
+                    metrics['speech_language_guard'] = {'language': target, 'action': action}
+                    guard = metrics['speech_language_guard']
+                    if action == 'repair':
+                        key = prepared('gemini','generate',{'purpose':'speech_language_repair','language':target})
+                        try:
+                            self.text.usage = {}
+                            if not dispatch(key,'gemini',repair=True):return
+                            # Dispatch refreshed the retrieval context. Keep the original comment
+                            # and target voice fixed, even if the second classification differs.
+                            repair = PublicDecoder(structured=True, plan=generation_decision.get('character_plan'),
+                                                   limit=self.s.max_reply_chars, language_routing=bool(voices),
+                                                   expand_wire=getattr(self.text,'expand_studio_output',None))
+                            started = False
+                            for delta in self.text.stream(comment,generation_history,**speaker,speech_repair_language=target):
+                                if not started:
+                                    received(key,'gemini')
+                                    started = True
+                                if not current():break
+                                repair.feed(delta)
+                            if not current():
+                                self.store.call_usage(key,getattr(self.text,'usage',{}))
+                                accepted(key,'gemini')
+                                return
+                            result, = repair.feed('',final=True)
+                            result = normalize_name(result, target)
+                            self.store.call_usage(key,getattr(self.text,'usage',{}))
+                            if repair.unsupported_language_requested:
+                                action = 'available'
+                            elif not readable(result.speech,target):
+                                raise ProviderError('REPAIRED_SPEECH_LANGUAGE_MISMATCH')
+                            else:
+                                accepted(key,'gemini')
+                                guard['outcome'] = 'repaired'
+                                result = checked_memory_output(result, target)
+                                if result is not None:
+                                    emit_speech(result)
+                                return
+                            accepted(key,'gemini')
+                        except (ProviderError, CharacterError) as exc:
+                            guard['repair_error'] = failed(key,'gemini',exc)
+                            action = 'clarify'
+                    if current():
+                        result = select_fixed(action, target, verify_memory=True)
+                        if result is not None:
+                            emit_speech(result)
             except Exception as exc:
                 if isinstance(exc,CharacterError):
                     self.character.format_error()
                     metrics['character_output_format_errors']=1
                     exc=ProviderError(str(exc))
-                try:code=failed(key,'gemini',exc) if key else 'CONVERSATION_STORAGE_FAILED'
+                try:code=failed(key,'gemini',exc) if key else (str(exc) if isinstance(exc,ProviderError) else 'CONVERSATION_STORAGE_FAILED')
                 except Exception:code='CONVERSATION_STORAGE_FAILED'
                 producer_error.append(code)
             finally:put(None)
@@ -615,7 +964,21 @@ class SpeechController:
                 key=prepared('jev','reaction',{'comment_characters':len(comment)})
                 if not dispatch(key,'jev'):return
                 dialogue = {'dialogue':True} if isinstance(self.reaction,JevReaction) and live_host else {}
-                if candidates and self.s.semantic_memory_mode=='jev' and isinstance(self.reaction,JevReaction):
+                if wait_for_selection and use_viewer_recall and isinstance(self.reaction,JevReaction):
+                    fresh = lookup(self.store, viewer, comment, self.s, turn_id)
+                    offered = [item for item in candidates if item in fresh]
+                    value = self.reaction.classify(comment, viewer_memories=offered, **dialogue)
+                elif session_mode and eligible and isinstance(self.reaction,JevReaction):
+                    # Fetch a wider independently scoped pool, ensuring both proposed reports are visible.
+                    fresh = lookup(self.store,viewer,comment,self.s,turn_id) if candidates else []
+                    active = [n for n in candidates if n in fresh]
+                    pool = twitch_recall.candidates(self.store,viewer,comment,self.s,turn_id)
+                    offered = (active+[n for n in pool if n not in active])[:self.s.semantic_candidate_limit]
+                    proposed = tuple(n['memory_id'] for n in active if n in offered)
+                    value=self.reaction.classify(comment,viewer_memories=offered,proposed_memory_ids=proposed,**dialogue)
+                    if not offered:
+                        value['semantic']={'reference':'none','memory_id':None}
+                elif wait_for_selection and isinstance(self.reaction,JevReaction):
                     current_candidates=self.store.revalidate_episode_candidates(viewer,comment,self.s,candidates)
                     value=self.reaction.classify(comment,candidates=current_candidates,previous_message=previous_message,**dialogue)
                 else:value=self.reaction.classify(comment,**dialogue)
@@ -670,7 +1033,28 @@ class SpeechController:
                                 metrics['first_pcm_ms'] = round((self.clock()-start)*1000,2)
                             sink(turn_id, sentence, packet)
                         options['on_pcm'] = on_pcm
-                    timing=speech.create(sentence,path,**options);received(key,'tts')
+                    try:
+                        timing = speech.create(sentence, path, **options)
+                    except ProviderError as exc:
+                        backup = getattr(speech, 'fallback_voice', None)
+                        if (str(exc) != 'LOCAL_TTS_HTTP_503' or backup is None or index != 0
+                                or metrics.get('first_pcm_ms') is not None or not current()
+                                or self.reply_playable is None or not self.reply_playable()):
+                            raise
+                        failed(key, 'tts', exc)
+                        key = prepared('tts', 'synthesize', {'characters':len(sentence), 'chunk':index,
+                                                            'purpose':'local_cpu_fallback'})
+                        metrics['tts_failover'] = {'reason':str(exc), 'outcome':'attempted'}
+                        if not dispatch(key, 'tts'):
+                            break
+                        # No PCM has been released. Use the same voice in a separate local worker.
+                        try:
+                            timing = backup.create(sentence, path, **options)
+                        except Exception:
+                            metrics['tts_failover']['outcome'] = 'failed'
+                            raise
+                        metrics['tts_failover']['outcome'] = 'synthesized'
+                    received(key,'tts')
                     duration=timing.get('duration',0)
                     if not isinstance(duration,(int,float)) or not 0<duration<=60 or not path.is_file() or path.stat().st_size>12*1024*1024:raise ProviderError('INVALID_TTS_RESULT')
                     if reservation:self.store.usage_complete(reservation)

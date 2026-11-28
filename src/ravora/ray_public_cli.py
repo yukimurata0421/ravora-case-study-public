@@ -11,6 +11,8 @@ import time
 
 
 from ravora.database import Database
+from ravora.budget_status import scheduled_limits
+from ravora.settings import load_settings, SettingsError
 from ravora.ray_public import dumps, project
 
 
@@ -21,7 +23,11 @@ def main():
     try:
         with Database.existing(args.db, readonly=True).connect() as db:
             db.execute('BEGIN')
-            value = project(db, time.time())
+            try:
+                limits = scheduled_limits(load_settings(Path('.env'), environ={}))
+            except (SettingsError, ValueError, OSError):
+                limits = None
+            value = project(db, time.time(), limits)
     except (ValueError, OSError, KeyError, sqlite3.Error) as exc:
         parser.exit(1, f'{type(exc).__name__}\n')
     print(dumps(value))

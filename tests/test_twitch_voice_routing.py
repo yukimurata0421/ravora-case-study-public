@@ -48,7 +48,7 @@ class RouteTests(unittest.TestCase):
                 controller.language_voices = voices
                 events = []
                 try:
-                    metrics = controller.run('What is your favorite game?', 'viewer', 'route', events.append, threading.Event())
+                    metrics = controller.run('Qwen3?', 'viewer', 'route', events.append, threading.Event())
                 finally:
                     controller.memory_worker.close()
                 self.assertEqual(events[-1]['kind'],'complete', [e.get('code') for e in events if 'code' in e])

@@ -170,6 +170,7 @@ function changeSession(operation) {
 function mute(input, message) {
   if (mic !== input) return;
   mic = null;
+  input.captureReady?.();
   clearTimeout(input.question?.timer);
   input.question = input.pending = null;
   clearInterval(input.watchdog);
@@ -266,7 +267,8 @@ async function openMic() {
     if (mic !== input) { stream.getTracks().forEach(track => track.stop()); return; }
     input.stream = stream;
     const track = stream.getAudioTracks()[0];
-    input.echoCancelled = track.getSettings?.().echoCancellation === true;
+    const echo = track.getSettings?.().echoCancellation;
+    input.echoCancelled = echo === true || echo === 'all';
     track.onended = () => mute(input, 'マイクが切断されたためミュートしました。');
     const context = input.context = new AudioContext({sampleRate: 48000});
     await context.audioWorklet.addModule('/mic-stream.js');
@@ -278,15 +280,13 @@ async function openMic() {
     });
     const silent = context.createGain();
     silent.gain.value = 0;
-    await claimSession(input);
-    if (mic !== input) return;
-    input.lastPacket = performance.now();
-    input.watchdog = setInterval(() => {
-      if (performance.now() - input.lastPacket > 1500) mute(input, 'マイク入力が途切れたためミュートしました。');
-    }, 500);
+    let firstPacket;
+    const captureStarted = new Promise((resolve, reject) => {
+      const timer = setTimeout(() => reject(new Error('マイク入力が開始されませんでした。')), 5000);
+      input.captureReady = () => { clearTimeout(timer); resolve(); input.captureReady = null; };
+    });
     node.onprocessorerror = () => mute(input, 'マイク入力エラーのためミュートしました。');
-    node.port.onmessage = ({data}) => {
-      if (mic !== input || data.kind !== 'pcm') return;
+    function queuePacket(data) {
       const sequence = input.sequence++;
       if (context.currentTime - data.endTime > .25) return;
       input.lastPacket = performance.now();
@@ -301,11 +301,31 @@ async function openMic() {
       }
       input.pending = {sequence, samples: data.samples, endTime: data.endTime};
       sendPackets(input);
+    }
+    node.port.onmessage = ({data}) => {
+      if (mic !== input || data.kind !== 'pcm') return;
+      if (input.session) {
+        queuePacket(data);
+      } else if (context.currentTime - data.endTime <= .25) {
+        firstPacket = data;
+        input.captureReady?.();
+      }
     };
     context.onstatechange = () => {
       if (mic === input && context.state !== 'running') mute(input, '音声入力が停止したためミュートしました。');
     };
     source.connect(node).connect(silent).connect(context.destination);
+    // Start the server's packet clock only when this device is delivering PCM.
+    await captureStarted;
+    if (mic !== input) return;
+    await claimSession(input);
+    if (mic !== input) return;
+    input.lastPacket = performance.now();
+    if (firstPacket && input.sequence === 0) queuePacket(firstPacket);
+    firstPacket = null;
+    input.watchdog = setInterval(() => {
+      if (performance.now() - input.lastPacket > 1500) mute(input, 'マイク入力が途切れたためミュートしました。');
+    }, 500);
     controls();
     notice.textContent = 'マイク配信中';
   } catch (error) {
@@ -454,9 +474,12 @@ async function update() {
       if (transportStatus.textContent !== label) transportStatus.textContent = label;
       transportStatus.hidden = false;
     }
-    if (state.chat?.transport === 'twitch_eventsub_websocket') {
+    if (['twitch_eventsub_websocket', 'twitch_irc'].includes(state.chat?.transport)) {
       const {status, code, counts} = state.chat;
-      const label = 'Twitchチャット　' + (chatStates[status] || status)
+      const route = state.chat.transport === 'twitch_irc' ? '（IRC予備で受信中）'
+        : state.chat.irc?.status === 'reading' ? '（IRC予備接続済み）'
+        : state.chat.irc?.status === 'authorization_required' ? '（IRC予備は要認可）' : '';
+      const label = 'Twitchチャット　' + (chatStates[status] || status) + route
         + '（受付 ' + (counts?.queued || 0) + ' 件）' + (code ? '　' + code : '');
       if (chatStatus.textContent !== label) chatStatus.textContent = label;
       chatStatus.hidden = false;

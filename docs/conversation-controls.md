@@ -87,6 +87,10 @@ Source removal, source expiry cleanup and character-memory reset remove the
 associated suggestions. Momentary feelings and unselected suggestions stay out of
 the speech prompt. [Router](../src/ravora/dialogue_router.py) · [Playback and routing tests](../tests/test_dialogue_router.py)
 
+Ray can answer questions about her own motives using authored first-person
+statements in English or Japanese. The most recent eligible exchange determines
+what a short follow-up refers to. [Character interview and recall rules](character-interview.md)
+
 ## Ray's interests and viewer memories
 
 Ray starts with three interests in the live studio and the offline console.

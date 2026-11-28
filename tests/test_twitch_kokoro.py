@@ -55,10 +55,10 @@ class KokoroTests(unittest.TestCase):
                     self.assertEqual(w.readframes(w.getnframes()),first+(tail if expected_count==2 else b''))
         self.assertFalse(profiles['en'][2].viewer_reply)
 
-    def test_failed_tail_is_not_retried_or_published_as_a_complete_wave(self):
+    def test_unknown_tail_failure_is_not_retried_or_published_as_a_complete_wave(self):
         voice = KokoroSpeech(ProviderSettings())
         voice.viewer_reply = True
-        voice._pcm = Mock(side_effect=[b'\x01\x02'*24000,ProviderError('LOCAL_TTS_HTTP_503')])
+        voice._pcm = Mock(side_effect=[b'\x01\x02'*24000,ProviderError('LOCAL_TTS_CONNECTION_FAILED')])
         sink = Mock()
         with tempfile.TemporaryDirectory() as tmp:
             path=Path(tmp)/'out.wav'
@@ -141,9 +141,13 @@ class KokoroTests(unittest.TestCase):
                 server.style = speech.style
                 thread = threading.Thread(target=server.serve_forever, daemon=True)
                 thread.start()
+                cache = patch('ravora.spoken_language.ASSETS', Path(tmp)/'cache')
+                cache.start()
+                self.addCleanup(cache.stop)
                 try:
                     warm_twitch_voices({'en': (None, None, speech), 'ja': (None, None, object())})
-                    self.assertEqual(requests, [('/synthesis', {'text': 'Ray ready. English TTS.', 'voice': speech.style})])
+                    self.assertEqual(requests[0], ('/synthesis', {'text': 'Ray ready. English TTS.', 'voice': speech.style}))
+                    self.assertGreater(len(requests), 1)
                     server.style = 'other'
                     with self.assertRaisesRegex(ProviderError, 'KOKORO_VOICE_MISMATCH'):
                         warm_twitch_voices({'en': (None, None, speech), 'ja': (None, None, object())})

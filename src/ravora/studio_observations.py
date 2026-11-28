@@ -23,6 +23,7 @@ class StudioObservations:
         self.events = queue.Queue(maxsize=256)
         self.dropped = self.failed = 0
         self._audience = (float('-inf'), None)
+        self._confirmed_transport = None
         self.chat_matches = chat_source == platform
         self.chat_since = self.chat_last = self.chat_saved = None
         with self.store.connect() as db:
@@ -60,33 +61,44 @@ class StudioObservations:
                        (self.session,frame,time.time(),version))
 
     def has_audience(self):
-        return (self.audience_size() or 0) > 0
+        return bool(self.audience_size())
 
     def audience_size(self):
         observed, viewers = self._audience
         return viewers if 0 <= time.time()-observed <= LIVE_EVIDENCE_SECONDS else None
 
-    def audience(self, observed, status, stream_id=None, viewers=None, started=None):
+    def audience(self, observed, status, stream_id=None, viewers=None, started=None, *, transport=None):
+        from ravora.twitch_identity import confirm_rollover, media_generation
+        generation = media_generation(transport)
         known_viewers = None
         conflict = False
         try:
             with self.store.connect() as db:
                 db.execute('BEGIN IMMEDIATE')
-                if not db.execute('SELECT 1 FROM studio_sessions WHERE session=? AND stopped IS NULL',
-                                  (self.session,)).fetchone():
+                row = db.execute('SELECT stream_id FROM studio_sessions WHERE session=? AND stopped IS NULL',
+                                 (self.session,)).fetchone()
+                if row is None:
                     return
                 if status == 'live':
                     stream_key(stream_id)
                     if type(viewers) is not int or viewers < 0:
                         raise ValueError('INVALID_VIEWER_COUNT')
-                    conflict, = db.execute("""UPDATE studio_sessions SET
-                        identity_conflict=MAX(identity_conflict,stream_id IS NOT NULL AND stream_id!=?),
-                        binding_source=COALESCE(binding_source,'twitch_helix'), stream_id=COALESCE(stream_id,?)
-                        WHERE session=? RETURNING identity_conflict""", (stream_id, stream_id, self.session)).fetchone()
                 db.execute('INSERT INTO studio_audience VALUES(?,?,?,?,?,?)',
                            (self.session, observed, status, stream_id, started, viewers))
+                if status == 'live':
+                    prior = self._confirmed_transport
+                    rolled = (generation and prior and row[0] == prior[0] and row[0] != stream_id
+                              and confirm_rollover(db,self.session,row[0],stream_id,observed,started,
+                                                   prior[1],generation,connected_at=transport.get('connection_media_started_at')))
+                    if not rolled:
+                        conflict, = db.execute("""UPDATE studio_sessions SET
+                            identity_conflict=MAX(identity_conflict,stream_id IS NOT NULL AND stream_id!=?),
+                            binding_source=COALESCE(binding_source,'twitch_helix'), stream_id=COALESCE(stream_id,?)
+                            WHERE session=? RETURNING identity_conflict""", (stream_id,stream_id,self.session)).fetchone()
             if status=='live' and not conflict:
                 known_viewers = viewers
+                if generation and observed >= self._audience[0]:
+                    self._confirmed_transport = (stream_id,generation)
         finally:
             # Only a committed, stream-bound sample can enable an unsolicited turn.
             latest, _ = self._audience
@@ -160,9 +172,16 @@ def import_observation(db, record):
         if session is not None:
             row = db.execute('SELECT platform,stream_id,identity_conflict FROM studio_sessions WHERE session=?',
                              (session,)).fetchone()
-            if not row or row[0] != platform or row[1] not in (None,external) or row[2]:
+            if not row or row[0] != platform or row[2]:
                 raise ValueError('SESSION_BROADCAST_MISMATCH')
-            db.execute('UPDATE studio_sessions SET stream_id=?,binding_source=COALESCE(binding_source,?) WHERE session=?', (external,'operator_summary',session))
+            if row[1] not in (None,external) and not (platform == 'twitch' and
+                    db.execute('PRAGMA user_version').fetchone()[0] >= 31 and
+                    db.execute('SELECT 1 FROM twitch_stream_rollovers WHERE session=? AND previous_id=?',
+                               (session,external)).fetchone()):
+                raise ValueError('SESSION_BROADCAST_MISMATCH')
+            if row[1] in (None,external):
+                db.execute('UPDATE studio_sessions SET stream_id=?,binding_source=COALESCE(binding_source,?) WHERE session=?',
+                           (external,'operator_summary',session))
         values = (platform,external,start,end,unique,avg,peak)
         db.execute('INSERT OR IGNORE INTO studio_stream_summaries VALUES(?,?,?,?,?,?,?)', values)
         old = db.execute('SELECT * FROM studio_stream_summaries WHERE platform=? AND stream_id=?',

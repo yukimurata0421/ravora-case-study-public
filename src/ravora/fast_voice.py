@@ -19,6 +19,8 @@ from ravora.input_records import InputRecords
 from ravora.edge_grpc import EdgeClients,EdgeError,pcm_wave
 from ravora.early_reaction import EarlyReactions
 from ravora.memory_worker import MemoryWorker
+from ravora.relationships import viewer_details_supplied
+from ravora.persona import storage_direction
 from ravora.persona import (AVATAR_NAME, DEVELOPER_SPEAKER, JAPANESE_QUESTION_WINDOW, asked_listener_in_japanese,
                            conversation_prompt, japanese_question_direction, listener_instruction)
 from ravora.providers import ProviderError
@@ -524,6 +526,7 @@ class FastVoiceSession:
                     semantic_decision=self.early.semantic if arrived is not None and arrived<=decision_deadline else None
                     call=prepare('gemini','stream_generate',self.s.gemini_model)
                     notes,strategy=self.store.conversation_memories(viewer,text,self.s,judgment=semantic_decision) if rag else ([], 'dialogue_gate')
+                    notes = self.store.prior_viewer_notes(notes,viewer,self.s.mode,turn)
                     if rag and metrics['knowledge_rag'] != 'explicit_recall' and developer_speaker:
                         notes+=self.store.developer_banter_memory(viewer,self.s)
                     metrics['memory_strategy']=strategy
@@ -537,6 +540,7 @@ class FastVoiceSession:
                             limit=self.s.context_max_items,max_chars=self.s.context_max_chars,turn_id=turn)
                     history,context=load_speech_background(self.s,text,bool(self.early.candidates),semantic_decision,
                         lambda:self.store.history(self.s.mode+':'+viewer,self.s.memory_turns,turn_id=turn),read_context,selected=notes)
+                    own_detail = viewer_details_supplied(history,context,notes)
                     if self.followup is not None:
                         history = self.store.followup_history(self.followup,self.s.mode)
                         context = []
@@ -545,10 +549,12 @@ class FastVoiceSession:
                     self.store.record_context_retrievals(turn,context,call_id=call,prepared=True)
                     metrics['context_tiers']=[e['tier'] for e in context];metrics['context_items']=len(context)
                     lookup=time.monotonic()
-                    background=self.store.relationship_context(viewer,scope=self.s.mode) if self.s.memory_enabled and self.s.relationship_enabled else None
+                    background=self.store.relationship_context(viewer,scope=self.s.mode,turn_id=turn) if self.s.memory_enabled and self.s.relationship_enabled else None
+                    if background is not None:
+                        background['viewer_details_supplied'] = own_detail
                     metrics['relationship_lookup_ms']=round((time.monotonic()-lookup)*1000,3)
                     reaction=(self.early.value or {}).get('reaction') if semantic_decision else None
-                    prompt=self.prompts[language]+listener_instruction(strategy,reaction)
+                    prompt=self.prompts[language]+listener_instruction(strategy,reaction)+storage_direction(text,self.s.memory_ttl_days)
                     if developer_speaker:prompt+=DEVELOPER_SPEAKER
                     character_begin=time.monotonic()
                     character_memories=self.memory.character_memories(viewer,route,text) if self.character else ()

@@ -98,7 +98,7 @@ class ProjectionTests(unittest.TestCase):
         slot = next(s for s in v['slots'] if s['id']=='ja-19')
         self.assertEqual((slot['broadcasts'],slot['eligible'],slot['speakers']), (1,0,None))
         self.assertEqual([r['slot'] for r in v['broadcasts']].count('off-plan'),2)
-        self.assertEqual((v['experiment']['weekly_broadcasts'],v['experiment']['weekly_hours']),(46,92))
+        self.assertEqual((v['experiment']['weekly_broadcasts'],v['experiment']['weekly_hours']),(84,168))
 
     def test_market_missing_partial_and_competitor_intervals(self):
         start = datetime(2026,11,24,17,tzinfo=JST).timestamp()

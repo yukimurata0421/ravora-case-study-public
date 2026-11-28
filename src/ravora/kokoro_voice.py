@@ -1,4 +1,5 @@
 """English Twitch speech over the private, warmed Kokoro CUDA socket."""
+import logging
 import os
 from pathlib import Path
 import re
@@ -8,7 +9,7 @@ from ravora.providers import ProviderError
 from ravora.kokoro_profile import RayEnglishProfile
 
 
-CONTINUATION_LIMIT = 165
+CONTINUATION_LIMIT = 56
 
 # Prefer punctuation, then the start of a clause or a prepositional phrase.
 _BOUNDARY = re.compile(r"""(?P<mark>[.!?,;:…—–]+["'”’)]*)\s+|\s+(?P<next>(?:seen through|made (?:of|from)|filled with|covered (?:in|by)|built (?:from|with)|lit by|lined with|and|but|because|while|when|though|which|where|before|after|with|without|through|until|so that|instead of)\b|[—–]\s+)""", re.I)
@@ -51,24 +52,26 @@ def request_parts(text):
 
 
 def continuation_parts(text):
-    # A long tail can outlast its playing lead. Prepare the next phrase first,
-    # and let the same model synthesize subsequent phrases during playout.
+    """Bound per-request synthesis work without splitting a word or dropping a tail."""
     while len(text) > CONTINUATION_LIMIT:
-        boundaries = []
+        choices = []
         for match in _BOUNDARY.finditer(text):
             end = match.end('mark') if match.group('mark') else match.start()
-            if end > 110:
+            if end > CONTINUATION_LIMIT:
                 break
-            if 32 <= end and not _ABBREVIATION.search(text[:end]):
-                penalty = 0 if match.group('mark') else 15
-                boundaries.append((abs(end-72) + penalty, end))
-        if boundaries:
-            cut = min(boundaries)[1]
+            if end >= 16 and not _ABBREVIATION.search(text[:end]):
+                choices.append((0 if match.group('mark') else 1, abs(40 - end), end))
+        if choices:
+            cut = min(choices)[2]
         else:
-            cut = text.rfind(' ', 1, 101)
-            if cut < 1:
-                break
-        yield text[:cut].strip()
+            space = list(re.finditer(r'\s+', text[:CONTINUATION_LIMIT + 1]))
+            if space:
+                cut = space[-1].start()
+            else:
+                # Keep an indivisible token intact within the socket's existing limit.
+                following = re.search(r'\s', text)
+                cut = following.start() if following else len(text)
+        yield from request_parts(text[:cut].strip())
         text = text[cut:].lstrip()
     yield from request_parts(text)
 
@@ -84,18 +87,46 @@ class KokoroSpeech(RayEnglishProfile):
         self.timeout = settings.timeout
         self.viewer_reply = False
         self.preview_caption = None
+        self.fallback_voice = None
+        fallback = os.environ.get('RAVORA_KOKORO_FALLBACK_SOCKET')
+        if fallback and Path(fallback).is_absolute() and Path(fallback).resolve() != Path(self.socket_path).resolve():
+            from copy import copy
+            self.fallback_voice = copy(self)
+            self.fallback_voice.socket_path = fallback
+
+    def _render_part(self, text):
+        try:
+            return self._pcm(text)
+        except ProviderError as exc:
+            if str(exc) != 'LOCAL_TTS_HTTP_503':
+                raise
+            # _pcm returns only complete, validated PCM. Nothing from this failed
+            # request has been published. Never replay an earlier successful part.
+            boundaries = list(re.finditer(r'(?<=\S)\s+(?=\S)', text))
+            if not boundaries:
+                raise
+            middle = min(boundaries, key=lambda m: abs(m.start() + m.end() - len(text)))
+            left, right = text[:middle.start()], text[middle.end():]
+            logging.getLogger(__name__).info('KOKORO_SPLIT_RETRY characters=%d halves=%d,%d',
+                                             len(text), len(left), len(right))
+            # Direct calls give this part exactly one retry level. Publish both
+            # halves together so a failure of the right half cannot repeat the left.
+            return self._pcm(left) + self._pcm(right)
 
     def create(self, text, output, *, on_pcm=None):
         head = reply_lead(text) if self.viewer_reply else text
         rest = text[len(head):].strip()
         sound = bytearray()
-        parts = [*request_parts(head), *continuation_parts(rest)]
-        preview = head
+        if self.viewer_reply:
+            parts = [*continuation_parts(head), *continuation_parts(rest)]
+        else:
+            parts = list(request_parts(text))
+        preview = parts[0] if parts else head
         if len(parts) > 2 and on_pcm:
             from ravora.live_overlay import caption_layout
             preview = ' '.join(caption_layout(text)[1][0].split())
         for index, part in enumerate(parts):
-            pcm = self._pcm(part)
+            pcm = self._render_part(part)
             if len(sound) + len(pcm) > 60*48000:
                 raise ProviderError('PROGRAM_AUDIO_TOO_LONG')
             sound.extend(pcm)

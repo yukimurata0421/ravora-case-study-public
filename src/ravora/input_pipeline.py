@@ -85,22 +85,38 @@ class InputPipeline:
                 'queue':self.inbox.summary(),'provider_requests_attempted':self.inbox.requests_attempted(),'reader':self.reader.snapshot() if self.reader else None,
                 'fixture_page':getattr(self,'fixture_result',None),'memory_worker':self.bridge.controller.memory_worker.snapshot()}
 
-    def next(self, *, allow_host_input=False, allow_initiative=True, prefer_host=False):
+    def audience_allows_initiative(self):
+        if self.audience_size is not None:
+            return bool(self.audience_size())
+        return self.audience_present is None or bool(self.audience_present())
+
+    def _take_followup(self, character):
+        if self.audience_size is None:
+            if self.audience_present is None:
+                return character.take_followup()
+            if self.audience_present():
+                return character.take_followup(audience_opening=True)
+            return None
+        viewers = self.audience_size()
+        if viewers:
+            return character.take_followup(audience_opening=True, quiet_small_audience=1 <= viewers <= 5)
+        return None
+
+    def next(self, *, allow_host_input=False, allow_initiative=True, prefer_host=False, only_receipt=None):
         with self.lock:
             if self.paused_reason:return {'available':False,'finished':True,'held':True,'code':self.paused_reason}
             if not allow_host_input and self.reader and self.reader.status=='failed':return {'available':False,'finished':True,'error':self.reader.code}
             if self.prepared or self.active_receipt or (self.bridge.worker and self.bridge.worker.is_alive()):return {'available':False,'finished':False}
             prefer='live-host' if allow_host_input and (prefer_host or self.last_source!='live-host') else None
-            comment=self.inbox.take(prefer_source=prefer,playout_delay=self.estimated_preparation())
+            comment=self.inbox.take(prefer_source=prefer,playout_delay=self.estimated_preparation(),only_receipt=only_receipt)
             if comment:
                 self.last_source=comment['source']
                 return {'available':True,'finished':False,'comment':comment}
             character=getattr(self.bridge.controller,'character',None)
             live = self.s.comment_source in VIEWER_CHAT_SOURCES or (allow_host_input and self.s.comment_source=='developer')
             if (live and allow_initiative and character and self.s.character_initiative_enabled
-                    and not self.retiring_initiative and (self.audience_present is None or self.audience_present())):
-                options = {'quiet_single':self.audience_size()==1} if self.audience_size else {}
-                thread = character.take_followup(audience_opening=self.audience_present is not None, **options)
+                    and not self.retiring_initiative):
+                thread = self._take_followup(character)
                 if self.inbox.store.can_initiate(thread,self.s.mode):
                     initiative = Comment('ray-initiative',self.inbox.session,uuid.uuid4().hex,'ray','Ray',
                                          thread.message,time.time())
@@ -117,8 +133,13 @@ class InputPipeline:
             if self.paused_reason:raise ValueError('INPUT_PAUSED')
             comment,viewer=self.inbox.claimed(receipt)
             if self.active_receipt or self.prepared:raise ValueError('TURN_BUSY')
-            if viewer.startswith('ray-initiative:') and (not self.followup_claim or self.followup_claim[0]!=receipt):
-                raise ValueError('COMMENT_NO_LONGER_AVAILABLE')
+            if viewer.startswith('ray-initiative:'):
+                if not self.followup_claim or self.followup_claim[0] != receipt:
+                    raise ValueError('COMMENT_NO_LONGER_AVAILABLE')
+                if not self.audience_allows_initiative():
+                    self.inbox.finish(receipt, 'cancelled', 'audience_unavailable')
+                    self.followup_claim = None
+                    raise ValueError('COMMENT_NO_LONGER_AVAILABLE')
             self.active_receipt=receipt
             options = {}
             if self.followup_claim and self.followup_claim[0] == receipt:
@@ -271,5 +292,9 @@ class InputPipeline:
             self.reap_prepared()
         if self.thread:self.thread.join(timeout=.25)
         self.reap_initiative(closing=True)
+        if intake := getattr(self, 'twitch_intake', None):
+            intake.close()
+        if self.s.twitch_recall_mode=='session' and self.inbox.store.window:
+            self.inbox.store.window.close()
         self.inbox.close()
         self.bridge.controller.memory_worker.close()

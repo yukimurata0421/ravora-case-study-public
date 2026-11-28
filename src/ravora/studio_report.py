@@ -1,6 +1,8 @@
 """Produce one aggregate per identified broadcast from a consistent SQLite snapshot."""
+from bisect import bisect_right
 from collections import Counter, defaultdict
 from datetime import datetime, timedelta, timezone
+from itertools import chain
 import json
 import sqlite3
 import time
@@ -12,7 +14,7 @@ from ravora.ray_public_contract import CHAT_RANK_COVERAGE, P95_MIN_SAMPLES
 
 JST = timezone(timedelta(hours=9))
 SESSION_SET = '(SELECT value FROM json_each(?))'
-BUDGET_CODES = {'LOCAL_MONTHLY_REPLY_LLM_LIMIT','LOCAL_MONTHLY_TTS_LIMIT','STT_SESSION_LIMIT','STT_MONTHLY_AUDIO_LIMIT'}
+BUDGET_CODES = {'LOCAL_MONTHLY_AUX_LIMIT','LOCAL_MONTHLY_REPLY_LLM_LIMIT','LOCAL_MONTHLY_TTS_LIMIT','STT_SESSION_LIMIT','STT_MONTHLY_AUDIO_LIMIT'}
 FINAL_UNPLAYED = {'cancelled','expired','removed','failed','held','dropped'}
 
 
@@ -126,17 +128,30 @@ def estimate(row):
             return row['characters'] * 30 / 1e6
         if '-Wavenet-' in model:
             return row['characters'] * 4 / 1e6
+    if row['provider']=='jev' and model=='jev-1.14.0' and row['input_tokens'] is not None:
+        return row['input_tokens']*.042/1e6
     if row['provider']=='gemini' and model=='gemini-3.5-flash-lite':
         inputs, cached, total = row['input_tokens'],row['cached_input_tokens'],row['total_tokens']
+        # Memory extraction reports no cached count; price it as uncached input, an upper bound.
+        if cached is None and inputs is not None and total is not None:
+            cached = 0
         if None not in (inputs,cached,total) and 0 <= cached <= inputs <= total:
             return ((inputs-cached)*.30 + cached*.03 + (total-inputs)*2.50) / 1e6
     return None
 
 
-def usage(db, sessions, *, instrumented=True):
+def stt_estimate(row):
+    if row['cost_estimate'] is not None:
+        return row['cost_estimate']
+    if row['billed'] is not None:
+        return row['billed'] * .016 / 60
+    return None
+
+
+def usage(db, sessions, *, instrumented=True, windows=None):
     prep_fields = 'i.prefetched, i.played_at, i.status AS outcome' if instrumented else 'NULL AS prefetched, NULL AS played_at, NULL AS outcome'
     observation_join = 'LEFT JOIN studio_inputs i ON i.turn_id=t.turn_id' if instrumented else ''
-    rows = db.execute(f"""SELECT a.*,p.operation,p.code,
+    rows = db.execute(f"""SELECT a.*,t.usage_session AS studio_session,p.operation,p.code,
             json_extract(p.summary,'$.chunk') AS chunk,
             {prep_fields}
         FROM conversation_turns t JOIN api_usage a ON a.turn_id=t.turn_id
@@ -144,6 +159,8 @@ def usage(db, sessions, *, instrumented=True):
         WHERE t.usage_session IN {SESSION_SET} AND a.mode='cloud'""", (sessions,)).fetchall()
     grouped = defaultdict(list)
     for row in rows:
+        if windows and not in_window(windows,row['studio_session'],row['created_at']):
+            continue
         grouped[(row['provider'],row['operation'])].append(row)
     result = []
     discarded_costs = []
@@ -165,13 +182,14 @@ def usage(db, sessions, *, instrumented=True):
                        'latency':timing([r['latency_ms'] for r in sent]),
                        'estimated_usd_known':round(sum(c for c in costs if c is not None),9) if any(
                            c is not None for c in costs) else None, 'unpriced_calls':costs.count(None)})
-    stt = db.execute(f"""SELECT request_attempted,input_state,code,duration_seconds,latency_ms,cost_estimate,
+    stt = db.execute(f"""SELECT session,created_at,request_attempted,input_state,code,duration_seconds,latency_ms,cost_estimate,
             json_extract(stt_diagnostics,'$.provider_billed_seconds') AS billed
         FROM developer_inputs WHERE session IN {SESSION_SET} AND kind='audio' AND mode='cloud'""",(sessions,)).fetchall()
+    if windows:
+        stt = [r for r in stt if in_window(windows,r['session'],r['created_at'])]
     if stt:
         sent = [r for r in stt if r['request_attempted']]
-        priced = [r['cost_estimate'] if r['cost_estimate'] is not None else r['billed']*.016/60
-                  for r in sent if r['cost_estimate'] is not None or r['billed'] is not None]
+        priced = [cost for r in sent if (cost := stt_estimate(r)) is not None]
         result.append({'provider':'stt','operation':'recognize','attempts':len(sent),'retries':0,
                        'failed':sum(r['input_state']=='failed' for r in sent),
                        'outcome_unknown':sum(r['input_state'] in ('outcome_unknown','dispatched') for r in sent),
@@ -215,6 +233,99 @@ def legacy_sessions(db, registered, *, include_usage=True):
 
 # Helix samples once a minute. A fresh document cannot renew a provider observation.
 LIVE_EVIDENCE_SECONDS = 150
+
+
+def stream_rollovers(db, version):
+    history = defaultdict(list)
+    if version >= 31:
+        for session, previous, stream, boundary in db.execute(
+                'SELECT session,previous_id,stream_id,stream_started FROM twitch_stream_rollovers ORDER BY stream_started'):
+            history[session].append((previous,stream,boundary))
+    return history
+
+
+def in_window(windows, session, stamp):
+    lower, upper = windows.get(session,(None,None))
+    return (lower is None or lower <= stamp) and (upper is None or stamp < upper)
+
+
+def broadcast_runs(session, transitions):
+    if not transitions or session['identity_conflict']:
+        yield dict(session)
+        return
+    lower = None
+    for previous, stream, boundary in transitions:
+        yield dict(session, stream_id=previous, started=lower or session['started'], stopped=boundary,
+                   frames=None, window=(lower,boundary))
+        lower = boundary
+    yield dict(session, started=lower, frames=None, window=(lower,None))
+
+
+def scheduled_audience_costs(db, since, until):
+    """Group attempted cloud calls by the last audience evidence at local request creation."""
+    if since >= until:
+        raise ValueError('INVALID_SLOT_START_RANGE')
+    db.row_factory = sqlite3.Row
+    arms = {}
+    version = db.execute('PRAGMA user_version').fetchone()[0]
+    history = stream_rollovers(db,version)
+    sessions = 'SELECT scheduled_start,session,1 AS original FROM twitch_schedule_runs'
+    if version >= 27:
+        sessions += ' UNION ALL SELECT scheduled_start,session,0 FROM twitch_slot_restarts WHERE session IS NOT NULL'
+    if version >= 29:
+        sessions += ' UNION ALL SELECT scheduled_start,session,0 FROM twitch_slot_fresh_runs WHERE session IS NOT NULL'
+    runs = db.execute(f"""WITH sessions AS ({sessions})
+        SELECT r.arm,b.session,s.stream_id,s.identity_conflict,b.original
+        FROM twitch_schedule_runs r JOIN sessions b USING(scheduled_start)
+        LEFT JOIN studio_sessions s ON s.session=b.session
+        WHERE r.scheduled_start>=? AND r.scheduled_start<? ORDER BY r.scheduled_start""", (since,until))
+    for arm, session, stream, conflict, original in runs:
+        if arm not in arms:
+            arms[arm] = {'claimed':0, 'with_session':0, 'audience':{
+                state:{'samples':0, 'attempts':0, 'initiative_attempts':0, 'unpriced_calls':0, 'cost_usd_known':0.0}
+                for state in ('zero','positive','unknown')}}
+        totals = arms[arm]
+        totals['claimed'] += original
+        if session is None:
+            continue
+        totals['with_session'] += original
+        times, states = [], []
+        samples = db.execute('SELECT observed,status,stream_id,viewers FROM studio_audience WHERE session=? ORDER BY observed', (session,))
+        for stamp, status, observed_stream, viewers in samples:
+            state = 'unknown'
+            at_sample = next((old for old,_,boundary in history.get(session,()) if stamp < boundary),stream)
+            if not conflict and at_sample and observed_stream == at_sample and status == 'live' and viewers is not None:
+                state = 'zero' if viewers == 0 else 'positive'
+            times.append(stamp)
+            states.append(state)
+            totals['audience'][state]['samples'] += 1
+
+        calls = db.execute("""SELECT a.*,e.platform AS source FROM conversation_turns t
+            JOIN api_usage a ON a.turn_id=t.turn_id LEFT JOIN source_events e ON e.id=t.source_event_id
+            WHERE t.usage_session=? AND a.mode='cloud' AND a.attempted=1""", (session,))
+        mic = db.execute("""SELECT created_at,cost_estimate,
+            json_extract(stt_diagnostics,'$.provider_billed_seconds') AS billed FROM developer_inputs
+            WHERE session=? AND kind='audio' AND mode='cloud' AND request_attempted=1""", (session,))
+        operations = ((r['created_at'],estimate(r),r['source']=='ray-initiative') for r in calls)
+        transcriptions = ((r['created_at'],stt_estimate(r),False) for r in mic)
+        for stamp, cost, initiative in chain(operations, transcriptions):
+            idx = bisect_right(times,stamp)-1
+            state = states[idx] if idx>=0 and stamp-times[idx]<=LIVE_EVIDENCE_SECONDS else 'unknown'
+            bucket = totals['audience'][state]
+            bucket['attempts'] += 1
+            bucket['initiative_attempts'] += initiative
+            if cost is None:
+                bucket['unpriced_calls'] += 1
+            else:
+                bucket['cost_usd_known'] += cost
+    for totals in arms.values():
+        for bucket in totals['audience'].values():
+            if bucket['attempts'] and bucket['unpriced_calls'] == bucket['attempts']:
+                bucket['cost_usd_known'] = None
+            else:
+                bucket['cost_usd_known'] = round(bucket['cost_usd_known'],9)
+    return {'slot_start_from_jst':jst(since), 'slot_start_until_jst':jst(until),
+            'max_sample_age_seconds':LIVE_EVIDENCE_SECONDS, 'slots':dict(sorted(arms.items()))}
 
 
 def audience_health(rows):
@@ -293,7 +404,8 @@ def report(db, *, now=None, include_legacy=True, include_gap_samples=False):
         raise ValueError('STUDIO_USAGE_SESSION_SCHEMA_REQUIRED')
     sessions = list(db.execute('SELECT * FROM studio_sessions ORDER BY started')) if version >= 20 else []
     groups = defaultdict(list)
-    for s in sessions:
+    history = stream_rollovers(db,version)
+    for s in chain.from_iterable(broadcast_runs(row,history.get(row['session'])) for row in sessions):
         key = ('session',s['session']) if not s['stream_id'] or s['identity_conflict'] else ('stream',s['stream_id'])
         groups[(s['platform'], *key)].append(s)
     summaries = {(s['platform'],s['stream_id']):s for s in db.execute('SELECT * FROM studio_stream_summaries')} if version>=20 else {}
@@ -302,12 +414,25 @@ def report(db, *, now=None, include_legacy=True, include_gap_samples=False):
     broadcasts = []
     for (platform, binding, identity), runs in groups.items():
         ids = json.dumps([r['session'] for r in runs])
+        windows = {r['session']:r['window'] for r in runs if 'window' in r}
         inputs = timeline(db,ids)
+        if windows:
+            inputs = [r for r in inputs if in_window(windows,r['session'],r['received'])]
         audience = list(db.execute(f'SELECT * FROM studio_audience WHERE session IN {SESSION_SET} ORDER BY observed', (ids,)))
+        if windows:
+            audience = [r for r in audience if in_window(windows,r['session'],r['observed'])]
         samples = [r for r in audience if r['status']=='live' and binding=='stream' and r['stream_id']==identity]
         policy_events = ([dict(r) for r in db.execute(f"""SELECT session,first_frame,activated,policy
                          FROM studio_speech_policies WHERE session IN {SESSION_SET} ORDER BY activated""",(ids,))]
                          if version>=25 else [])
+        if windows:
+            inherited = {}
+            for event in policy_events:
+                lower, _ = windows.get(event['session'],(None,None))
+                if lower is not None and event['activated'] < lower:
+                    inherited[event['session']] = dict(event,inherited=True)
+            policy_events = [*inherited.values(), *(e for e in policy_events
+                             if in_window(windows,e['session'],e['activated']))]
         counts = [r['viewers'] for r in samples if r['viewers'] is not None]
         summary = summaries.get((platform,identity)) if binding=='stream' else None
         provider_start = summary['started'] if summary else next(
@@ -315,12 +440,23 @@ def report(db, *, now=None, include_legacy=True, include_gap_samples=False):
              and r['stream_started'] is not None), None)
         external_id = identity if binding == 'stream' else None
         if version >= 21:
-            intervals = db.execute(f'SELECT started,ended FROM studio_chat_intervals WHERE session IN {SESSION_SET} ORDER BY started', (ids,))
+            intervals = db.execute(f'SELECT session,started,ended FROM studio_chat_intervals WHERE session IN {SESSION_SET} ORDER BY started', (ids,))
             events = list(db.execute(f'SELECT observed,status FROM studio_provider_events WHERE session IN {SESSION_SET} ORDER BY observed', (ids,)))
         else:
             intervals, events = (), ()
+        if windows:
+            clipped = []
+            for row in intervals:
+                lower, upper = windows.get(row['session'],(None,None))
+                left = max(row['started'],lower) if lower is not None else row['started']
+                right = min(row['ended'],upper) if upper is not None else row['ended']
+                if left < right:
+                    clipped.append(dict(started=left,ended=right))
+            intervals = sorted(clipped,key=lambda r:r['started'])
         tracked = version >= 21 and any(r['chat_tracked'] for r in runs)
         state, evidence, live_until, ended = broadcast_state(runs, external_id, summary, audience, events, now)
+        if not summary and runs and runs[-1].get('window',(None,None))[1] is not None:
+            state, evidence, live_until, ended = 'ended','helix',None,runs[-1]['window'][1]
         observed_start = provider_start if provider_start is not None else (runs[0]['started'] if runs else None)
         window_end = ended
         if window_end is None and runs:
@@ -336,7 +472,7 @@ def report(db, *, now=None, include_legacy=True, include_gap_samples=False):
             'audience_health':audience_health(audience) if platform=='twitch' and runs else None,
             'state': state, 'state_source': evidence, 'live_until': live_until, 'chat_coverage': coverage,
             'platform':platform, 'stream_id':identity if binding=='stream' else None,
-            'sessions':[{'id':r['session'],'mode':r['mode'],'prefetch':bool(r['prefetch']),
+            'sessions':[{'id':r['session'],**({'window':r['window']} if 'window' in r else {}),'mode':r['mode'],'prefetch':bool(r['prefetch']),
                          'selection_policy':r['selection_policy'] if version>=24 else None,
                          'started_jst':jst(r['started']), 'stopped_jst':jst(r['stopped']),
                          'binding_source':r['binding_source'], 'chat_source':r['chat_source'], 'chat_status_at_stop':r['chat_status_at_stop'],
@@ -355,6 +491,6 @@ def report(db, *, now=None, include_legacy=True, include_gap_samples=False):
                         'polls':dict(Counter(r['status'] for r in audience))},
             'comments':comments,
             'test_comments':conversation(inputs,True) if runs else None,
-            'api':usage(db,ids) if runs else None,
+            'api':usage(db,ids,windows=windows) if runs else None,
         })
     return {'broadcasts':broadcasts,'legacy_sessions':legacy_sessions(db,json.dumps([s['session'] for s in sessions])) if include_legacy else []}

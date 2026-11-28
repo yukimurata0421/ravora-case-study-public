@@ -36,8 +36,8 @@ class ScheduleTests(unittest.TestCase):
     def test_calendar_and_adjacent_windows(self):
         day=date(2026,11,23)
         days=[slots_on(day+timedelta(days=i)) for i in range(7)]
-        self.assertEqual([len(d) for d in days],[6,7,6,7,6,7,7])
-        self.assertEqual(sum(len(d) for d in days)*2,92)
+        self.assertEqual([len(d) for d in days],[12]*7)
+        self.assertEqual(sum(len(d) for d in days)*2,168)
         for daily in days:
             for slot in daily:
                 self.assertEqual(slot_at(slot.start,launching=True),slot)

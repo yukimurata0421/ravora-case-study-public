@@ -28,6 +28,10 @@ jobs:
         run: ravora-case-study early-reaction
       - name: Reproduce contact state without cloud calls
         run: ravora-case-study relationships
+      - name: Replay the two character interviews without network access
+        run: |
+          ravora-case-study character-interview > "$RUNNER_TEMP/interview.json"
+          diff -u examples/character-interview.json "$RUNNER_TEMP/interview.json"
       - name: Reproduce the sample clock and mouth plan
         run: ravora-case-study media-timing
       - name: Check the browser timing modules

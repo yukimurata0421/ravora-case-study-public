@@ -4,11 +4,12 @@ from datetime import datetime
 import json
 import sqlite3
 
+from ravora.budget_status import budget_status
 from ravora.ray_public_contract import (
     API_COUNTS, CHAT_RANK_COVERAGE, DAILY, MAX_BROADCASTS, PROVIDERS, SCHEMA, SLOTS, WEEKLY_SHOWS,
 )
-from ravora.studio_report import JST, legacy_sessions, report, timing
-from ravora.twitch_schedule import DURATION, SAMPLE_PERIOD, next_slot, slot_at
+from ravora.studio_report import JST, SESSION_SET, in_window, legacy_sessions, report, timing
+from ravora.twitch_schedule import DAILY_SCHEDULE_START, DURATION, EXPLORATION_START, EXPLORATION_END, SAMPLE_PERIOD, next_slot, promotion_time, slot_at
 
 PUBLIC_PLATFORMS = ('twitch', 'youtube')
 
@@ -37,6 +38,23 @@ def _api(usage):
 
 
 
+def _voice(db, sessions):
+    """Speech synthesis inside the broadcast, split by where it ran. Local voices use no API budget."""
+    windows = {s['id']:s['window'] for s in sessions if 'window' in s}
+    rows = db.execute(f"""SELECT a.mode,a.status,a.characters,t.usage_session,a.created_at
+        FROM conversation_turns t JOIN api_usage a ON a.turn_id=t.turn_id
+        WHERE a.provider='tts' AND a.attempted=1 AND a.mode IN ('local','cloud')
+          AND t.usage_session IN {SESSION_SET}""", (json.dumps([s['id'] for s in sessions]),)).fetchall()
+    voice = dict.fromkeys(('local_calls','local_failed','local_characters','cloud_calls','cloud_failed','cloud_characters'), 0)
+    for mode, status, characters, session, created in rows:
+        if windows and not in_window(windows, session, created):
+            continue
+        voice[mode+'_calls'] += 1
+        voice[mode+'_failed'] += status == 'failed'
+        voice[mode+'_characters'] += characters or 0
+    return voice
+
+
 def _timing(c, key, *, gap=False):
     if c is None:
         return None
@@ -61,7 +79,7 @@ def _broadcast(b):
     c = b['comments'] if observed else None
     counts = c or {}
     versions = {e['policy'] for e in b['speech_policy_events']}
-    if any(not any(e['session']==row['id'] and e['first_frame']==0 for e in b['speech_policy_events']) for row in sessions):
+    if any(not any(e['session']==row['id'] and (e['first_frame']==0 or e.get('inherited')) for e in b['speech_policy_events']) for row in sessions):
         versions.add('unrecorded')
     version = 'mixed' if len(versions)>1 else next(iter(versions),'unrecorded')
     modes = {s['prefetch'] for s in sessions}
@@ -76,7 +94,7 @@ def _broadcast(b):
     peak_source = 'summary' if aud['reported_peak'] is not None else ('samples' if aud['sample_count'] else None)
     average_source = 'summary' if aud['reported_average'] is not None else ('samples' if aud['sample_count'] else None)
     return {
-        'platform': b['platform'], 'slot': 'off-plan', 'cohort': None, 'market': None, 'started_jst': when.isoformat(timespec='minutes'),
+        'platform': b['platform'], 'slot': 'off-plan', 'x_promotion':'unrecorded', 'cohort': None, 'market': None, 'started_jst': when.isoformat(timespec='minutes'),
         'speech_policy':version if version in ('short-turn-v1','mixed') else 'unrecorded',
         'response_sli':({k:c['response_sli'][k] for k in ('eligible','started','within_3s','within_5s','budget_blocked')}
                         if c is not None else None),
@@ -107,6 +125,7 @@ def _people(db, membership):
     # Select the first observed group before aggregating either finalized or provisional cohorts.
     first, own_reply, again = {}, {}, set()
     days, ended_days = defaultdict(set), defaultdict(set)
+    first_day, study_returns = {}, set()
     has_kind = any(col[1]=='reply_kind' for col in db.execute('PRAGMA table_info(studio_inputs)'))
     individual_played = "CASE WHEN i.reply_kind='group' THEN NULL ELSE i.played_at END" if has_kind else 'i.played_at'
     events = db.execute(f"""SELECT i.session,i.viewer,i.received,{individual_played} FROM studio_inputs i
@@ -114,7 +133,8 @@ def _people(db, membership):
         WHERE s.platform IN ('twitch','youtube') AND i.source=s.platform AND i.test=0
           AND COALESCE(i.intake_reason,'')!='startup_history' ORDER BY i.received,i.receipt""")
     for session, viewer, received, played in events:
-        group = membership.get(session)
+        group = next((g for lower,upper,g in membership.get(session,())
+                      if (lower is None or lower<=received) and (upper is None or received<upper)),None)
         if group is None:
             continue
         day = datetime.fromtimestamp(received, JST).date()
@@ -122,7 +142,11 @@ def _people(db, membership):
         if group[1] == 'ended':
             ended_days[viewer].add(day)
         if first.setdefault(viewer, group) != group:
+            if (EXPLORATION_START <= received < EXPLORATION_END and group[1]=='ended'
+                    and first_day[viewer]<day):
+                study_returns.add(viewer)
             continue
+        first_day.setdefault(viewer,day)
         if received > own_reply.get(viewer, float('inf')):
             again.add(viewer)
         if played is not None:
@@ -135,7 +159,10 @@ def _people(db, membership):
         counts['spoke_again'] += viewer in again
     def returning(accounts):
         return {'speakers':len(accounts), 'on_two_or_more_days':sum(len(d) >= 2 for d in accounts.values())}
-    return by_group, returning(days), returning(ended_days)
+    returns = defaultdict(int)
+    for viewer in study_returns:
+        returns[first[viewer]] += 1
+    return by_group, returning(days), returning(ended_days), returns
 
 
 def _cohort(rows):
@@ -180,6 +207,7 @@ def _market(windows, now):
     covered = overlap = 0.0
     for start, samples, stream in windows:
         expected += max(0, min(DURATION // SAMPLE_PERIOD, int((now-start)//SAMPLE_PERIOD) + 1))
+        identities = stream if isinstance(stream,set) else {stream}
         previous = None
         for row in samples:
             if 0 <= row['tick'] < DURATION // SAMPLE_PERIOD:
@@ -193,7 +221,7 @@ def _market(windows, now):
                 else:
                     failed += 1
             stamp = row['peers_at']
-            if (previous is not None and stream and row['ray_stream'] == previous['ray_stream'] == stream
+            if (previous is not None and row['ray_stream'] and row['ray_stream'] == previous['ray_stream'] and row['ray_stream'] in identities
                     and row['rival_stream'] == previous['rival_stream'] and previous['tick'] + 1 == row['tick']
                     and previous['peers_at'] is not None and stamp is not None
                     and 0 < stamp - previous['peers_at'] <= SAMPLE_PERIOD + 90):
@@ -219,7 +247,7 @@ def _slot_totals(slot, rows, windows, runs, gaps, now):
     outcomes = {'claimed':len(runs), 'blocked':sum(status == 'blocked' for _,status in runs),
                 'failed':sum(status == 'failed' for _,status in runs), 'stopped_early':sum(status == 'stopped_early' for _,status in runs),
                 'unresolved':sum(status in ('interrupted','unconfirmed') or (status == 'claimed' and now >= start+DURATION+120) for start,status in runs)}
-    return {'id':name, 'activity':_activity(observed, gaps), 'runs':outcomes, 'language':name[:2], 'start':f'{hour:02d}:00', 'end':f'{hour+2:02d}:00',
+    return {'id':name, 'activity':_activity(observed, gaps), 'runs':outcomes, 'language':name[:2], 'start':f'{hour:02d}:00', 'end':f'{(hour+2)%24:02d}:00',
             'days':'daily' if days == DAILY else 'tue-thu-sat-sun', 'broadcasts':len(mine), 'eligible':len(eligible),
             'eligible_minutes':round(sum(r['chat']['observed_seconds'] for r in eligible)/60, 2),
             'speakers':_sum(eligible,'speakers'), 'spoke_again':_sum(eligible,'spoke_again'), 'cohort':cohort,
@@ -227,12 +255,51 @@ def _slot_totals(slot, rows, windows, runs, gaps, now):
             'market':_market(windows, now)}
 
 
-def project(db, now):
+def study_performance(rows):
+    minutes = sum(r['minutes'] for r, _ in rows)
+    first = sum(r['cohort']['first_seen'] for r, _ in rows)
+    returned = sum(count for _, count in rows)
+    dollars = sum(r['cost_usd_known'] or 0 for r, _ in rows)
+    unpriced = sum(r['unpriced_calls'] or 0 for r, _ in rows)
+    missing = sum(r['cost_usd_known'] is None for r, _ in rows)
+    paired = sum((r['market'] or {}).get('paired_ray_minutes') or 0 for r, _ in rows)
+    overlap = sum((r['market'] or {}).get('overlap_minutes') or 0 for r, _ in rows)
+    return dict(broadcasts=len(rows), minutes=round(minutes,2), first_seen=first, returned=returned,
+                cost_usd_known=round(dollars,7), unpriced_calls=unpriced, cost_missing=missing,
+                paired_ray_minutes=round(paired,2), overlap_minutes=round(overlap,2) if paired else None,
+                first_per_hour=round(first*60/minutes,4) if minutes else None,
+                first_per_usd=round(first/dollars,4) if dollars and not unpriced and not missing else None,
+                return_rate=round(returned/first,4) if first else None)
+
+
+def exploration(rows, starts, returns, attempts, now):
+    arms, promotions = defaultdict(list), defaultdict(list)
+    for index,row in enumerate(rows):
+        start=starts.get(index)
+        if (start is None or not EXPLORATION_START <= start < EXPLORATION_END or row['state']!='ended'
+                or not row['chat']['eligible'] or (row['chat']['observed_seconds'] or 0)<DURATION*CHAT_RANK_COVERAGE
+                or not row['minutes'] or row['cohort'] is None):
+            continue
+        item=(row,returns.get((index,'ended'),0))
+        arms[row['slot']].append(item)
+        promotions[row['x_promotion']].append(item)
+    results=[status for runs in attempts.values() for start,status in runs if EXPLORATION_START <= start < EXPLORATION_END]
+    return dict(start_jst=datetime.fromtimestamp(EXPLORATION_START,JST).isoformat(timespec='minutes'),
+                end_jst=datetime.fromtimestamp(EXPLORATION_END,JST).isoformat(timespec='minutes'),
+                planned=168, due=sum(start<=now for start in range(EXPLORATION_START,EXPLORATION_END,DURATION)),
+                claimed=len(results), finished=results.count('finished'),
+                slots={arm:study_performance(arms[arm]) for arm,_,_ in SLOTS},
+                by_x={tag:study_performance(promotions[tag]) for tag in ('not_scheduled','planned','posted','skipped','unrecorded')})
+
+
+def project(db, now, limits=None):
     db.row_factory = sqlite3.Row
     version = db.execute('PRAGMA user_version').fetchone()[0]
     ready = version >= 20
     bindings, samples, stream_ids = {}, defaultdict(list), {}
     attempts = defaultdict(list)
+    starts = {}
+    posts = dict(db.execute('SELECT scheduled_start,outcome FROM twitch_schedule_promotions')) if version>=26 else {}
     if version >= 22:
         for run in db.execute('SELECT scheduled_start,arm,session,result FROM twitch_schedule_runs'):
             start, arm, session, status = run
@@ -254,23 +321,29 @@ def project(db, now):
             row = _broadcast(b)
             if row is None:
                 continue
+            row['voice'] = _voice(db, b['sessions'])
             sessions = [s['id'] for s in b['sessions']]
             group = (len(rows), row['state'])
             confirmed = row['state']=='ended' or row['last_confirmed_at'] is not None
             if confirmed:
-                membership.update((session, group) for session in sessions)
+                for member in b['sessions']:
+                    lower,upper = member.get('window',(None,None))
+                    membership.setdefault(member['id'],[]).append((lower,upper,group))
             bound = {bindings.get(session) for session in sessions}
             if b['platform'] == 'twitch' and len(bound) == 1 and None not in bound:
                 slot = bound.pop()
                 row['slot'] = slot.arm
-                stream_ids[slot.start] = b['stream_id']
+                starts[len(rows)] = slot.start
+                if slot.start >= DAILY_SCHEDULE_START:
+                    row['x_promotion'] = posts.get(slot.start,'unrecorded' if promotion_time(slot) else 'not_scheduled')
+                stream_ids.setdefault(slot.start,set()).add(b['stream_id'])
                 row['market'] = _market([(slot.start, samples[slot.start], b['stream_id'])], now)
             if confirmed and row['gap'] is not None:
                 gaps[row['slot']].extend(b['gap_samples_ms'])
             rows.append(row)
     done = [r for r in rows if r['state']=='ended']
     observed = [r for r in rows if r['state']=='ended' or r['last_confirmed_at'] is not None]
-    by_group, repeat, ended_repeat = _people(db,membership) if membership else ({},None,None)
+    by_group, repeat, ended_repeat, returns = _people(db,membership) if membership else ({},None,None,{})
     for index, row in enumerate(rows):
         if row['comments'] is not None and (row['state']=='ended' or row['last_confirmed_at'] is not None):
             row['cohort'] = by_group.get((index,row['state']), {'first_seen':0,'replied':0,'spoke_again':0})
@@ -288,18 +361,20 @@ def project(db, now):
         slot = slot_at(start)
         if slot and slot.start == start:
             windows[slot.arm].append((start, ticks, stream_ids.get(start)))
+    study = exploration(rows,starts,returns,attempts,now)
     rows.sort(key=lambda r:r['started_jst'], reverse=True)
     upcoming = next_slot(now)
     return {
         'schema':SCHEMA, 'generated_at':now, 'pipeline':{'observations_ready':ready},
         'experiment':{'weekly_broadcasts':WEEKLY_SHOWS, 'weekly_hours':WEEKLY_SHOWS*2,
-                      'next_jst':upcoming.start_jst, 'next_slot':upcoming.arm, 'min_chat_fraction':CHAT_RANK_COVERAGE},
+                      'exploration':study, 'next_jst':upcoming.start_jst, 'next_slot':upcoming.arm, 'min_chat_fraction':CHAT_RANK_COVERAGE},
         'totals':_totals(done,ended_repeat), 'legacy':[legacy[k] for k in sorted(legacy)],
         'observed':{**_totals(observed, repeat), 'live':sum(r['state']=='live' for r in observed),
                     'last_seen':sum(r['state']=='unknown' for r in observed), 'unknown':len(rows)-len(observed),
                     'gap':_pooled_gap(observed, (v for values in gaps.values() for v in values))},
         'slots':[_slot_totals(slot, observed, windows[slot[0]], attempts[slot[0]], gaps[slot[0]], now) for slot in SLOTS],
         'broadcasts':rows[:MAX_BROADCASTS],
+        'budgets':budget_status(db,limits,now) if ready and limits else None,
     }
 
 

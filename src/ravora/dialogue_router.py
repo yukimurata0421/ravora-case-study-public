@@ -170,7 +170,7 @@ def route_turn(text, history, topics_in, *, initiative=False):
         hooks = tuple(dict.fromkeys((*specific, *hooks)))[:2]
     explicit_shift = re.search(r'\b(change (?:the )?(?:topic|subject)|something else|another topic)\b|話題を変|別の話(?:題|を)|音楽以外', text, re.I)
     recall = historical_reference(text) or session_recap(text) or reply_cue(text) or re.search(r'覚えて|前回', text)
-    stay = continuation or re.search(r'[?？]|\b(?:how|why|what is|explain)\b|教えて|どういう意味|(?:ですか|ますか)[。\s]*$', text, re.I)
+    stay = continuation or re.search(r'[?？]|\b(?:how|why|what|when|where|which|who|explain)\b|教えて|どういう意味|どんな|どう思う|なぜ|何が好き|(?:ですか|ますか)[。\s]*$', text, re.I)
     own_interest = re.search(
         r"\b(?:let['’]s chat|what interests you|what are you (?:curious about|into)|your call|"
         r"your (?:hobbies|interests)|what (?:else )?do you like)\b|雑談しよう|何に興味|"

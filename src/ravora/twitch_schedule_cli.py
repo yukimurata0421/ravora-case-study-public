@@ -68,21 +68,23 @@ def collect(slots, dbfile, stamp):
                 pending.append((slot, tick))
     if not pending:
         return 'already_sampled'
-    # At a shared boundary both ticks use exactly the same peer observation.
-    # The two adjacent slots in the current schedule always have the same language.
-    market, peers = sample(DIRECTORY, slots[-1])
-    with database.connect() as db:
-        for slot, tick in pending:
+    # Two adjacent slots can use different Twitch category languages.
+    observations = {}
+    for slot, tick in pending:
+        if slot.language not in observations:
+            observations[slot.language] = sample(DIRECTORY, slot)
+        market, peers = observations[slot.language]
+        with database.connect() as db:
             db.execute('INSERT INTO twitch_schedule_market VALUES(?,?,?,?,?,?,?,?,?,?,?) ON CONFLICT DO NOTHING',
                        (slot.start, tick, stamp, *market, *peers))
-    if market[0] == 'error' or peers[0] is None:
+    if any(market[0]=='error' or peers[0] is None for market,peers in observations.values()):
         raise TwitchError('TWITCH_MARKET_SAMPLE_INCOMPLETE')
-    return market[0]
+    return 'partial' if any(market[0]=='partial' for market,_ in observations.values()) else 'complete'
 
 
 def main(argv=None):
     parser=argparse.ArgumentParser(description=__doc__)
-    parser.add_argument('command',choices=('plan','check','authorize','authorize-pin','run','sample'))
+    parser.add_argument('command',choices=('plan','check','authorize','authorize-pin','authorize-irc','run','sample'))
     parser.add_argument('--hour',type=int,choices=tuple(ARMS.values()))
     args=parser.parse_args(argv)
     previous_mask = os.umask(0o077)
@@ -103,6 +105,11 @@ def run_command(args):
         print('Next:',slot.start_jst,slot.arm)
         return
     channel_login()
+    if args.command=='authorize-irc':
+        from ravora.twitch_schedule_api import authorize_channel
+        authorize_channel(DIRECTORY/'irc-oauth.json', ('chat:read',))
+        print('TWITCH_IRC_READ_AUTHORIZED')
+        return
     if args.command=='authorize-pin':
         from ravora.twitch_schedule_api import authorize_pin
         authorize_pin(DIRECTORY)

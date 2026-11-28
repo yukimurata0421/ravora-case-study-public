@@ -89,7 +89,7 @@ class MemoryRepository(Database):
         with self.connect() as db:
             db.execute("UPDATE memory_items SET summary='',tags='[]',review_state='deleted',deleted_at=?,deletion_reason=? WHERE memory_id=? AND deleted_at IS NULL",(time.time(),reason,key))
 
-    def search_memory(self,viewer_key,query='',*,scope='offline',tags=(),since=None,limit=6,now=None):
+    def search_memory(self,viewer_key,query='',*,scope='offline',tags=(),since=None,limit=6,now=None,before_turn=None):
         if scope not in ('offline','cloud') or not 3<=limit<=10:raise ValueError('INVALID_MEMORY_SEARCH')
         now=time.time() if now is None else now
         # Quote tokens, so viewer text cannot inject FTS operators or SQL.
@@ -108,15 +108,28 @@ class MemoryRepository(Database):
                 WHERE x.memory_id=m.memory_id AND (s.is_deleted=1 OR s.viewer_key!=m.viewer_key))"""
         where+=" AND m.topic_key IS NOT 'reply_style_banter'"
         where+=memory_source_filter(viewer_key)
+        if before_turn is not None:
+            # Apply the turn cutoff before ranking so future or superseded notes cannot displace valid hits.
+            where += """ AND NOT EXISTS(SELECT 1 FROM memory_episodes next
+                            WHERE next.previous_memory_id=m.memory_id AND next.link_state='confirmed')
+                AND EXISTS(SELECT 1 FROM conversation_turns t JOIN source_events a ON a.id=t.source_event_id
+                    WHERE t.turn_id=? AND t.viewer=? AND a.viewer_key=m.viewer_key AND a.is_deleted=0
+                      AND NOT EXISTS(SELECT 1 FROM memory_sources x JOIN source_events s ON s.id=x.event_id
+                        WHERE x.memory_id=m.memory_id AND (s.received_at,s.rowid)>=(a.received_at,a.rowid)))"""
+            params.extend((before_turn,scope+':'+viewer_key))
         if match:where+=' AND memory_fts MATCH ?';params.append(match)
         if since is not None:where+=' AND m.created_at>=?';params.append(since)
         for tag in list(tags)[:8]:
             where+=' AND EXISTS(SELECT 1 FROM json_each(m.tags) WHERE value=?)';params.append(tag)
         rank='bm25(memory_fts),m.confidence DESC,m.created_at DESC' if match else 'm.confidence DESC,m.created_at DESC'
+        if before_turn is not None and not match:rank='m.created_at DESC,m.memory_id'
         with self.connect() as db:
             rows=db.execute(f'SELECT m.memory_id,m.summary,m.tags,m.confidence,m.created_at,m.expires_at FROM {source} WHERE {where} ORDER BY {rank} LIMIT ?',(*params,limit)).fetchall()
             result=[]
             for key,summary,tag_json,confidence,created,expires in rows:
+                if before_turn is not None:
+                    result.append({'memory_id':key,'summary':summary,'claim_kind':'viewer_report','tags':json.loads(tag_json)})
+                    continue
                 sources=[{'event_id':e,'platform':p,'received_at':t,'raw_available':purged is None and exp>now}
                          for e,p,t,purged,exp in db.execute('''SELECT s.id,s.platform,s.received_at,s.raw_purged_at,s.expires_at
                          FROM source_events s JOIN memory_sources x ON x.event_id=s.id WHERE x.memory_id=?''',(key,))]

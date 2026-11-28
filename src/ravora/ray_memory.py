@@ -104,11 +104,11 @@ class CharacterMemory:
                 future = (re.search(r'(?i)\b(later|next time|another time)\b|今度|後で|次回', text)
                           and re.search(r'(?i)\b(later|next time|remember|continue)\b|今度|後で|続き', reply))
                 preference = (re.search(r'(?i)\b(do you (?:like|prefer)|your (?:favorite|opinion))\b|どっちが好き|好み', text)
-                              and re.search(r'(?i)\b(i (?:like|prefer|enjoy)|my favorite)\b|私は|好き', reply))
+                              and topic in topics_in(reply) and re.search(r'(?i)\b(i (?:like|prefer|enjoy)|my favorite)\b|好き(?:だ|です|。|！|$)|気に入って', reply))
                 if future:
                     kind, reason, memory_owner, importance = 'goal', 'shared_future_topic', owner, .85
                 elif repeated:
-                    kind, reason, memory_owner, importance = ('preference','expressed_preference','',.75) if preference else ('interest','repeated_topic','',.6)
+                    kind, reason, memory_owner, importance = ('preference','expressed_preference','',.75) if preference else ('interest','repeated_topic',owner,.6)
                 else: continue
                 key = hashlib.sha256((self.scope+'\0'+memory_owner+'\0'+kind+'\0'+topic).encode()).hexdigest()
                 old = db.execute('SELECT strength,status FROM character_memories WHERE memory_id=?', (key,)).fetchone()

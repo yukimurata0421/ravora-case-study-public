@@ -53,11 +53,41 @@ def peers(http, auth):
     return time.time(), live.get(own_channel), live.get(RIVAL)
 
 
+def valid_tags(tags):
+    return isinstance(tags,list) and all(isinstance(tag,str) for tag in tags)
+
+
+def supplement_tags(http, auth, category, language, pending, counts):
+    # Get Channel Information accepts at most 100 broadcaster IDs per request.
+    params = [('broadcaster_id',channel) for channel in list(pending)[:100]]
+    try:
+        metadata = query(http,auth,'channels',params)['data']
+    except (requests.RequestException,TwitchError,ValueError,KeyError,TypeError) as exc:
+        if str(exc) == 'TWITCH_HELIX_HTTP_401':
+            raise
+        return False
+    resolved = set()
+    for row in metadata:
+        channel, tags = row.get('broadcaster_id'), row.get('tags')
+        if (channel not in pending or channel in resolved or row.get('game_id') != category
+                or row.get('broadcaster_language') != language or not valid_tags(tags)):
+            continue
+        viewers = pending[channel]
+        if tagged(tags):
+            if type(viewers) is not int or viewers < 0:
+                continue
+            counts.append(viewers)
+        resolved.add(channel)
+    return len(resolved) == len(pending)
+
+
 def market(http, auth, category, language, *, max_pages=MAX_PAGES):
     own_channel = channel_login()
     params={'game_id':category,'language':language,'first':100}
     seen, cursors, counts = set(), set(), []
+    pending = {}
     end=time.monotonic()+95
+    finished = False
     for page in range(1, max_pages+1):
         payload=query(http,auth,'streams',params)
         for row in payload['data']:
@@ -68,8 +98,9 @@ def market(http, auth, category, language, *, max_pages=MAX_PAGES):
                 continue
             seen.add(channel)
             tags=row.get('tags')
-            if not isinstance(tags,list) or any(not isinstance(t,str) for t in tags):
-                raise TwitchError('TWITCH_MARKET_TAGS_UNAVAILABLE')
+            if not valid_tags(tags):
+                pending[channel] = row.get('viewer_count')
+                continue
             if tagged(tags):
                 viewers=row['viewer_count']
                 if type(viewers) is not int or viewers<0:
@@ -77,12 +108,15 @@ def market(http, auth, category, language, *, max_pages=MAX_PAGES):
                 counts.append(viewers)
         cursor=payload.get('pagination',{}).get('cursor')
         if not cursor:
-            return 'complete',page,len(counts),sum(counts),sum(sorted(counts,reverse=True)[:5])
+            finished = True
+            break
         if cursor in cursors or time.monotonic()>=end:
             break
         cursors.add(cursor)
         params['after']=cursor
-    return 'partial',page,len(counts),sum(counts),sum(sorted(counts,reverse=True)[:5])
+    resolved = not pending or (time.monotonic()<end and supplement_tags(http,auth,category,language,pending,counts))
+    status = 'complete' if finished and resolved else 'partial'
+    return status,page,len(counts),sum(counts),sum(sorted(counts,reverse=True)[:5])
 
 
 def sample(directory, slot):

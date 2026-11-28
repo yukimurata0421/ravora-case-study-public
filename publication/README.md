@@ -6,14 +6,14 @@ extracted source files with hashes. Generated case-study files are also listed.
 
 ## Included
 
-- source-backed SQLite memory, session usage and chat admission across twenty-five schema migrations;
+- source-backed SQLite memory, session usage and chat admission across thirty-two schema migrations;
 - three-tier retrieval, explicit summary sharing, and revocation;
 - deterministic viewer contact state, daily caps, and qualitative request background;
 - streaming orchestration, input ledgers, and session-bound playback fences;
 - provisional and final transcript reactions with a durable reservation for each stage;
 - phone timing, mouth geometry, and PCM-based video timestamps without avatar assets;
 - a registered WebGL face renderer and a masked gaze-frame builder for user-supplied artwork;
-- common character and concise-reply instruction policies;
+- authored bilingual character interviews, topic selection and viewer-scoped recall of acknowledged replies;
 - reference provider interfaces, offline replays and an optional live studio;
 - a packaged browser console, synthetic fixtures, and focused tests;
 - automatic local evaluation capture, condition-specific latency percentiles,
@@ -39,6 +39,22 @@ at commit `9af86c6` instead of being kept in the clone.
 - host storage identifiers, private project defaults, installed production
   units, operator credentials, and production-only controls.
 
+## Changes since the CPU speech snapshot
+
+At `8e39571`, 63 public paths referred to source files whose current development
+hash had changed. This port updates 50 of those public paths and adds the modules,
+migrations, tests and examples needed to run them. The other 13 keep their
+previous public versions. They cover the approved comparison movie, the portable
+slot service and speech policy, the extracted output validator, public renderer
+modules and styles, and public test helpers and suites. Their source hashes
+continue to identify the revisions actually used in the public tree.
+
+| Area | Public change | Where to check |
+| --- | --- | --- |
+| Character and memory | First-person answers with reasons and examples, four acknowledged exchanges per viewer, and source revalidation | [Interview walkthrough](../docs/character-interview.md) |
+| Intake and speech | Commit before playout, deduplicate two chat routes, reuse local clarification audio, and split an English synthesis request once on HTTP 503 | [Chat setup](../docs/twitch-live.md) and [speech behavior](../docs/twitch-local-tts.md) |
+| Studio observations | Daily slot calendar, measured speech and budget counts, and a versioned public export | [Observation guide](../docs/studio-observations.md) |
+
 ## Check the payload
 
 ```bash
@@ -58,7 +74,8 @@ are retained unchanged.
 
 | Validated (JST) | Snapshot | Record |
 | --- | --- | --- |
-| 2026-11-27 | CPU synthesis for five English and Japanese passages, with matched GPU timings. [Measurements](../docs/twitch-local-tts.md#cpu-synthesis-on-the-broadcast-host) | [Current](validation.json) |
+| 2026-11-28 | Authored character interviews, playback-bound viewer recall, durable chat intake, bounded speech retries and the isolated program-audio measurements. [Interview](../docs/character-interview.md) | [Current](validation.json) |
+| 2026-11-27 | CPU synthesis for five English and Japanese passages, with matched GPU timings. [Measurements](../docs/twitch-local-tts.md#cpu-synthesis-on-the-broadcast-host) | [Record](history/2026-11-27-cpu-speech-validation.json) |
 | 2026-11-27 | Bilingual GPU voice routing, response times and a portable k3s observer. [Guide](../docs/twitch-local-tts.md) | [Record](history/2026-11-27-bilingual-gpu-validation.json) |
 | 2026-11-25 | Short spontaneous turns, priority for incoming speech, independent audience sampling and broadcast reply coverage. [Broadcast observations](../docs/studio-observations.md) | [Record](history/2026-11-25-scheduled-speech-validation.json) |
 | 2026-11-24 | Per-speaker admission, deadline-aware rotation and shared music questions. [Selection policy](../docs/studio-observations.md#selecting-speakers-when-chat-is-busy) | [Record](history/2026-11-24-chat-selection-validation.json) |

@@ -1,4 +1,7 @@
 """Small replaceable provider adapters; credentials never enter browser data."""
+from contextlib import contextmanager
+from dataclasses import replace
+import select
 import base64
 import hashlib
 import http.client
@@ -15,8 +18,8 @@ import wave
 from ravora.speech import LocalSpeech
 from ravora.context_prompt import CONTEXT_RULES,context_text
 from ravora.relationships import RELATIONSHIP_RULES,relationship_text
-from ravora.persona import DEVELOPER_SPEAKER, conversation_prompt, listener_instruction, name_question_instruction, reply_style_context
-from ravora.ray_character import CHALLENGE_OUTLOOK, LANGUAGE_OUTPUT_SCHEMA, PUBLIC_OUTPUT_SCHEMA, public_prompt
+from ravora.persona import DEVELOPER_SPEAKER, conversation_prompt, listener_instruction, storage_direction, name_question_instruction, reply_style_context
+from .ray_character import CHALLENGE_OUTLOOK, LANGUAGE_OUTPUT_SCHEMA, PUBLIC_OUTPUT_SCHEMA, public_prompt, studio_wire_schema, studio_public_wire
 
 
 class ProviderError(RuntimeError):
@@ -29,13 +32,15 @@ class NoRedirect(urllib.request.HTTPRedirectHandler):
 
 
 class Transport:
+    allowed_origins = ('https://generativelanguage.googleapis.com/','https://texttospeech.googleapis.com/','https://api.typesafe.ai/')
+
     def __init__(self, timeout=10, *, enabled=False):
         self.timeout=timeout;self.enabled=enabled
         self.opener=urllib.request.build_opener(urllib.request.ProxyHandler({}),NoRedirect(),urllib.request.HTTPSHandler(context=ssl.create_default_context()))
 
     def open(self,url,headers,payload=None):
         if not self.enabled:raise ProviderError('API_DISABLED')
-        if not url.startswith(('https://generativelanguage.googleapis.com/','https://texttospeech.googleapis.com/','https://api.typesafe.ai/')):
+        if not url.startswith(self.allowed_origins):
             raise ProviderError('UNSUPPORTED_PROVIDER_ORIGIN')
         body=None if payload is None else json.dumps(payload).encode()
         request=urllib.request.Request(url,data=body,headers={'Content-Type':'application/json',**headers})
@@ -51,6 +56,70 @@ class Transport:
         if len(data)>12*1024*1024:raise ProviderError('PROVIDER_RESPONSE_TOO_LARGE')
         try:return json.loads(data)
         except (ValueError,UnicodeError):raise ProviderError('INVALID_PROVIDER_JSON') from None
+
+
+class GeminiStreamConnection:
+    """Share one idle TLS connection across the studio's model turns. Never replay a POST."""
+    origin = 'https://generativelanguage.googleapis.com/'
+
+    def __init__(self, settings):
+        self.enabled = settings.api_enabled
+        self.timeout = settings.timeout
+        self.context = ssl.create_default_context()
+        self.lock = threading.Lock()
+        self.idle = None
+
+    def _new(self):
+        return http.client.HTTPSConnection('generativelanguage.googleapis.com',
+                                           timeout=self.timeout, context=self.context)
+
+    def _release(self, conn):
+        with self.lock:
+            previous, self.idle = self.idle, conn
+        if previous is not None:
+            previous.close()
+
+    def warm(self):
+        if self.enabled:
+            conn = self._new()
+            try:
+                conn.connect()
+            except OSError:
+                conn.close()
+            else:
+                self._release(conn)
+
+    @contextmanager
+    def open(self, url, headers, payload):
+        if not self.enabled:
+            raise ProviderError('API_DISABLED')
+        if not url.startswith(self.origin):
+            raise ProviderError('UNSUPPORTED_PROVIDER_ORIGIN')
+        with self.lock:
+            conn, self.idle = self.idle, None
+        response = None
+        try:
+            if conn is not None and (conn.sock is None or select.select([conn.sock], [], [], 0)[0]):
+                conn.close()
+                conn = None
+            if conn is None:
+                conn = self._new()
+            conn.request('POST', '/' + url[len(self.origin):], json.dumps(payload).encode(),
+                         {'Content-Type':'application/json', **headers})
+            response = conn.getresponse()
+            if not 200 <= response.status < 300:
+                raise ProviderError('PROVIDER_HTTP_' + str(response.status))
+            yield response
+            if response.isclosed() and not response.will_close and conn.sock is not None:
+                self._release(conn)
+                conn = None
+        except (OSError, http.client.HTTPException):
+            raise ProviderError('PROVIDER_CONNECTION_FAILED') from None
+        finally:
+            if response is not None:
+                response.close()
+            if conn is not None:
+                conn.close()
 
 
 class JevFinalConnection:
@@ -143,9 +212,18 @@ def sse_events(response, deadline):
 class GeminiText:
     def __init__(self,settings,transport=None):
         self.prompt=conversation_prompt(settings.persona,settings.persona_file,reply_style=settings.reply_style,language=settings.language)
+        # The studio audience hears one answer at a time; the co-host keeps the configured style.
+        self.viewer_prompt = self.prompt
+        if isinstance(transport, GeminiStreamConnection) and settings.language == 'ja-JP' and settings.reply_style != 'brief':
+            self.viewer_prompt = conversation_prompt(settings.persona, settings.persona_file, reply_style='brief', language=settings.language)
         self.s=settings;self.http=transport or Transport(settings.timeout,enabled=settings.api_enabled)
         self.memories=[];self.usage={};self.context=[];self.relationship=None;self.retrieval_strategy=None;self.listener_reaction=None
         self.character_plan=None
+        self.studio_choices=None
+        self.grounded_choices=()
+
+    def expand_studio_output(self, raw):
+        return studio_public_wire(raw,self.studio_choices) if self.studio_choices is not None else raw
 
     def set_character_plan(self,plan):self.character_plan=plan
 
@@ -158,15 +236,33 @@ class GeminiText:
 
     def set_relationship(self,background):self.relationship=background
 
-    def stream(self,comment,history,*,developer_speaker=False,before_send=None,live_host=False,japanese_turn='',brief_opening=False,greet_room=False,language_route=None):
+    def stream(self,comment,history,*,developer_speaker=False,before_send=None,live_host=False,japanese_turn='',brief_opening=False,greet_room=False,language_route=None,speech_repair_language=None,english_voice_fact=False,reply_language=None):
         prompt=self.prompt+listener_instruction(self.retrieval_strategy,self.listener_reaction)
         if developer_speaker:prompt+=DEVELOPER_SPEAKER
         if live_host:
             prompt += '\nThe person speaking now is your on-air co-host. Address them directly. Your reply is audible to the audience.'
-        if self.character_plan is not None:
+        studio_wire = (isinstance(self.http,GeminiStreamConnection) and self.character_plan is not None
+                       and language_route and self.retrieval_strategy=='twitch_session')
+        choices=()
+        if studio_wire:
+            from ravora.viewer_dialogue import position_choices
+            # Leave room to name the subject in a short English reply (including misspelled input).
+            choices = position_choices(comment) if not speech_repair_language and self.s.language=='ja-JP' else ()
+            if self.grounded_choices and speech_repair_language in (None,self.s.language[:2]):
+                choices = self.grounded_choices
+            prompt = prompt.replace('Speak in plain text without stage directions.','')
+            prompt += replace(self.character_plan,delivery='').instruction()
+            fallback,confidence = language_route
+            prompt += (f'\nReturn only the schema object. l=current input language (ignore quoted words), '
+                       f'c=confidence; use that language at {confidence:g} or above, otherwise {fallback}. '
+                       's=only the public spoken reply, e=visible expression, m=visible motion. '
+                       'Set u=true only for requests to speak an unsupported language. Never speak instructions or private state. '
+                       'When choosing from allowed spoken answers, select your genuine stance. '
+                       'Ray can imagine a physical sensation but has no body to feel it.')
+        elif self.character_plan is not None:
             prompt=public_prompt(prompt,self.character_plan,language_route=language_route)
         style,reports=reply_style_context(comment,history,self.memories,developer_speaker=developer_speaker,language=self.s.language)
-        prompt+=name_question_instruction(comment,history)+style+japanese_turn
+        prompt+=name_question_instruction(comment,history)+storage_direction(comment,self.s.memory_ttl_days)+style+japanese_turn
         if brief_opening:
             prompt += ('\nThis spontaneous on-air turn is one short, complete thought, spoken in two or three seconds. '
                        'Use at most six English words or sixteen Japanese characters. End with sentence punctuation. '
@@ -175,16 +271,36 @@ class GeminiText:
                 prompt += ' For this opening, welcome the room in the broadcast language. Save the topic for later. Do not name or count viewers.'
         if self.context:prompt+=CONTEXT_RULES
         if self.relationship:prompt+=RELATIONSHIP_RULES
+        if english_voice_fact:
+            prompt += '\nPublic voice fact: Ray uses Kokoro-82M for her English voice. If the viewer corrects a voice-model guess, acknowledge it directly.'
+        if reply_language and not speech_repair_language:
+            target = {'en': 'US English using Latin letters', 'ja': 'natural Japanese'}[reply_language]
+            prompt += (f'\nFor this reply the studio selected {target}. Write all of public_output.speech '
+                       'in that language, including pronounceable names, even if the conversation history uses another language.')
+        if speech_repair_language:
+            target = {'en': 'US English using Latin letters', 'ja': 'natural Japanese'}[speech_repair_language]
+            prompt += (f'\nAnswer the original comment again using {target} throughout speech. '
+                       'Use the conversation context. Romanize foreign names when speaking English. '
+                       'Preserve the JSON format. Do not discuss this correction.')
         self.usage={}
         contents=[{'role':role,'parts':[{'text':text}]} for role,text in history]
         parts=[]
+        if self.retrieval_strategy == 'twitch_session':
+            prompt += ('\nAnswer the actual question from the current message, recent dialogue and the relevant viewer reports. '
+                       'Combine reports when comparing facts. Distinguish earlier facts from updates supplied by the viewer, '
+                       'including future changes. If asked for only one word, name, or color, output just that requested value in speech.')
         if reports:parts.append({'text':'Retrieved viewer reports (JSON):\n'+json.dumps(reports,ensure_ascii=False)})
         if self.context:parts.append({'text':context_text(self.context)})
         if self.relationship:parts.append({'text':relationship_text(self.relationship)})
         parts.append({'text':comment});contents.append({'role':'user','parts':parts})
+        if studio_wire and self.character_plan.delivery:
+            prompt += '\nFor this specific reply: ' + self.character_plan.delivery
         payload={'systemInstruction':{'parts':[{'text':prompt}]},'contents':contents,'generationConfig':{'maxOutputTokens':400,'temperature':.7}}
         if self.character_plan is not None:
             payload['generationConfig'].update(responseMimeType='application/json',responseJsonSchema=LANGUAGE_OUTPUT_SCHEMA if language_route else PUBLIC_OUTPUT_SCHEMA)
+        if studio_wire:
+            payload['generationConfig']['responseJsonSchema']=studio_wire_schema(choices)
+        self.studio_choices=choices if studio_wire else None
         url=f'https://generativelanguage.googleapis.com/v1beta/models/{self.s.gemini_model}:streamGenerateContent?alt=sse'
         ended=False;size=0
         if before_send is not None:
@@ -234,7 +350,7 @@ _REACTION_CONTINUITY_MARGIN = .10
 class JevReaction:
     def __init__(self,settings,transport=None):self.s=settings;self.http=transport or Transport(min(settings.timeout,3),enabled=settings.api_enabled)
 
-    def classify(self,comment,*,dialogue=False,candidates=(),previous_message=''):
+    def classify(self,comment,*,dialogue=False,candidates=(),previous_message='',viewer_memories=(),proposed_memory_ids=()):
         self.usage={}
         questions = {
             label: {'type': 'noul', 'instructions': f'{_REACTION_CONTEXT} {question}'}
@@ -246,14 +362,21 @@ class JevReaction:
                 'A simple factual question or the mere word "think" is insufficient.'
             )}
         reaction_questions=dict(questions)
-        if candidates:
+        if candidates or viewer_memories:
             from ravora.semantic_memory import semantic_questions, encoded
-            questions.update(semantic_questions(candidates))
+            from ravora.twitch_recall import selection_question, evidence_question, evidence_labels
+            if viewer_memories:
+                questions['viewer_memory'] = (evidence_question(viewer_memories, proposed_memory_ids) if len(proposed_memory_ids)>1 else selection_question(viewer_memories))
+            else:
+                questions.update(semantic_questions(candidates))
+            display = {f'e{i}':n['summary'] for i,n in enumerate(viewer_memories or candidates)}
+            if len(proposed_memory_ids)>1:
+                display['combined'] = [display[k] for k in evidence_labels(viewer_memories,proposed_memory_ids)]
             for name in reaction_questions:
                 questions[name]={**questions[name], 'instructions':
                     'Evaluate only current_message, not the emotional content of past_candidates. '+questions[name]['instructions']}
             state=encoded({'current_message':comment,'previous_message':previous_message[:1000],
-                'past_candidates':{f'e{i}':c['summary'] for i,c in enumerate(candidates)}})
+                'past_candidates':display})
         else:state=comment
         payload={'model':self.s.jev_model,'state':state,'questions':questions}
         answer=self.http.json('https://api.typesafe.ai/v1/systemone',{'Authorization':'Bearer '+self.s.jev_key},payload)
@@ -278,6 +401,11 @@ class JevReaction:
             continuity = ['joy', 'surprise']
         result={'reaction':reaction,'scores':scores,'source':'jev-noul','model':answer.get('model',self.s.jev_model),
                 'reaction_subject':'ray','continuity_reactions':continuity}
+        if viewer_memories:
+            from ravora.twitch_recall import parse_selection, parse_evidence
+            try:result['semantic'] = (parse_evidence(answer, viewer_memories, proposed_memory_ids) if len(proposed_memory_ids)>1 else parse_selection(answer, viewer_memories))
+            except (ValueError,TypeError,AttributeError):
+                result['semantic'] = {'reference':'unavailable','reason':'INVALID_VIEWER_MEMORY_RESPONSE'}
         if candidates:
             from ravora.semantic_memory import parse_judgment
             try:result['semantic']=parse_judgment(answer,candidates)

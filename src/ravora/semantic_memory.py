@@ -145,21 +145,26 @@ def semantic_questions(candidates):
                 'unknown': 'No supported relation or multiple plausible events.'})}
 
 
+def validated_choice(item, question):
+    probabilities = item.get('probabilities'); confidence = item.get('confidence')
+    if item.get('type') != 'choice' or item.get('choice') not in question['criteria']:
+        raise ValueError('INVALID_SEMANTIC_CHOICE')
+    if not isinstance(probabilities, dict) or set(probabilities) != set(question['criteria']):
+        raise ValueError('INVALID_SEMANTIC_DISTRIBUTION')
+    nums = [confidence, *probabilities.values()]
+    if any(type(v) not in (int, float) or not math.isfinite(v) or not 0 <= v <= 1 for v in nums):
+        raise ValueError('INVALID_SEMANTIC_SCORE')
+    if abs(sum(probabilities.values()) - 1) > .02:raise ValueError('INVALID_SEMANTIC_DISTRIBUTION')
+    # An operating abstention rule, not a calibrated probability or proof.
+    return item['choice'], min(confidence, probabilities[item['choice']])
+
+
 def parse_judgment(answer, candidates):
     values = {}; scores = {}
     for name, question in semantic_questions(candidates).items():
         item = answer.get('answers', {}).get(name, {})
-        probabilities = item.get('probabilities'); confidence = item.get('confidence')
-        if item.get('type') != 'choice' or item.get('choice') not in question['criteria']:
-            raise ValueError('INVALID_SEMANTIC_CHOICE')
-        if not isinstance(probabilities, dict) or set(probabilities) != set(question['criteria']):
-            raise ValueError('INVALID_SEMANTIC_DISTRIBUTION')
-        nums = [confidence, *probabilities.values()]
-        if any(type(v) not in (int, float) or not math.isfinite(v) or not 0 <= v <= 1 for v in nums):
-            raise ValueError('INVALID_SEMANTIC_SCORE')
-        if abs(sum(probabilities.values()) - 1) > .02:raise ValueError('INVALID_SEMANTIC_DISTRIBUTION')
-        # An operating abstention rule, not a calibrated probability or proof.
-        score = min(confidence, probabilities[item['choice']]); scores[name] = score
+        _, score = validated_choice(item, question)
+        scores[name] = score
         values[name] = item['choice'] if score >= .75 else ('uncertain' if name == 'memory_reference' else 'unknown')
     reference = values.pop('memory_reference')
     selected = candidates[int(reference[1:])]['memory_id'] if reference.startswith('e') and reference != 'uncertain' else None
@@ -305,7 +310,9 @@ class SemanticMemory:
         with self.connect() as db:
             db.execute('''INSERT INTO semantic_retrievals VALUES(?,?,?,?,?,?,?)
                 ON CONFLICT(turn_id) DO UPDATE SET call_id=COALESCE(excluded.call_id,call_id),
-                decision=CASE WHEN used_for_generation=1 THEN decision ELSE excluded.decision END,
+                decision=CASE WHEN used_for_generation=1 OR
+                    (excluded.call_id IS NULL AND excluded.used_for_generation=0 AND call_id IS NOT NULL)
+                    THEN decision ELSE excluded.decision END,
                 used_for_generation=MAX(used_for_generation,excluded.used_for_generation)''',
                 (turn, call_id, hashlib.sha256(query.encode()).hexdigest(), encoded([c['memory_id'] for c in candidates]),
                  encoded(decision or {'reference':'unavailable'}), int(used), time.time()))

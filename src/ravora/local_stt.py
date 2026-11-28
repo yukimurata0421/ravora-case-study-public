@@ -51,7 +51,8 @@ def _worker(pipe,options):
             language,pcm=request
             audio=np.frombuffer(pcm,dtype=np.float32).copy();started=time.monotonic()
             generator,info=model.transcribe(audio,language=None if language=='auto' else language,
-                beam_size=1,best_of=1,temperature=0.,condition_on_previous_text=False,word_timestamps=True,
+                beam_size=options.get('japanese_beam_size',1) if language=='ja' else 1,
+                best_of=1,temperature=0.,condition_on_previous_text=False,word_timestamps=True,
                 vad_filter=True,vad_parameters={'threshold':options['vad_probability'],'neg_threshold':options['vad_probability']-.15,
                     'min_speech_duration_ms':options['min_speech_ms'],'min_silence_duration_ms':options['silence_ms'],
                     'speech_pad_ms':options['pad_ms'],'max_speech_duration_s':30},
@@ -85,7 +86,12 @@ def _worker(pipe,options):
 class LocalSTT:
     provider='local_cpu'
     model_id='faster-whisper-base-int8'
-    def __init__(self,settings):
+    japanese_beam_size = 1
+
+    def __init__(self,settings,*,japanese_beam_size=1):
+        if type(japanese_beam_size) is not int or not 1 <= japanese_beam_size <= 5:
+            raise ValueError('INVALID_LOCAL_STT_BEAM_SIZE')
+        self.japanese_beam_size = japanese_beam_size
         self.s=settings;self.usage={};self.process=None;self.pipe=None;self.identity={};self.lock=threading.Lock()
 
     def _receive(self,deadline,cancel):
@@ -125,7 +131,8 @@ class LocalSTT:
             options={'model_path':self.s.stt_model_path,'vad_probability':self.s.stt_vad_probability,
                 'min_speech_ms':self.s.stt_min_speech_ms,'silence_ms':self.s.stt_silence_ms,'pad_ms':self.s.stt_pad_ms,
                 'no_speech':self.s.stt_no_speech,'log_probability':self.s.stt_log_probability,
-                'compression':self.s.stt_compression,'language_probability':self.s.stt_language_probability}
+                'compression':self.s.stt_compression,'language_probability':self.s.stt_language_probability,
+                'japanese_beam_size':self.japanese_beam_size}
             try:
                 if not self.process or not self.process.is_alive():
                     self._stop();context=mp.get_context('spawn');parent,child=context.Pipe()

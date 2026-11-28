@@ -5,6 +5,10 @@ These are aggregate results from development studies on 2026-11-16 and
 Raw recordings, operational logs, host identity, and the conversation database
 are excluded. They are not measurements newly run by the public replay.
 
+The [character interview trials](character-interview.md#measuring-comment-to-speech)
+measure application receipt through the first audible sample in program output.
+The trials below use their own input and output boundaries.
+
 ## Direct local orchestration trial
 
 | Delivery profile | Trials | Mean input-send completion to browser audio signal |

@@ -1,20 +1,73 @@
 {
-  "status": "PASS_ISOLATED_CPU_TTS_MEASUREMENT",
-  "validated_at_jst": "2026-11-27T10:12:32+09:00",
-  "scope": "Warm whole-passage synthesis of four English fixtures and one Japanese fixture on a two-CPU budget. Portable GPU worker ceiling aligned with the measured GTX 1070 configuration.",
+  "status": "PASS_PUBLIC_CHARACTER_INTERVIEW_PORT",
+  "validated_at_jst": "2026-11-28T20:59:30+09:00",
+  "scope": "Final offline public checkout and installed wheel. Measurements in the interview guide came from separate, earlier GPU trials.",
   "checks": {
-    "cpu_runs": 15,
-    "successful_non_silent_wavs": 15,
-    "pcm_format": "24000 Hz mono PCM16",
-    "compared_gpu_runs": 9,
-    "kokoro_regression_tests": 6
+    "python_version": "3.14.4",
+    "checkout_with_media": {
+      "discovered": 625,
+      "passed": 624,
+      "skipped": 1,
+      "errors": 0,
+      "failures": 0
+    },
+    "installed_wheel_with_media": {
+      "discovered": 625,
+      "passed": 624,
+      "skipped": 1,
+      "errors": 0,
+      "failures": 0
+    },
+    "checkout_with_console_and_observation_dependencies": {
+      "discovered": 573,
+      "passed": 480,
+      "skipped": 93,
+      "errors": 0,
+      "failures": 0
+    },
+    "media_suite_skip": "Optional native phone alignment.",
+    "browser_module_tests_passed": 14,
+    "offline_replays_per_entrypoint": 5,
+    "checked_entrypoints": [
+      "checkout script",
+      "installed console script from an unrelated directory"
+    ],
+    "interview_json_matches_both_entrypoints": true,
+    "wheel_payload_entries_matched_against_source_and_install": 168,
+    "wheel_sha256": "89d7b33e9112e64ce4d776b15620078f06837cc3062bef523e5c61e15f6ea0af",
+    "allowlisted_files": 335,
+    "file_digests_verified": 333,
+    "unexpected_files": 0,
+    "broken_local_links": 0,
+    "private_defaults_found": 0,
+    "secret_scan_findings": 0
+  },
+  "earlier_isolated_gpu_trial": {
+    "date_jst": "2026-11-28",
+    "device": "GTX 1070",
+    "measurement": "application intake to first audible sample in program audio",
+    "ordered_questions": {
+      "turns": 12,
+      "within_1_8_seconds": 12,
+      "complete": 12,
+      "median_seconds": 0.69,
+      "maximum_seconds": 1.684
+    },
+    "followup_questions": {
+      "turns": 14,
+      "within_1_8_seconds": 14,
+      "complete": 14,
+      "median_seconds": 0.687,
+      "maximum_seconds": 0.795
+    },
+    "whole_waveform_chunks_verified": 29
   },
   "included_private_databases_or_recordings": false,
   "new_inference_api_calls": 0,
   "new_live_broadcast": false,
   "limits": [
-    "Kokoro GPU reference has one observation per input.",
-    "The isolated trials do not measure program onset, viewer playback or sustained allocator behavior."
+    "Inference call count covers the final offline validation. An intermediate launcher test reached the host speech workers for readiness and stock clarification phrases. Its output was excluded. The corrected test mocks voice warm-up.",
+    "The interview replay selects text with simulated acknowledgements. The historical timing data cover two finite isolated sequences and end at program audio."
   ],
-  "earlier_validation_preserved": "publication/history/2026-11-27-bilingual-gpu-validation.json"
+  "earlier_validation_preserved": "publication/history/2026-11-27-cpu-speech-validation.json"
 }

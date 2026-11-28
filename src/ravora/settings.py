@@ -117,6 +117,7 @@ class ProviderSettings:
     context_max_items: int = 8
     context_max_chars: int = 3600
     memory_enabled: bool = True
+    twitch_recall_mode: str = 'off'
     semantic_memory_mode: str = 'off'
     semantic_candidate_limit: int = 8
     semantic_max_chars: int = 4800
@@ -177,7 +178,8 @@ class ProviderSettings:
             raise SettingsError('INVALID_REPLY_LLM_BUDGET')
         if self.monthly_reply_llm_usd and self.gemini_model != 'gemini-3.5-flash-lite':
             raise SettingsError('REPLY_LLM_BUDGET_MODEL_NOT_PRICED')
-        if (self.semantic_memory_mode not in ('off','candidates','jev')
+        if (self.twitch_recall_mode not in ('off','sqlite','jev','session')
+            or self.semantic_memory_mode not in ('off','candidates','jev')
             or type(self.semantic_candidate_limit) is not int or not 1<=self.semantic_candidate_limit<=12
             or type(self.semantic_max_chars) is not int or not 800<=self.semantic_max_chars<=8000
             or type(self.semantic_wait_ms) is not int or not 0<=self.semantic_wait_ms<=500):
@@ -270,7 +272,7 @@ class ProviderSettings:
         return {name:getattr(self,name) for name in (*names,'youtube_chat_requests_per_hour','youtube_chat_daily_units','persona','reply_style','early_reaction_enabled','early_reaction_stability',
             'character_enabled','character_initiative_enabled','character_idle_seconds','character_max_initiatives',
             'early_reaction_debounce_ms','early_reaction_cooldown_ms','early_reaction_max_requests',
-            'monthly_reply_llm_usd','context_enabled','context_max_items','context_max_chars','relationship_enabled','voice_profile','voice_stt_region','voice_stt_model','voice_input_language',
+            'twitch_recall_mode','monthly_reply_llm_usd','context_enabled','context_max_items','context_max_chars','relationship_enabled','voice_profile','voice_stt_region','voice_stt_model','voice_input_language',
             'voice_tts_region','voice_tts_voice','voice_input_chunk_ms','voice_jitter_buffer_ms','stt_provider','stt_model_path','stt_noise_percentile',
             'stt_margin_db','stt_floor_db','stt_min_speech_ms','stt_silence_ms','stt_pad_ms','stt_min_output_ms',
             'stt_vad_probability','stt_no_speech','stt_log_probability','stt_compression','stt_language_probability')}
@@ -305,7 +307,8 @@ def load_settings(path: Path, *, mode=None, environ=None, live_studio=False):
                  'character_initiative_enabled':('RAVORA_CHARACTER_INITIATIVE_ENABLED',boolean),
                  'character_idle_seconds':('RAVORA_CHARACTER_IDLE_SECONDS',int),
                  'character_max_initiatives':('RAVORA_CHARACTER_MAX_INITIATIVES',int)})
-    spec.update({'semantic_memory_mode':('RAVORA_SEMANTIC_MEMORY_MODE',str),
+    spec.update({'twitch_recall_mode':('RAVORA_TWITCH_RECALL_MODE',str),
+                 'semantic_memory_mode':('RAVORA_SEMANTIC_MEMORY_MODE',str),
                  'semantic_candidate_limit':('RAVORA_SEMANTIC_CANDIDATE_LIMIT',int),
                  'semantic_max_chars':('RAVORA_SEMANTIC_MAX_CHARS',int),
                  'semantic_wait_ms':('RAVORA_SEMANTIC_WAIT_MS',int)})

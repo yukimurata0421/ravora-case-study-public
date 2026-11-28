@@ -6,6 +6,7 @@ import tempfile
 import time
 import wave
 
+from ravora.aivis_voice import KanonSpeech
 from ravora.chat_selection import VIEWER_CHAT_SOURCES
 from ravora.kokoro_voice import KokoroSpeech
 from ravora.providers import GeminiText, ProviderError
@@ -25,6 +26,22 @@ def profile_live_turn(program, bridge, comment, language):
     voices = {key: profile[2] for key, profile in program.reply_profiles.items()}
     controller.s, text, _ = program.reply_profiles[language]
     controller.text = copy(text)
+    controller.reply_playable = None
+    if viewer and 'receipt' in comment:
+        receipt = comment['receipt']
+        controller.reply_playable = lambda: program.pipeline.inbox.playable(receipt)
+    if viewer and isinstance(controller.text, GeminiText):
+        controller.text.prompt = controller.text.viewer_prompt + (
+            '\nSpeak the answer in the first phrase. Casual Japanese: one short complete sentence, '
+            'usually 8–18 characters. A yes/no or preference starts with your position. '
+            'Why questions start with the concrete reason. Finish the short answer with a period. '
+            'Give an example or more detail when asked; an unknown needs only one short clause. '
+            'Honor single-value requests. For a recap name the main subjects. '
+            'Ask for missing facts rather than guessing. No filler.'
+        )
+    if viewer and isinstance(voices['ja'], KanonSpeech):
+        voices['ja'] = copy(voices['ja'])
+        voices['ja'].viewer_reply = True
     english = voices['en']
     if isinstance(english, KokoroSpeech):
         controller.program_pcm = program._receive_pcm
@@ -71,6 +88,11 @@ def refresh_english_voice(program):
 def warm_twitch_voices(profiles, *, allow_unavailable=False):
     """Exercise each selected local voice before the publisher opens."""
     import array
+    from ravora.providers import GeminiStreamConnection
+
+    transport = getattr(profiles['en'][1], 'http', None)
+    if isinstance(transport, GeminiStreamConnection):
+        transport.warm()
 
     with tempfile.TemporaryDirectory() as tmp:
         path = Path(tmp) / 'ready.wav'
@@ -82,11 +104,15 @@ def warm_twitch_voices(profiles, *, allow_unavailable=False):
             try:
                 while not Path(voice.socket_path).is_socket() and time.monotonic() < deadline:
                     time.sleep(.15)
-                voice.create(phrase, path)
+                start = time.monotonic()
+                timing = voice.create(phrase, path)
+                render_seconds = time.monotonic() - start
                 with wave.open(str(path)) as wav:
                     pcm = array.array('h', wav.readframes(wav.getnframes()))
                     if not pcm or max(map(abs, pcm)) <= 64:
                         raise ProviderError('SILENT_TTS_WARMUP')
+                    if isinstance(voice, KanonSpeech) and timing.get('duration', 0) > 0:
+                        voice.warm_render_ratio = render_seconds / timing['duration']
             except (OSError, ProviderError, wave.Error, EOFError) as exc:
                 if not allow_unavailable:
                     raise
@@ -94,4 +120,10 @@ def warm_twitch_voices(profiles, *, allow_unavailable=False):
                 # An unavailable voice must not take down the live publisher.
                 print(f'TWITCH_VOICE_WARM_DEFERRED {code}={voice.voice} {type(exc).__name__}', flush=True)
                 continue
+            from ravora.spoken_language import prepare_recorded_replies
+            try:
+                prepare_recorded_replies(code, voice)
+            except (OSError, ValueError, ProviderError, wave.Error, EOFError) as exc:
+                # A missing recording still uses the selected voice to speak the fixed text.
+                print(f'TWITCH_LANGUAGE_RECORDING_DEFERRED {code} {type(exc).__name__}', flush=True)
             print(f'TWITCH_VOICE_WARM {code}={voice.voice}', flush=True)

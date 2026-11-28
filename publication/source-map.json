@@ -1,7 +1,7 @@
 {
   "schema_version": 1,
   "kind": "allowlisted-case-study-port",
-  "source_state": "Bilingual GPU speech on the broadcast host and independent k3s public player observation.",
+  "source_state": "Bilingual character interviews and viewer dialogue, durable chat intake, local speech retries and program-audio measurements.",
   "source_workspace_included": false,
   "controls_validated_structurally": [
     "publication/source-map.json",
@@ -16,22 +16,22 @@
     "third-party renderer bundles",
     "host-specific installed units and production service controls"
   ],
-  "updated_at_jst": "2026-11-27T10:12:32+09:00",
+  "updated_at_jst": "2026-11-28T20:59:30+09:00",
   "files": [
     {
       "path": ".env.example",
       "kind": "adapted",
       "source": ".env.example",
-      "source_sha256": "2a38a979ee985a5a9a5184f859274caab7b07c8416fb065f6e20118e9a2a4ff7",
-      "sha256": "d50d1456a16de68272ea27b01dd91a0a8a0d2300532a1c02d955af6964032315",
-      "note": "Portable setup, evidence or publication record for the bilingual Twitch studio."
+      "source_sha256": "e0a68c023e9ebde293139b1b88eb3e93956ce92f1fa8eef80ba02338f5476dad",
+      "sha256": "27c2e9ff72271ecf7d0824ec56be2b08a82f2a8f0051e0a98ec24f331fe4ad74",
+      "note": "Portable conversation studio, playback, observation or configuration."
     },
     {
       "path": ".github/workflows/ci.yml",
       "kind": "generated",
       "source": "case-study",
-      "sha256": "ca666855c19a72843ee8351c0a734c48ca8d7524a19c65671556ca948cb222cc",
-      "note": "Public documentation, entrypoint, packaging, validation or synthetic replay."
+      "sha256": "b122df05b46441d03cb3a6dc3e0380513d71cae3b2ce671981473d7c75963a1c",
+      "note": "Portable conversation studio, playback, observation or configuration."
     },
     {
       "path": ".gitignore",
@@ -51,8 +51,8 @@
       "path": "README.md",
       "kind": "generated",
       "source": "case-study",
-      "sha256": "9181dd2fd60727352ec217691428b9049ab044a6ebcfca3d626a72dc41abadc2",
-      "note": "Portable setup, evidence or publication record for the bilingual Twitch studio."
+      "sha256": "b01968445e97193d07092db19fa9b8268949b51c8d0934d7a6467ec8b75c6422",
+      "note": "Public guide, historical validation, synthetic example or portable schedule."
     },
     {
       "path": "deploy/k3s/ray-monitor/Dockerfile",
@@ -92,11 +92,18 @@
       "note": "Case-study documentation, replay, packaging, or local validation support."
     },
     {
+      "path": "docs/character-interview.md",
+      "kind": "generated",
+      "source": "case-study",
+      "sha256": "8d52bc76df950706b5e4275b62b858f2d6a64186fc82ca4c0d276454a664f463",
+      "note": "Public guide, historical validation, synthetic example or portable schedule."
+    },
+    {
       "path": "docs/conversation-controls.md",
       "kind": "generated",
       "source": "case-study",
-      "sha256": "a071fe38b5688d8ad674e33592b8b446fd7ec86fffaf39826b93949d17ce09ef",
-      "note": "Runtime initiative, source-backed recall and reply style."
+      "sha256": "f2394e9a1d7c78fbddf0830678d58f5ff3456b4fee750880a0d0a5c67927dc75",
+      "note": "Public guide, historical validation, synthetic example or portable schedule."
     },
     {
       "path": "docs/early-reactions.md",
@@ -161,9 +168,10 @@
     },
     {
       "path": "docs/measurements.md",
-      "sha256": "6bb938ee4759dc9d430fe1158983240e57260a55da87285d36648f53e5c76172",
       "kind": "generated",
-      "note": "Case-study documentation, replay, packaging, or local validation support."
+      "source": "case-study",
+      "sha256": "de0caa08b60d11c9ec95a481d84741677a9722e5829abd31601e80dd72f7cf46",
+      "note": "Public guide, historical validation, synthetic example or portable schedule."
     },
     {
       "path": "docs/media/ray-mouth-before-after-comparison.mp4",
@@ -213,15 +221,15 @@
       "path": "docs/reproduce.md",
       "kind": "generated",
       "source": "case-study",
-      "sha256": "ab54d3b8aaee156ea8339efdf5f1d2602430d978752ef096894da784c4c2f3f0",
-      "note": "Entry to the current local validation and earlier snapshot results."
+      "sha256": "bd847cbc495e3570706f3ab8b8d76279b362dca9e0bc982d864987b0819d548b",
+      "note": "Public guide, historical validation, synthetic example or portable schedule."
     },
     {
       "path": "docs/studio-observations.md",
       "kind": "generated",
       "source": "case-study",
-      "sha256": "4e130788ef80ab88f93e976edea431222aef4f5d827ccc25476d49fc280b4d03",
-      "note": "Portable setup, evidence or publication record for the bilingual Twitch studio."
+      "sha256": "c45440cf31320856a590d88cf0c06fbe9a7e4017deb8f12fd8841be358982d84",
+      "note": "Public guide, historical validation, synthetic example or portable schedule."
     },
     {
       "path": "docs/studio-operations.md",
@@ -241,16 +249,16 @@
       "path": "docs/twitch-live.md",
       "kind": "adapted",
       "source": "docs/twitch-live.md",
-      "source_sha256": "0ed69b775ed10946df3780edf73a70914b2d55531dc30b3508890d66541b59ef",
-      "sha256": "b8c0cb4d0829ed813c3be58969b8493e69702411b063e743347761447a379e2f",
-      "note": "Portable setup, evidence or publication record for the bilingual Twitch studio."
+      "source_sha256": "b85315deeb71e1045b7e6a61bf299337356393e9f7ffb69a058afe8652f4bc3f",
+      "sha256": "4103a3231f1e0e61dee9237e29cde086c5bac3225178fad6f2844b9b7bcd9f22",
+      "note": "Public guide, historical validation, synthetic example or portable schedule."
     },
     {
       "path": "docs/twitch-local-tts.md",
       "kind": "generated",
       "source": "case-study",
-      "sha256": "2db5d238fadc3cd69bbb1c94c33e71c93f2039f54b58fed8a87910d9daf18bdf",
-      "note": "Portable setup, evidence or publication record for the bilingual Twitch studio."
+      "sha256": "7a266d2ba551bbda1bb6cfa5c73e739815363169ef92a6d96dfe44fe8a0aa0f4",
+      "note": "Public guide, historical validation, synthetic example or portable schedule."
     },
     {
       "path": "docs/voice-evaluation.md",
@@ -279,6 +287,13 @@
       "source": "case-study",
       "sha256": "ef6bb0fd784fe12c40cd71016a84e243480e44ad783111f5a8ce8f73d60950d1",
       "note": "Fictional completed broadcast with three spoken replies and a budget-held fourth comment."
+    },
+    {
+      "path": "examples/character-interview.json",
+      "kind": "generated",
+      "source": "case-study",
+      "sha256": "b02c8f1a1fcaa96bd540666f0317e90c1956bd3aeea020604f04edc0beba49c8",
+      "note": "Public guide, historical validation, synthetic example or portable schedule."
     },
     {
       "path": "examples/early-reaction-report.json",
@@ -365,9 +380,9 @@
       "path": "examples/systemd/ray-twitch-market.timer",
       "kind": "copied",
       "source": "deploy/systemd/user/ray-twitch-market.timer",
-      "source_sha256": "4f5b160d2f8a6e756c685320a94a39aff9eae0ef03eb3017d5fdf3d84774f055",
-      "sha256": "4f5b160d2f8a6e756c685320a94a39aff9eae0ef03eb3017d5fdf3d84774f055",
-      "note": "Opt-in timer or service example for an operator-owned installation."
+      "source_sha256": "0f3c4b2d22ac6efd463103596a2fb90bbed1f27ca738a382d7457c88a90ee213",
+      "sha256": "0f3c4b2d22ac6efd463103596a2fb90bbed1f27ca738a382d7457c88a90ee213",
+      "note": "Public guide, historical validation, synthetic example or portable schedule."
     },
     {
       "path": "examples/systemd/ray-twitch-slot@.service",
@@ -389,9 +404,9 @@
       "path": "examples/systemd/ray-twitch-slot@11.timer.d/days.conf",
       "kind": "copied",
       "source": "deploy/systemd/user/ray-twitch-slot@11.timer.d/days.conf",
-      "source_sha256": "7b7a52b369a2088dbbeb537ee99783dd59334a16345e05f12d0058302dd2ef3a",
-      "sha256": "7b7a52b369a2088dbbeb537ee99783dd59334a16345e05f12d0058302dd2ef3a",
-      "note": "Opt-in timer or service example for an operator-owned installation."
+      "source_sha256": "8904f6fb2e5d391239490d32c8c84397434bae859a827c115159b1d32f80a036",
+      "sha256": "8904f6fb2e5d391239490d32c8c84397434bae859a827c115159b1d32f80a036",
+      "note": "Public guide, historical validation, synthetic example or portable schedule."
     },
     {
       "path": "examples/tts/Dockerfile",
@@ -426,8 +441,8 @@
       "path": "publication/README.md",
       "kind": "generated",
       "source": "case-study",
-      "sha256": "ff23f140bd4ab45e91aaff4ec8cd9f15aebf8cc78a27139cec9f120f616c16f6",
-      "note": "Portable setup, evidence or publication record for the bilingual Twitch studio."
+      "sha256": "84ee702a8c74619814b1b266035dd398f94d2964c219bab866bf2e9db8ddd328",
+      "note": "Public guide, historical validation, synthetic example or portable schedule."
     },
     {
       "path": "publication/audio-timing-evaluation-20261118.json",
@@ -594,6 +609,13 @@
       "sha256": "965103cf8cd01ac8c140fa02f191ff0e4415fc68fc84ace7f0d2f3c08e1cf951"
     },
     {
+      "path": "publication/history/2026-11-27-cpu-speech-validation.json",
+      "kind": "generated",
+      "source": "case-study",
+      "sha256": "c58c0baaf058f9631755cb068ab2b822f439368fdc2b27e51d56ec1a43d752a7",
+      "note": "Public guide, historical validation, synthetic example or portable schedule."
+    },
+    {
       "path": "publication/measurement-summary.json",
       "source": "demos/concept02-v13-early-expression/report.json",
       "source_sha256": "f59c0cd41ec8af9f09fd05cb5e4ebb2d1250988c5aa7dadce3c4b5fa05a764bf",
@@ -698,6 +720,14 @@
       "note": "Private local audio capture and public-player onset comparison tool."
     },
     {
+      "path": "scripts/memory.py",
+      "kind": "adapted",
+      "source": "scripts/memory.py",
+      "source_sha256": "59a9579b438648a667aff31659e2dc8d6f0eb8558daa5c84eb756c5d6aef55ce",
+      "sha256": "d13037ff39d0c6a19b02b2de115593796adadbee04a016e3be913b16dfbcf1c7",
+      "note": "Portable conversation studio, playback, observation or configuration."
+    },
+    {
       "path": "scripts/ray-studio-console.sh",
       "kind": "generated",
       "source": "case-study",
@@ -781,16 +811,24 @@
       "path": "src/ravora/aivis_voice.py",
       "kind": "copied",
       "source": "src/ravora/aivis_voice.py",
-      "source_sha256": "7b7bfe7145cff0457f8b39fa03bcbc846447bc678a0b8eb83163a2d3e8445464",
-      "sha256": "7b7bfe7145cff0457f8b39fa03bcbc846447bc678a0b8eb83163a2d3e8445464",
-      "note": "Local GPU voice workers, configuration or per-turn speech routing for the Twitch studio."
+      "source_sha256": "ed09f08e676efac9df370dfa49fb186bafef0d36907c731efd6a61ead0cd0f7d",
+      "sha256": "ed09f08e676efac9df370dfa49fb186bafef0d36907c731efd6a61ead0cd0f7d",
+      "note": "Portable conversation studio, playback, observation or configuration."
+    },
+    {
+      "path": "src/ravora/budget_status.py",
+      "kind": "adapted",
+      "source": "src/ravora/budget_status.py",
+      "source_sha256": "b90942696585f8f841fbbb52e3dea65e35a50473a34af5ed5f6a168533205869",
+      "sha256": "c31047ec5939439023bcbf59844274ccf7128394a7c91541f9464519ed150e56",
+      "note": "Portable conversation studio, playback, observation or configuration."
     },
     {
       "path": "src/ravora/case_study.py",
       "kind": "generated",
       "source": "case-study",
-      "sha256": "c30b9c1c59c81407b25dbed84f789f238efd6e7963e17b3a5f139d219ecefda1",
-      "note": "Portable profile initialization and reproduction guidance."
+      "sha256": "a867289eb192bc03875e4afb7519db54c516e6ce05d90b20d0009d6294f929b3",
+      "note": "Portable conversation studio, playback, observation or configuration."
     },
     {
       "path": "src/ravora/character_evaluation.py",
@@ -802,19 +840,19 @@
     },
     {
       "path": "src/ravora/chat_selection.py",
-      "note": "Per-speaker selection, reservation and offline verification.",
+      "kind": "copied",
       "source": "src/ravora/chat_selection.py",
-      "source_sha256": "29f19a3eee44ea55c6138b01ef53c9ff734f394c53b2091210f45afac449defe",
-      "sha256": "29f19a3eee44ea55c6138b01ef53c9ff734f394c53b2091210f45afac449defe",
-      "kind": "copied"
+      "source_sha256": "4820e67c5f7dd7c876c9c22de38e213921decfb0a6535cb662263157c503f3e9",
+      "sha256": "4820e67c5f7dd7c876c9c22de38e213921decfb0a6535cb662263157c503f3e9",
+      "note": "Portable conversation studio, playback, observation or configuration."
     },
     {
       "path": "src/ravora/comments.py",
       "kind": "copied",
       "source": "src/ravora/comments.py",
-      "source_sha256": "fef6b3f1ff71473aaf5aee4b08f1b40b121efd9b7ecd839de367a25e5424e909",
-      "sha256": "fef6b3f1ff71473aaf5aee4b08f1b40b121efd9b7ecd839de367a25e5424e909",
-      "note": "Public broadcast studio implementation."
+      "source_sha256": "da7b00c4331a158a210d5a509ad354756d987ca955849620bac5c30acf7f7f39",
+      "sha256": "da7b00c4331a158a210d5a509ad354756d987ca955849620bac5c30acf7f7f39",
+      "note": "Portable conversation studio, playback, observation or configuration."
     },
     {
       "path": "src/ravora/context_prompt.py",
@@ -826,19 +864,19 @@
     },
     {
       "path": "src/ravora/conversation.py",
-      "kind": "adapted",
+      "kind": "copied",
       "source": "src/ravora/conversation.py",
-      "source_sha256": "37238ae2ff57236563ad0df8f0ca0109a75dfea67c4e54851f8cda81ba04ba2d",
-      "sha256": "42424970881f497d60882d987de0997e8e01f2782466820d43c36d9292c94b87",
-      "note": "Local GPU voice workers, configuration or per-turn speech routing for the Twitch studio."
+      "source_sha256": "0b4cddaaf266f2855fd0a76a57032a697f031b969edc21a27c14c07cfd3984ae",
+      "sha256": "0b4cddaaf266f2855fd0a76a57032a697f031b969edc21a27c14c07cfd3984ae",
+      "note": "Portable conversation studio, playback, observation or configuration."
     },
     {
       "path": "src/ravora/conversation_context.py",
       "kind": "copied",
       "source": "src/ravora/conversation_context.py",
-      "sha256": "df97fc0faf1464fd63e481237680bc3f66c89842719a63b6ff88c0d65041f2b0",
-      "source_sha256": "df97fc0faf1464fd63e481237680bc3f66c89842719a63b6ff88c0d65041f2b0",
-      "note": "Studio runtime or synthetic regression port from the development snapshot."
+      "source_sha256": "077410658d9e4be730e786facc235fd06ff8cc3040e299a4ae766b1ee6984d4d",
+      "sha256": "077410658d9e4be730e786facc235fd06ff8cc3040e299a4ae766b1ee6984d4d",
+      "note": "Portable conversation studio, playback, observation or configuration."
     },
     {
       "path": "src/ravora/database.py",
@@ -876,9 +914,9 @@
       "path": "src/ravora/dialogue_router.py",
       "kind": "copied",
       "source": "src/ravora/dialogue_router.py",
-      "sha256": "5e431a1eb721db3eaee306c1786740f4e0f2045971c700d99c55e2345e0c3016",
-      "source_sha256": "5e431a1eb721db3eaee306c1786740f4e0f2045971c700d99c55e2345e0c3016",
-      "note": "Studio runtime or synthetic regression port from the development snapshot."
+      "source_sha256": "1ee18ea9232b0e4eb0c8fd63da966dd862c0cdb42569d8d26022b7b9bd77f7ae",
+      "sha256": "1ee18ea9232b0e4eb0c8fd63da966dd862c0cdb42569d8d26022b7b9bd77f7ae",
+      "note": "Portable conversation studio, playback, observation or configuration."
     },
     {
       "path": "src/ravora/early_reaction.py",
@@ -900,9 +938,9 @@
       "path": "src/ravora/fast_voice.py",
       "kind": "adapted",
       "source": "src/ravora/fast_voice.py",
-      "sha256": "caaf3daf89ffcf7de7a35e591477131deca0ecf4b7294c1f8191a752d3f19869",
-      "source_sha256": "317fd25f21ef7f85f636acc22e80122939d80da16f05bac032300aa89c7a6954",
-      "note": "Studio runtime or synthetic regression port from the development snapshot."
+      "source_sha256": "4177fdfd4e6e846185554a8476b52f258614a6fe9e71653c04d2836711f08801",
+      "sha256": "03a61f9bf77256eca169765b311f6f67ba61f03dc058862853aa301181cd3554",
+      "note": "Portable conversation studio, playback, observation or configuration."
     },
     {
       "path": "src/ravora/fast_voice_server.py",
@@ -922,11 +960,11 @@
     },
     {
       "path": "src/ravora/input_pipeline.py",
-      "kind": "copied",
+      "kind": "adapted",
       "source": "src/ravora/input_pipeline.py",
-      "source_sha256": "8815bde11e8879a743d8e13bda994af128ebfb1a57bdc3816f41e217ef96e5e1",
-      "sha256": "8815bde11e8879a743d8e13bda994af128ebfb1a57bdc3816f41e217ef96e5e1",
-      "note": "Public broadcast studio implementation."
+      "source_sha256": "182bd15578cecb0c59318afae84f6ec81181e54bc46dff935f8bad316802fd6d",
+      "sha256": "99fad6008f080d51bdfece7df4079be35f1066668a22466a38800fb1caca66f4",
+      "note": "Portable conversation studio, playback, observation or configuration."
     },
     {
       "path": "src/ravora/input_records.py",
@@ -948,9 +986,9 @@
       "path": "src/ravora/kokoro_voice.py",
       "kind": "copied",
       "source": "src/ravora/kokoro_voice.py",
-      "source_sha256": "f1bcdb0851a7df6bdf5e8d98dfd08b22700a0ed5453cd0f6873d3cef68242c73",
-      "sha256": "f1bcdb0851a7df6bdf5e8d98dfd08b22700a0ed5453cd0f6873d3cef68242c73",
-      "note": "Local GPU voice workers, configuration or per-turn speech routing for the Twitch studio."
+      "source_sha256": "b6eacac7e8821d22989830d569739ee6e30865cd9cc8cee19e169372d7353cd3",
+      "sha256": "b6eacac7e8821d22989830d569739ee6e30865cd9cc8cee19e169372d7353cd3",
+      "note": "Portable conversation studio, playback, observation or configuration."
     },
     {
       "path": "src/ravora/live_avatar.py",
@@ -996,9 +1034,9 @@
       "path": "src/ravora/live_media.py",
       "kind": "adapted",
       "source": "src/ravora/live_media.py",
-      "sha256": "bc635eed429646ed41a28da13a401b1fe771e5e48fc1c6e6e41e14eb3bbdbb1c",
-      "source_sha256": "00ccd5ec62110e7e1a7ef3cd53b2cc4ba6133169cd763816e7eda0205e9c4dd5",
-      "note": "Studio runtime or synthetic regression port from the development snapshot."
+      "source_sha256": "4e26a3ca643816c806c15ba7e72019eb476322dc93c2d25802f6ae0d2d842474",
+      "sha256": "81a836fddad82477dca106f9da0ed5464a69bbdfc89442f19d2047421bf96cae",
+      "note": "Portable conversation studio, playback, observation or configuration."
     },
     {
       "path": "src/ravora/live_metrics.py",
@@ -1026,11 +1064,11 @@
     },
     {
       "path": "src/ravora/live_program.py",
-      "kind": "adapted",
+      "kind": "copied",
       "source": "src/ravora/live_program.py",
-      "source_sha256": "2c79bf19af01467ca5e12c6b860e8d3025ac65f15e50849f91568ccc2ee751fa",
-      "sha256": "dab658a16029153479adb114b4eeb69262496da6e50c0f53f9025b2dbca76986",
-      "note": "Local GPU voice workers, configuration or per-turn speech routing for the Twitch studio."
+      "source_sha256": "fe8e59e23504206326d24dedc7d24627c9eac7c973a5533911db7143278584c4",
+      "sha256": "fe8e59e23504206326d24dedc7d24627c9eac7c973a5533911db7143278584c4",
+      "note": "Portable conversation studio, playback, observation or configuration."
     },
     {
       "path": "src/ravora/live_reverb.py",
@@ -1052,25 +1090,25 @@
       "path": "src/ravora/live_transport.py",
       "kind": "copied",
       "source": "src/ravora/live_transport.py",
-      "sha256": "1ff63a7d27f174401cfb5a514d89d43d95344ba3f7986c34b2ccc4311149fa1a",
-      "note": "Exact source for the bounded RTMPS FIFO and mux worker.",
-      "source_sha256": "1ff63a7d27f174401cfb5a514d89d43d95344ba3f7986c34b2ccc4311149fa1a"
+      "source_sha256": "08166882f2b8cdf7dd096f873b869cf5c63ec323a645dbcf587dbe2feee56c03",
+      "sha256": "08166882f2b8cdf7dd096f873b869cf5c63ec323a645dbcf587dbe2feee56c03",
+      "note": "Portable conversation studio, playback, observation or configuration."
     },
     {
       "path": "src/ravora/live_voice.py",
       "kind": "copied",
       "source": "src/ravora/live_voice.py",
-      "source_sha256": "b53777dbd53178bc1a394f6e7f58f5c56d36c977ba773bd5771870e17fce9447",
-      "sha256": "b53777dbd53178bc1a394f6e7f58f5c56d36c977ba773bd5771870e17fce9447",
-      "note": "Local GPU voice workers, configuration or per-turn speech routing for the Twitch studio."
+      "source_sha256": "dc24fa57bf41eb6daee9e6b4ee312e5af849e20e5f28d7dea09b2db0018b5c7e",
+      "sha256": "dc24fa57bf41eb6daee9e6b4ee312e5af849e20e5f28d7dea09b2db0018b5c7e",
+      "note": "Portable conversation studio, playback, observation or configuration."
     },
     {
       "path": "src/ravora/local_stt.py",
       "kind": "adapted",
       "source": "src/ravora/local_stt.py",
-      "sha256": "1727eca1b13d4ba3054365bac19cdd260db2294c492e41bdae6f3df23bb23073",
-      "source_sha256": "083ce8d48bae59efc1cade2965c23a2d198c762466c6e1df2273c9ac0ba525f7",
-      "note": "Use scoped model manifests with RMS gating and timestamp restoration."
+      "source_sha256": "03c436088fb34ea26282dbac9795389940aa75b16eb270390ccf2c1d2df806de",
+      "sha256": "417c0652b67b87b5179fb0d762f87403e5ea3160ead84a15c12ecc4f7588beec",
+      "note": "Portable conversation studio, playback, observation or configuration."
     },
     {
       "path": "src/ravora/marked_speech.py",
@@ -1092,9 +1130,9 @@
       "path": "src/ravora/memory.py",
       "kind": "copied",
       "source": "src/ravora/memory.py",
-      "source_sha256": "6fe73bf7cd0efd0bcd0666e106fbaa0797388f9db1df016e523da9ce35e285bf",
-      "sha256": "6fe73bf7cd0efd0bcd0666e106fbaa0797388f9db1df016e523da9ce35e285bf",
-      "note": "Bilingual source-backed memory and public character interests."
+      "source_sha256": "cb7683282499f775a01803e06dcee12fbea041bba1f4852536901e708c0df6ab",
+      "sha256": "cb7683282499f775a01803e06dcee12fbea041bba1f4852536901e708c0df6ab",
+      "note": "Portable conversation studio, playback, observation or configuration."
     },
     {
       "path": "src/ravora/memory_extraction.py",
@@ -1108,9 +1146,9 @@
       "path": "src/ravora/memory_worker.py",
       "kind": "copied",
       "source": "src/ravora/memory_worker.py",
-      "sha256": "760b2eddb446f50447f26da91d26d37e9ad9d4f9825113bd3b475bbbdcef90c9",
-      "source_sha256": "760b2eddb446f50447f26da91d26d37e9ad9d4f9825113bd3b475bbbdcef90c9",
-      "note": "Studio runtime or synthetic regression port from the development snapshot."
+      "source_sha256": "74f2c1324d21aa6471b6f11c34c5a84e072e39794f7543d955d73e65148f51ac",
+      "sha256": "74f2c1324d21aa6471b6f11c34c5a84e072e39794f7543d955d73e65148f51ac",
+      "note": "Portable conversation studio, playback, observation or configuration."
     },
     {
       "path": "src/ravora/migrations/001_memory.sql",
@@ -1313,6 +1351,62 @@
       "note": "Records the first program frame of each scheduled speech policy."
     },
     {
+      "path": "src/ravora/migrations/026_twitch_manual_promotions.sql",
+      "kind": "copied",
+      "source": "migrations/026_twitch_manual_promotions.sql",
+      "source_sha256": "efd140e078cf77e8eec5ffeba2696104162dc5906ead3e2eac293974c7454a6d",
+      "sha256": "efd140e078cf77e8eec5ffeba2696104162dc5906ead3e2eac293974c7454a6d",
+      "note": "Packaged SQLite migration for studio or viewer records."
+    },
+    {
+      "path": "src/ravora/migrations/027_twitch_slot_restart.sql",
+      "kind": "copied",
+      "source": "migrations/027_twitch_slot_restart.sql",
+      "source_sha256": "2b953f457cb7dfab425dfd0202542b0fab0c21dc24e4cc481863c5dd2f0bd56d",
+      "sha256": "2b953f457cb7dfab425dfd0202542b0fab0c21dc24e4cc481863c5dd2f0bd56d",
+      "note": "Packaged SQLite migration for studio or viewer records."
+    },
+    {
+      "path": "src/ravora/migrations/028_viewer_recognition.sql",
+      "kind": "copied",
+      "source": "migrations/028_viewer_recognition.sql",
+      "source_sha256": "50f893ff2cf9799fbf85afd005038c4c1941779b8885837ea2402798880e1cf6",
+      "sha256": "50f893ff2cf9799fbf85afd005038c4c1941779b8885837ea2402798880e1cf6",
+      "note": "Packaged SQLite migration for studio or viewer records."
+    },
+    {
+      "path": "src/ravora/migrations/029_twitch_fresh_runs.sql",
+      "kind": "copied",
+      "source": "migrations/029_twitch_fresh_runs.sql",
+      "source_sha256": "468e11ab9a60581f39b9062a2f11816655d9e33e31386f9f1fc76d55ace3349a",
+      "sha256": "468e11ab9a60581f39b9062a2f11816655d9e33e31386f9f1fc76d55ace3349a",
+      "note": "Packaged SQLite migration for studio or viewer records."
+    },
+    {
+      "path": "src/ravora/migrations/030_twitch_boot_recovery.sql",
+      "kind": "copied",
+      "source": "migrations/030_twitch_boot_recovery.sql",
+      "source_sha256": "344ff7a7e37126b838b63c918a6ab3e8e46813a8770d007a46845c27ed5e4ee6",
+      "sha256": "344ff7a7e37126b838b63c918a6ab3e8e46813a8770d007a46845c27ed5e4ee6",
+      "note": "Packaged SQLite migration for studio or viewer records."
+    },
+    {
+      "path": "src/ravora/migrations/031_twitch_stream_rollovers.sql",
+      "kind": "copied",
+      "source": "migrations/031_twitch_stream_rollovers.sql",
+      "source_sha256": "fc29a7c53042cade0295d60298c224823929f82dbb4bcaa909f0b0da85791607",
+      "sha256": "fc29a7c53042cade0295d60298c224823929f82dbb4bcaa909f0b0da85791607",
+      "note": "Packaged SQLite migration for studio or viewer records."
+    },
+    {
+      "path": "src/ravora/migrations/032_session_memory_revision.sql",
+      "kind": "copied",
+      "source": "migrations/032_session_memory_revision.sql",
+      "source_sha256": "9dd08f67a8775dbb9e63f6b3b32ce9a81da36a2f9f54b58cf53fc98eb2b021e4",
+      "sha256": "9dd08f67a8775dbb9e63f6b3b32ce9a81da36a2f9f54b58cf53fc98eb2b021e4",
+      "note": "Packaged SQLite migration for studio or viewer records."
+    },
+    {
       "path": "src/ravora/observation_site.py",
       "kind": "adapted",
       "source": "observation-site/scripts/collect_ray_public.py",
@@ -1324,25 +1418,25 @@
       "path": "src/ravora/persona.py",
       "kind": "copied",
       "source": "src/ravora/persona.py",
-      "sha256": "5b8ea65d4d65ee96f5925355caaa5b65e6a9aedde11c43288690cd51818cf57c",
-      "source_sha256": "5b8ea65d4d65ee96f5925355caaa5b65e6a9aedde11c43288690cd51818cf57c",
-      "note": "Studio runtime or synthetic regression port from the development snapshot."
+      "source_sha256": "e11c9976c38614444c831e7841b7619ddf1370795ac6aea0bf3825dba58c6bde",
+      "sha256": "e11c9976c38614444c831e7841b7619ddf1370795ac6aea0bf3825dba58c6bde",
+      "note": "Portable conversation studio, playback, observation or configuration."
     },
     {
       "path": "src/ravora/personas/calm.txt",
-      "source": "src/ravora/personas/calm.txt",
-      "source_sha256": "f0e7c453e4bbf265d229b13d72895e85cbad86bb0cbac88b5b44279f4a42b624",
       "kind": "copied",
-      "note": "",
-      "sha256": "f0e7c453e4bbf265d229b13d72895e85cbad86bb0cbac88b5b44279f4a42b624"
+      "source": "src/ravora/personas/calm.txt",
+      "source_sha256": "b87e70d5c63c0924ad89778656beb002175fa1bc712c9ee8368e284af96b96ee",
+      "sha256": "b87e70d5c63c0924ad89778656beb002175fa1bc712c9ee8368e284af96b96ee",
+      "note": "Portable conversation studio, playback, observation or configuration."
     },
     {
       "path": "src/ravora/personas/cheeky.txt",
-      "source": "src/ravora/personas/cheeky.txt",
-      "source_sha256": "156c4bc9c9746c50a80a844e51145b1419cdbf7b33b8d7a9f6c97cb9ab7523fd",
       "kind": "copied",
-      "note": "Exact source snapshot.",
-      "sha256": "156c4bc9c9746c50a80a844e51145b1419cdbf7b33b8d7a9f6c97cb9ab7523fd"
+      "source": "src/ravora/personas/cheeky.txt",
+      "source_sha256": "0605c38970ad23533a07bdafb12b3bc2f8dece54df79eac8dd9d5ea9e62e375f",
+      "sha256": "0605c38970ad23533a07bdafb12b3bc2f8dece54df79eac8dd9d5ea9e62e375f",
+      "note": "Portable conversation studio, playback, observation or configuration."
     },
     {
       "path": "src/ravora/phone_alignment.py",
@@ -1370,11 +1464,11 @@
     },
     {
       "path": "src/ravora/providers.py",
-      "kind": "adapted",
+      "kind": "copied",
       "source": "src/ravora/providers.py",
-      "source_sha256": "2d91efde88f9586746d2d1c98a82c14ea760f501b9228dfaf4d6e51b137e444e",
-      "sha256": "98d695703568f4cf043cbb089097dfe661c7c295146a0b0364734453d2fa5cfa",
-      "note": "Local GPU voice workers, configuration or per-turn speech routing for the Twitch studio."
+      "source_sha256": "703cafb29ebef5be4dd3d665bd1e23c2b2d97fa538daa5adeb1b926ecb5e97b9",
+      "sha256": "703cafb29ebef5be4dd3d665bd1e23c2b2d97fa538daa5adeb1b926ecb5e97b9",
+      "note": "Portable conversation studio, playback, observation or configuration."
     },
     {
       "path": "src/ravora/public_output.py",
@@ -1388,17 +1482,17 @@
       "path": "src/ravora/ray_character.py",
       "kind": "adapted",
       "source": "src/ravora/ray_character.py",
-      "source_sha256": "a42ef9296cbe2d5b0f4bc6b94237f6b898eeeaead67919f6f49f992d11504939",
-      "sha256": "1cffd3f533d9852b66864a48c2b9ad72781ccfde20bb2d5dc5a7f2940c6695b3",
-      "note": "Local GPU voice workers, configuration or per-turn speech routing for the Twitch studio."
+      "source_sha256": "ac3961ca067321370ad67b2a85621f5582a7c3fc93cc70bb1bb74bdd54d934f3",
+      "sha256": "31e187731f75bf3d1432346640c8e749f719af6754bb77bf45dea19f40f714b6",
+      "note": "Portable conversation studio, playback, observation or configuration."
     },
     {
       "path": "src/ravora/ray_memory.py",
       "kind": "adapted",
       "source": "src/ravora/ray_memory.py",
-      "source_sha256": "bf58983cc260c3539b1adec055d6b1b6fdae789120adfb3dacd063ee93ecf199",
-      "sha256": "c11f9e46f3adda9141e1a92938ac29e6c595a2fe9e2ce6a8af1ad9c644cc5224",
-      "note": "Bilingual source-backed memory and public character interests."
+      "source_sha256": "fc4167e902dda9574401b1f6e142f30d5476c747699645178e53a972041f24fd",
+      "sha256": "6816802629dce387e56438b02807b0b63a689ffdbc6be60ef1bd120591826c52",
+      "note": "Portable conversation studio, playback, observation or configuration."
     },
     {
       "path": "src/ravora/ray_page.py",
@@ -1409,28 +1503,44 @@
       "note": "Portable rendering of broadcast states, response coverage and independent audience samples."
     },
     {
+      "path": "src/ravora/ray_personality.py",
+      "kind": "copied",
+      "source": "src/ravora/ray_personality.py",
+      "source_sha256": "6321c15fc22369ce5b4b0914115cf9995e87020bf2a0ee3a0f35b7da3da3087b",
+      "sha256": "6321c15fc22369ce5b4b0914115cf9995e87020bf2a0ee3a0f35b7da3da3087b",
+      "note": "Portable conversation studio, playback, observation or configuration."
+    },
+    {
       "path": "src/ravora/ray_public.py",
       "kind": "copied",
       "source": "src/ravora/ray_public.py",
-      "source_sha256": "0c0369a4b85b3d0ec759bf8e8d90e3649626a85c4c5c55fbe7d13d037b28c811",
-      "sha256": "0c0369a4b85b3d0ec759bf8e8d90e3649626a85c4c5c55fbe7d13d037b28c811",
-      "note": "Aggregate projection over observed and finished broadcasts with pooled intervals."
+      "source_sha256": "a6de02bfd71c419c576e2b414a3062e83f6e4e81cb222b5a1d7e84b13f8fe421",
+      "sha256": "a6de02bfd71c419c576e2b414a3062e83f6e4e81cb222b5a1d7e84b13f8fe421",
+      "note": "Portable conversation studio, playback, observation or configuration."
     },
     {
       "path": "src/ravora/ray_public_cli.py",
       "kind": "adapted",
       "source": "scripts/ray_public_observation.py",
-      "source_sha256": "9ee7a1891c7516adc612dee0e802f18a9a1fa2aa18b7e0cb91a664a633d197d5",
-      "sha256": "f8baef98a06f243c286688ac9f6bbf41fa15435a6fd503f2c9624dfc0605477b",
-      "note": "Public broadcast studio implementation."
+      "source_sha256": "d964ec7e7988e041af8e77516731dd52851c107bb99ff512e02f7ce744355011",
+      "sha256": "1b87da78c03adde4382e45c1273d20a3fd34d37fabf7f3a4e3b6116374b152cf",
+      "note": "Portable conversation studio, playback, observation or configuration."
     },
     {
       "path": "src/ravora/ray_public_contract.py",
       "kind": "copied",
       "source": "src/ravora/ray_public_contract.py",
-      "source_sha256": "9f88c86131d5e589bd1f7abd773e15aad867af83910fdb3d6e6368ebaa0b287c",
-      "sha256": "9f88c86131d5e589bd1f7abd773e15aad867af83910fdb3d6e6368ebaa0b287c",
-      "note": "Count-only v5 schema and validation of earlier v4 exports."
+      "source_sha256": "79cadbf293688d1ad2a59591f4513341bbc7e79a7247d928269be9e750b838a9",
+      "sha256": "79cadbf293688d1ad2a59591f4513341bbc7e79a7247d928269be9e750b838a9",
+      "note": "Portable conversation studio, playback, observation or configuration."
+    },
+    {
+      "path": "src/ravora/ray_self_disclosure.py",
+      "kind": "copied",
+      "source": "src/ravora/ray_self_disclosure.py",
+      "source_sha256": "4f51ff95a04517164b5df0c4e6a0f7f57779ea980e777012cdb2ddcec9ac73f9",
+      "sha256": "4f51ff95a04517164b5df0c4e6a0f7f57779ea980e777012cdb2ddcec9ac73f9",
+      "note": "Portable conversation studio, playback, observation or configuration."
     },
     {
       "path": "src/ravora/relationship_demo.py",
@@ -1440,11 +1550,11 @@
     },
     {
       "path": "src/ravora/relationships.py",
-      "source": "src/ravora/relationships.py",
       "kind": "copied",
-      "note": "",
-      "sha256": "f047e9c152a966c77c771a8f524b53ad1d9a637a7d65c6af30aff6a97c65c8bd",
-      "source_sha256": "f047e9c152a966c77c771a8f524b53ad1d9a637a7d65c6af30aff6a97c65c8bd"
+      "source": "src/ravora/relationships.py",
+      "source_sha256": "f59d90740cf10caf1881e05c07a95eb2ea450608f5752f4522dc316afdd14bec",
+      "sha256": "f59d90740cf10caf1881e05c07a95eb2ea450608f5752f4522dc316afdd14bec",
+      "note": "Portable conversation studio, playback, observation or configuration."
     },
     {
       "path": "src/ravora/safety.py",
@@ -1455,20 +1565,36 @@
       "kind": "adapted"
     },
     {
+      "path": "src/ravora/scheduled_budget.py",
+      "kind": "copied",
+      "source": "src/ravora/scheduled_budget.py",
+      "source_sha256": "90c5790f5f66a1502a4b803c99a7ef0dc62f980e3557376e47206b8c8ea92483",
+      "sha256": "90c5790f5f66a1502a4b803c99a7ef0dc62f980e3557376e47206b8c8ea92483",
+      "note": "Portable conversation studio, playback, observation or configuration."
+    },
+    {
       "path": "src/ravora/semantic_memory.py",
       "kind": "copied",
       "source": "src/ravora/semantic_memory.py",
-      "source_sha256": "3727e4ae6447504256cc1b08a65a2abe424c1619c8e4f8126911a8116d2e27d2",
-      "sha256": "3727e4ae6447504256cc1b08a65a2abe424c1619c8e4f8126911a8116d2e27d2",
-      "note": "Exact source snapshot."
+      "source_sha256": "6f16309ba801a19c6917a7b828dd5c8c46ee5f8acf4baf7c009904170389ebd6",
+      "sha256": "6f16309ba801a19c6917a7b828dd5c8c46ee5f8acf4baf7c009904170389ebd6",
+      "note": "Portable conversation studio, playback, observation or configuration."
+    },
+    {
+      "path": "src/ravora/session_window.py",
+      "kind": "copied",
+      "source": "src/ravora/session_window.py",
+      "source_sha256": "12d72ab77c3b00dff0432d715d3cfc21c107cb4a2a8416c4884fa41e0f03e5a0",
+      "sha256": "12d72ab77c3b00dff0432d715d3cfc21c107cb4a2a8416c4884fa41e0f03e5a0",
+      "note": "Portable conversation studio, playback, observation or configuration."
     },
     {
       "path": "src/ravora/settings.py",
       "kind": "adapted",
       "source": "src/ravora/settings.py",
-      "source_sha256": "32943f45ced8d7c6027b335cfea6120dba317ad8ebc38a1d46336102cb6850b5",
-      "sha256": "d6ba760eb9f4f8dcdf5e873e8fb17887d8c4fd3d5efe04dcf5f74cfc62e0cfd3",
-      "note": "Local GPU voice workers, configuration or per-turn speech routing for the Twitch studio."
+      "source_sha256": "1fa2516c0766ab50bfd370e292141825d4ff236430ac021aab813bb2652f6125",
+      "sha256": "187e0cf1790e8e5da89865a6fcc8f555602d9feabf2e1abea69929e755b22420",
+      "note": "Portable conversation studio, playback, observation or configuration."
     },
     {
       "path": "src/ravora/speech.py",
@@ -1485,6 +1611,14 @@
       "source_sha256": "0a19a5b4ec3913773c97a670f8c5837ff8f1785a52504f234a46907e35bb5ca6",
       "sha256": "0a19a5b4ec3913773c97a670f8c5837ff8f1785a52504f234a46907e35bb5ca6",
       "note": "Playout arbitration for viewer replies, operator speech and spontaneous turns."
+    },
+    {
+      "path": "src/ravora/spoken_language.py",
+      "kind": "adapted",
+      "source": "src/ravora/spoken_language.py",
+      "source_sha256": "8750fef7bf05fbe91321e0327e91251840dcb607f0c87f6713690b337fd87d69",
+      "sha256": "cbf5b4be8acc20942b3e9b0715f1b59350d9a9b2f25864a618ad64a4d4623a87",
+      "note": "Portable conversation studio, playback, observation or configuration."
     },
     {
       "path": "src/ravora/stream_pitch.py",
@@ -1511,20 +1645,36 @@
       "note": "Use the installed token helper for the opt-in speech provider."
     },
     {
+      "path": "src/ravora/studio_dell_stt.py",
+      "kind": "adapted",
+      "source": "src/ravora/studio_dell_stt.py",
+      "source_sha256": "abda52ef3adc2bb71eca2b553f9f9e1ecab36b86d97d1f7fa8d9680f05d212e9",
+      "sha256": "e204c0d194c4e1ffb2fa19246d9c72b5335b4a286b56d0528b0b2f96b1b7f2a3",
+      "note": "Portable conversation studio, playback, observation or configuration."
+    },
+    {
       "path": "src/ravora/studio_observations.py",
-      "kind": "copied",
+      "kind": "adapted",
       "source": "src/ravora/studio_observations.py",
-      "source_sha256": "b4c5471cdcedb3635d4934f55ffb3706bc057de4ca45b0365e54015818a5933a",
-      "sha256": "b4c5471cdcedb3635d4934f55ffb3706bc057de4ca45b0365e54015818a5933a",
-      "note": "Public broadcast studio implementation."
+      "source_sha256": "cbe0d5b68c71ff4df3fb42c2c177d6ec20796424910260f92eca1eab437983d2",
+      "sha256": "e2390ed54ada03bba6a9751d235572cc25fa89f4efaaf6fa765dfeb86eed78a4",
+      "note": "Portable conversation studio, playback, observation or configuration."
+    },
+    {
+      "path": "src/ravora/studio_operator.py",
+      "kind": "adapted",
+      "source": "src/ravora/studio_operator.py",
+      "source_sha256": "33f04e3793f280984e727ca9b6377f053c3b9003647d3cd17fb3374f07b110cc",
+      "sha256": "e09eb3f775645b84196b3333ac9dbeb2114600203032c214b135439e54f21e7e",
+      "note": "Portable conversation studio, playback, observation or configuration."
     },
     {
       "path": "src/ravora/studio_report.py",
       "kind": "copied",
       "source": "src/ravora/studio_report.py",
-      "source_sha256": "106262a412a4029ab8769705ce019b1f3f080361cc1efc5b8f719765f4ffa7e2",
-      "sha256": "106262a412a4029ab8769705ce019b1f3f080361cc1efc5b8f719765f4ffa7e2",
-      "note": "Read-only per-broadcast participation, time, coverage, usage and cost accounting."
+      "source_sha256": "88babb46212e80eca0523c3df4410fdae3feb1a2f22a5b092dcc45d5a1be2c44",
+      "sha256": "88babb46212e80eca0523c3df4410fdae3feb1a2f22a5b092dcc45d5a1be2c44",
+      "note": "Portable conversation studio, playback, observation or configuration."
     },
     {
       "path": "src/ravora/studio_report_cli.py",
@@ -1533,6 +1683,14 @@
       "source_sha256": "03f88582ca3cbf3421515ec19069941d715cc7f583d10df7639030b91c09734a",
       "sha256": "576821759d134eb5d4ea7e53dca10c1efc47bacead3cf3d7e2f730cafa74578a",
       "note": "Public broadcast studio implementation."
+    },
+    {
+      "path": "src/ravora/twitch_ack.py",
+      "kind": "copied",
+      "source": "src/ravora/twitch_ack.py",
+      "source_sha256": "0481f67ce8cc1973680556861f9f08a69293e6cfa2b0cfab060bf9aa54140185",
+      "sha256": "0481f67ce8cc1973680556861f9f08a69293e6cfa2b0cfab060bf9aa54140185",
+      "note": "Portable conversation studio, playback, observation or configuration."
     },
     {
       "path": "src/ravora/twitch_audience.py",
@@ -1546,57 +1704,89 @@
       "path": "src/ravora/twitch_chat.py",
       "kind": "adapted",
       "source": "src/ravora/twitch_chat.py",
-      "source_sha256": "cddd0aab8c297e83ff0183a2cc26dbdb03ffd237d4aef6d776040dfcfce1d792",
-      "sha256": "9722e99b3a714fb523217a86133bab7c08bef190aa2fbe25c34c5149137439ad",
-      "note": "Public broadcast studio implementation."
+      "source_sha256": "70916345b4a74905837a0a7fd52e3ac3d35acde1f37fcd7a54bd751efc26f251",
+      "sha256": "f654c01fb05674f0c7817e55d259fca3565e92516cc36c3a86adb4260df467cf",
+      "note": "Portable conversation studio, playback, observation or configuration."
     },
     {
       "path": "src/ravora/twitch_identity.py",
       "kind": "adapted",
-      "source": "src/ravora/twitch_chat.py",
-      "source_sha256": "9a7725c9a3e0944e2fa574dafd30766800d589bcaa4303fb903fd2bcf22f2347",
-      "sha256": "a7a4bcae1e6a974a296a925c1b2b64a35f5970252f6f482d22c4c203928dc6a7",
-      "note": "Portable failure type and explicit broadcaster login for opt-in operations."
+      "source": "src/ravora/twitch_identity.py",
+      "source_sha256": "c685aa811a03f89ad6e8d1cb8b68a8ba87e4203e6fbf77335a3b7d3c173d2903",
+      "sha256": "1cfe1f1f7caaa936afcc8f1faa5b4f765536dfafe56cb313e99d189874e30b3d",
+      "note": "Portable conversation studio, playback, observation or configuration."
+    },
+    {
+      "path": "src/ravora/twitch_intake.py",
+      "kind": "adapted",
+      "source": "src/ravora/twitch_intake.py",
+      "source_sha256": "229ab13e8ba5dbd5ee004dfeb92743978dd3778f731d3d30069016caa512a0fc",
+      "sha256": "eba451c917a8a055823f72e643b8e1844566c388e0d188ba0c32c4633cc3c9a4",
+      "note": "Portable conversation studio, playback, observation or configuration."
+    },
+    {
+      "path": "src/ravora/twitch_irc.py",
+      "kind": "copied",
+      "source": "src/ravora/twitch_irc.py",
+      "source_sha256": "3193ae1b1e424500336f7c289520250790909c7dbd507429eda1c1d6e4c02bd6",
+      "sha256": "3193ae1b1e424500336f7c289520250790909c7dbd507429eda1c1d6e4c02bd6",
+      "note": "Portable conversation studio, playback, observation or configuration."
+    },
+    {
+      "path": "src/ravora/twitch_language_hint.py",
+      "kind": "copied",
+      "source": "src/ravora/twitch_language_hint.py",
+      "source_sha256": "b8fc2dad731d247235a6ca3532589d5bc1487757b426cb150eb70e387ef0069d",
+      "sha256": "b8fc2dad731d247235a6ca3532589d5bc1487757b426cb150eb70e387ef0069d",
+      "note": "Portable conversation studio, playback, observation or configuration."
     },
     {
       "path": "src/ravora/twitch_market.py",
       "kind": "adapted",
       "source": "src/ravora/twitch_market.py",
-      "source_sha256": "d593f3c0ee10544256e27e4bc0ef11cce336cd5d8327ec952ac9b68823039b4b",
-      "sha256": "94cc0c3d256822e141aa8e7ecfbb1715f024c4b9aaf5424d6ece4293cab318df",
-      "note": "Public broadcast studio implementation."
+      "source_sha256": "77a10f4c5254daf66614de208bcc5dd6a84c67f39938c22caac986e17390fbab",
+      "sha256": "3ca495689c5969148244af89c952a14783f8c8e2f34ebc55fbabcf74630d07f9",
+      "note": "Portable conversation studio, playback, observation or configuration."
+    },
+    {
+      "path": "src/ravora/twitch_recall.py",
+      "kind": "copied",
+      "source": "src/ravora/twitch_recall.py",
+      "source_sha256": "0866de3d2b5811cf1844aeb87e363e3fec1cb4760879e022f08227c64292adcf",
+      "sha256": "0866de3d2b5811cf1844aeb87e363e3fec1cb4760879e022f08227c64292adcf",
+      "note": "Portable conversation studio, playback, observation or configuration."
     },
     {
       "path": "src/ravora/twitch_schedule.py",
-      "kind": "adapted",
+      "kind": "copied",
       "source": "src/ravora/twitch_schedule.py",
-      "source_sha256": "bf3771d83ee8b6db2d09fb6a39b47346ca06a4c8c3db8729b7ee568086b5f505",
-      "sha256": "7953d26382ddbd15ac1c80645a7f219fe377c4b5b6d4b0c476367e10488ff4b2",
-      "note": "Public broadcast studio implementation."
+      "source_sha256": "2fab4872631b397fb862b3891f20c0ddfd53f9c72811b0378c253bc8cea83604",
+      "sha256": "2fab4872631b397fb862b3891f20c0ddfd53f9c72811b0378c253bc8cea83604",
+      "note": "Portable conversation studio, playback, observation or configuration."
     },
     {
       "path": "src/ravora/twitch_schedule_api.py",
       "kind": "adapted",
       "source": "src/ravora/twitch_schedule_api.py",
-      "source_sha256": "8533292c338880b737d6242488107ba2a5f506d3d542668a12ffa921b0258619",
-      "sha256": "76440e29262473be8c7d868df8185b293bca121742ef4453e8a75ab3e2af51d7",
-      "note": "Metadata and welcome authorization tied to the configured broadcaster."
+      "source_sha256": "4c5de570fb858b52cce9772a5a09d4cf30aab20daa28074d42dedd19f05bbf21",
+      "sha256": "afb4597dacf175cd49a1e0a317312e1a3e0b064d95cc53c2709f7f77198db72b",
+      "note": "Portable conversation studio, playback, observation or configuration."
     },
     {
       "path": "src/ravora/twitch_schedule_cli.py",
       "kind": "adapted",
       "source": "scripts/twitch_schedule.py",
-      "source_sha256": "d946795d4bcfd45bc6dfc0d929e9e51d2092d29f1f727b8c114fabd6e3ed4f34",
-      "sha256": "4b48cb6361cb8475dbbcc19a92d085a5e39f508d41f176a1454c43fbaadf58a5",
-      "note": "Public broadcast studio implementation."
+      "source_sha256": "b7bdd855ee8290d936b53eeb44312aa2e37e0bf629a7982fa26425b4b4f809db",
+      "sha256": "e070b9fb0e2533d8f7b6001f49376b745384ed9b60310a8da906812048e4fccc",
+      "note": "Portable conversation studio, playback, observation or configuration."
     },
     {
       "path": "src/ravora/twitch_voice.py",
       "kind": "copied",
       "source": "src/ravora/twitch_voice.py",
-      "source_sha256": "030ae524950fb59359f7f1f0a0f12d742558b3d9b359ddcb1e5b9e11fc65bdf3",
-      "sha256": "030ae524950fb59359f7f1f0a0f12d742558b3d9b359ddcb1e5b9e11fc65bdf3",
-      "note": "Local GPU voice workers, configuration or per-turn speech routing for the Twitch studio."
+      "source_sha256": "c9999c099cb886210666f1433050840f8ebedf7a13b528bd87fc8072caac24d2",
+      "sha256": "c9999c099cb886210666f1433050840f8ebedf7a13b528bd87fc8072caac24d2",
+      "note": "Portable conversation studio, playback, observation or configuration."
     },
     {
       "path": "src/ravora/twitch_welcome.py",
@@ -1607,12 +1797,36 @@
       "note": "Once-per-show bilingual welcome for the verified broadcaster and live stream."
     },
     {
+      "path": "src/ravora/viewer_dialogue.py",
+      "kind": "copied",
+      "source": "src/ravora/viewer_dialogue.py",
+      "source_sha256": "d02368c5d2e7a00d617bb94d36ac1d788794b9d8447a4fafd8a5e1606f09cdee",
+      "sha256": "d02368c5d2e7a00d617bb94d36ac1d788794b9d8447a4fafd8a5e1606f09cdee",
+      "note": "Portable conversation studio, playback, observation or configuration."
+    },
+    {
+      "path": "src/ravora/viewer_recall.py",
+      "kind": "copied",
+      "source": "src/ravora/viewer_recall.py",
+      "source_sha256": "ad1ac09009d01724caf4ad9270be6e6a8ea069869b7334680020a47b0d253bc9",
+      "sha256": "ad1ac09009d01724caf4ad9270be6e6a8ea069869b7334680020a47b0d253bc9",
+      "note": "Portable conversation studio, playback, observation or configuration."
+    },
+    {
+      "path": "src/ravora/viewer_recognition.py",
+      "kind": "copied",
+      "source": "src/ravora/viewer_recognition.py",
+      "source_sha256": "a308bb698bf788403becddabece0f6580dbbb6967a143ade07d777c9d504aa78",
+      "sha256": "a308bb698bf788403becddabece0f6580dbbb6967a143ade07d777c9d504aa78",
+      "note": "Portable conversation studio, playback, observation or configuration."
+    },
+    {
       "path": "src/ravora/voice_evaluation.py",
       "kind": "adapted",
       "source": "src/ravora/voice_evaluation.py",
-      "note": "Portable evaluation port with package-local assets, English review controls, and synthetic validation.",
-      "sha256": "dcb02d99d0b3368ee1e3b02d2a9db2dc7b2543388a1ea36f81caff9cd3361137",
-      "source_sha256": "2e5b3822f2ad2b569f2c9159f7efaf240b2189582494ad457d66d35bb3630a2a"
+      "source_sha256": "615555d5e6d80ee5353208e08bfbf30a21563a60edac3c4b19183f387ff7ca3a",
+      "sha256": "4608a19d86ca7ef0d8b25a8f8fbbde7c73f9164acdc32c0056df78c13b617ba6",
+      "note": "Portable conversation studio, playback, observation or configuration."
     },
     {
       "path": "src/ravora/web/articulation.mjs",
@@ -1664,11 +1878,11 @@
     },
     {
       "path": "src/ravora/web/developer/live-host.js",
-      "kind": "adapted",
+      "kind": "copied",
       "source": "renderer/developer/live-host.js",
-      "sha256": "1989f30d59f73b53ae9deefa869a79b743032b0fe8ad46aa5406049930902906",
-      "source_sha256": "0314ebe1f8d005ac344397350d1eb28f9df899417e8b0843ea115afe8ce77d97",
-      "note": "Pass the browser microphone track echo-cancellation setting to the public studio."
+      "source_sha256": "08fa7f8afbc2963b8a5db232f978dd53244b83705f1adc34fdebb46f9808004a",
+      "sha256": "08fa7f8afbc2963b8a5db232f978dd53244b83705f1adc34fdebb46f9808004a",
+      "note": "Portable conversation studio, playback, observation or configuration."
     },
     {
       "path": "src/ravora/web/developer/live-metrics.css",
@@ -1882,9 +2096,9 @@
       "path": "src/ravora/youtube_live.py",
       "kind": "adapted",
       "source": "scripts/youtube_live.py",
-      "source_sha256": "ec99887a64d77933f7eee29e45199321bb2b5a3fc7860d4d84bd0617cc829591",
-      "sha256": "3b19b4586e0961412b94067766e4a68832a542e38ff81e408e6e4700ad5902c3",
-      "note": "Local GPU voice workers, configuration or per-turn speech routing for the Twitch studio."
+      "source_sha256": "ff05e303046f537cec26117e8491203a9fa444c234dd7224e5cab8d74c11f850",
+      "sha256": "73a73747c7d501d3a37165fd150715b49fb2d8d072b2f95a240a34844969ec22",
+      "note": "Portable conversation studio, playback, observation or configuration."
     },
     {
       "path": "src/ravora/youtube_proto/__init__.py",
@@ -1958,11 +2172,19 @@
       "note": "Mesh and source-coordinate regression using a generated portrait."
     },
     {
+      "path": "tests/test_budget_status.py",
+      "kind": "adapted",
+      "source": "tests/test_budget_status.py",
+      "source_sha256": "5402b208bf685be1a9e1f059494f4f80f3cef8a4ed6875cbd2ff8a9ebe3d6033",
+      "sha256": "cbaba8ae643655e13d54f2321f44418f0947c4a3a9e4157467b352d115902869",
+      "note": "Offline studio regression using synthetic inputs."
+    },
+    {
       "path": "tests/test_case_study.py",
       "kind": "generated",
       "source": "case-study",
-      "sha256": "39e048a8d1bb3dcd0cdf8b22b47dfed23a6cede8649743a2fd9f9b46d8135862",
-      "note": "Public package resource coverage for all shipped migrations."
+      "sha256": "a9b20f05138f4b60edf8fcc10670bf7071ee07fdd6c1da980be0261b6b0026d8",
+      "note": "Offline studio regression using synthetic inputs."
     },
     {
       "path": "tests/test_chat_selection.py",
@@ -2125,17 +2347,25 @@
       "path": "tests/test_ray_character.py",
       "kind": "adapted",
       "source": "tests/test_ray_character.py",
-      "sha256": "7d861e1e1c1a6d7f416b94e7a1cb77c7dd9a8c9d9daba1dd9278617081ea5fd2",
-      "source_sha256": "a3ab1906294af33320f1f9be7d46f8de07f983eec02eced2c9d05d486aa2deea",
-      "note": "Studio runtime or synthetic regression port from the development snapshot."
+      "source_sha256": "b44ecd9c358f543b9c9984c8b1d02fd355bfdb1b8039cdef0382b3ec3f600653",
+      "sha256": "be1f2746478ebe24c073c5acdb7203b46706f4e81bd12c7d3b80a918d0398f11",
+      "note": "Offline studio regression using synthetic inputs."
     },
     {
       "path": "tests/test_ray_public.py",
-      "kind": "copied",
+      "kind": "adapted",
       "source": "tests/test_ray_public.py",
-      "source_sha256": "135817c0ac070f5e4c5c28dd83ec63b4c22e6caea97d6cc62ada173da3a56f0c",
-      "sha256": "135817c0ac070f5e4c5c28dd83ec63b4c22e6caea97d6cc62ada173da3a56f0c",
-      "note": "Synthetic regression for the broadcast and observation pipeline."
+      "source_sha256": "70f040e209be68427c44c7cb74a7500e640910d9385d4f3ce26d86396a141848",
+      "sha256": "267cc2a5b625b7b96d875c00a35743e008812e1a18c0db96bfcc9da37601bfe9",
+      "note": "Offline studio regression using synthetic inputs."
+    },
+    {
+      "path": "tests/test_ray_self_disclosure.py",
+      "kind": "copied",
+      "source": "tests/test_ray_self_disclosure.py",
+      "source_sha256": "43d58b5428ff505627c49aeb8a7cded87ca721a6b8c455185ab828c6290de956",
+      "sha256": "43d58b5428ff505627c49aeb8a7cded87ca721a6b8c455185ab828c6290de956",
+      "note": "Offline studio regression using synthetic inputs."
     },
     {
       "path": "tests/test_ray_twitch_observer.py",
@@ -2154,6 +2384,14 @@
       "note": "Adapted to the public package, its asset bindings or its synthetic test fixtures."
     },
     {
+      "path": "tests/test_scheduled_budget.py",
+      "kind": "copied",
+      "source": "tests/test_scheduled_budget.py",
+      "source_sha256": "0c083612e771c9c00af7f91b04a9b1c0d1ea21a705ec31248ee0d841ca5aa220",
+      "sha256": "0c083612e771c9c00af7f91b04a9b1c0d1ea21a705ec31248ee0d841ca5aa220",
+      "note": "Offline studio regression using synthetic inputs."
+    },
+    {
       "path": "tests/test_semantic_memory.py",
       "kind": "adapted",
       "source": "tests/test_semantic_memory.py",
@@ -2162,11 +2400,27 @@
       "note": "Semantic voice tests use the configured default deadline for on-time results and a short deadline for the late-result scenario."
     },
     {
+      "path": "tests/test_session_recall.py",
+      "kind": "copied",
+      "source": "tests/test_session_recall.py",
+      "source_sha256": "23fecd72294507e71822b220c046a3b1956ca45bdd974f580da169b473f5b175",
+      "sha256": "23fecd72294507e71822b220c046a3b1956ca45bdd974f580da169b473f5b175",
+      "note": "Offline studio regression using synthetic inputs."
+    },
+    {
       "path": "tests/test_single_reaction.py",
       "kind": "generated",
       "source": "case-study",
       "sha256": "bb59e597ea9a545004a18df572c545d916e342f82bea749e34049f74933f148b",
       "note": "Historical usage fixture uses pre-migration columns."
+    },
+    {
+      "path": "tests/test_spoken_language.py",
+      "kind": "adapted",
+      "source": "tests/test_spoken_language.py",
+      "source_sha256": "531919dfbc7ff0705ea462c55fcfbec6df52921a377c78dafb757e6e45ef9479",
+      "sha256": "a6655f28eda2162e1bf1c95abf7f36de3c13daa99712946f3a7de01f61e660cc",
+      "note": "Offline studio regression using synthetic inputs."
     },
     {
       "path": "tests/test_studio_launchers.py",
@@ -2182,6 +2436,14 @@
       "source_sha256": "a4a74aae1510ffec1fae9e3ea0614bb187bbc74bd1a586d98b2ed8d9c41ffb51",
       "sha256": "bc1e2a4450543c19f881434a4f563f54c0bc04c84e3879e8da81c97f0711feb1",
       "note": "Portable coverage for per-broadcast observations, reply denominators and audience authentication failures."
+    },
+    {
+      "path": "tests/test_studio_operator.py",
+      "kind": "adapted",
+      "source": "tests/test_studio_operator.py",
+      "source_sha256": "f8a85c51297b4cbabe03d417faceac32f1b82e59722b7fd9e08c72d5c126c17d",
+      "sha256": "c3dbcd8ae99458ef20a2d78f37a07a4a3c786d0f02e43ec2d56bd2328fd60435",
+      "note": "Offline studio regression using synthetic inputs."
     },
     {
       "path": "tests/test_studio_replay.py",
@@ -2203,33 +2465,57 @@
       "path": "tests/test_twitch_chat.py",
       "kind": "adapted",
       "source": "tests/test_twitch_chat.py",
-      "sha256": "3e64a54b0d1ff3ac5f1ab429fae7f8a774d96f8f400ca7aaf09a73c289c452e2",
-      "note": "Synthetic Twitch OAuth and EventSub tests with optional dependency guards.",
-      "source_sha256": "8a3c1ddcb46a706ca299c8cab7417c2863eecf35315ec1f12977cd9e87e208d0"
+      "source_sha256": "88622ba8d5c99e5adcbdbef678bf6cb6d549579fe5d6bcd801b93e311487c245",
+      "sha256": "5d2d7fa17ce30cec32c35ea0677ed233794239031ff3d66cc7617216f2645f71",
+      "note": "Offline studio regression using synthetic inputs."
+    },
+    {
+      "path": "tests/test_twitch_intake.py",
+      "kind": "adapted",
+      "source": "tests/test_twitch_intake.py",
+      "source_sha256": "b90e14b743d5e90a863703816a622daeee9aae037b5ddc760f66e24329a141f0",
+      "sha256": "76fa7b1c0b4da27a964c19fe6a8d11ae9fc650a9dafad5b86cef14a2461d5f9c",
+      "note": "Offline studio regression using synthetic inputs."
+    },
+    {
+      "path": "tests/test_twitch_irc.py",
+      "kind": "adapted",
+      "source": "tests/test_twitch_irc.py",
+      "source_sha256": "6c93dc185b9a27b9d14b3167455048e660448d7f95388c8c9f1cc633b517c25c",
+      "sha256": "9dd20810993ef4bbd16103fb082e2b10beced8d33040b2df958c63c7d532b226",
+      "note": "Offline studio regression using synthetic inputs."
     },
     {
       "path": "tests/test_twitch_kokoro.py",
       "kind": "adapted",
       "source": "tests/test_twitch_kokoro.py",
       "source_sha256": "9ee6ee9f2666c021ad81deda0767d005e48221339a24fb414dd6fb1dfbd2dea6",
-      "sha256": "95c940775dac03f52ce61c0057235407168989f8cea866df231a74ccec661b06",
-      "note": "Offline regression for the public studio or player observer."
+      "sha256": "d55bd28e65b417f9b61b53239bf53c248471bc2e2360dd9ed75f2c3de885356a",
+      "note": "Offline studio regression using synthetic inputs."
+    },
+    {
+      "path": "tests/test_twitch_recall.py",
+      "kind": "adapted",
+      "source": "tests/test_twitch_recall.py",
+      "source_sha256": "24bb50071eeee546dce0282b369cf3d11b4844cd037bf1165836e2fd054bae58",
+      "sha256": "e759a4b7027096d84736574a844c4d836fa6db02c4e868b9c94206f3a6bde084",
+      "note": "Offline studio regression using synthetic inputs."
     },
     {
       "path": "tests/test_twitch_schedule.py",
       "kind": "adapted",
       "source": "tests/test_twitch_schedule.py",
-      "source_sha256": "4a45e2173b50d6fd87af8aaf7eeadd9409cf6f46a0de088f00ba6d76c3aae95d",
-      "sha256": "18a9ff94ee8945769a13f99cb781cb9347d8f8406e19737d781dc1af1594579c",
-      "note": "Synthetic regression for the broadcast and observation pipeline."
+      "source_sha256": "85d6746bf8d576573544157cedc14561aec9bd624aef9bad18ea431a5cd9f3ca",
+      "sha256": "306d73ca857194851ed462de0bfe535017db61a1d6e6857c66c843dfac9d37f6",
+      "note": "Offline studio regression using synthetic inputs."
     },
     {
       "path": "tests/test_twitch_voice_routing.py",
       "kind": "adapted",
       "source": "tests/test_twitch_voice_routing.py",
-      "source_sha256": "3a3723e2d4258f6ba34c32fb523f6face53bde71182c70e4af83f7334aed68b3",
-      "sha256": "d32a54ec71b882cd5e5a9f57151dcb99d9ea6b0f1b0eda78b6f52a501b3a1a3a",
-      "note": "Offline regression for the public studio or player observer."
+      "source_sha256": "b296f65ce3538d25da1220511515ef8b0b17155521eb379d64302031c55c8c14",
+      "sha256": "2380a69a7172d2ed79f066f52adee7edfa26ecfc074014ccf155b785bc162e35",
+      "note": "Offline studio regression using synthetic inputs."
     },
     {
       "path": "tests/test_twitch_welcome.py",
@@ -2238,6 +2524,30 @@
       "source_sha256": "7cad67c11c7e7c4a9b7abc4b195ae2ef1e1d29e1d6128bc1b647c37f46df1cc5",
       "sha256": "3f752f469c070ecf4fb1d46dc7ee9c2a04990804368ae50446acfe128d47e8b0",
       "note": "Synthetic regression for the broadcast and observation pipeline."
+    },
+    {
+      "path": "tests/test_viewer_dialogue.py",
+      "kind": "copied",
+      "source": "tests/test_viewer_dialogue.py",
+      "source_sha256": "3e8ada3c3ce849f25fe12c90d7d513cb018e2154420771b701a8609beff04d48",
+      "sha256": "3e8ada3c3ce849f25fe12c90d7d513cb018e2154420771b701a8609beff04d48",
+      "note": "Offline studio regression using synthetic inputs."
+    },
+    {
+      "path": "tests/test_viewer_recognition.py",
+      "kind": "adapted",
+      "source": "tests/test_viewer_recognition.py",
+      "source_sha256": "389546dca0f5a377f28a9ca88115d83b9a5ee5b093059d68128bd78aa368c602",
+      "sha256": "55640b24ebebdce161b189b60cee2fe21434b959701d4f2717d3f7a93647e57e",
+      "note": "Offline studio regression using synthetic inputs."
+    },
+    {
+      "path": "tests/test_viewer_voice_latency.py",
+      "kind": "adapted",
+      "source": "tests/test_viewer_voice_latency.py",
+      "source_sha256": "20fcc84be2dc959315d1953854e17a8eaf1cf76a57a2eadd3816badba284ff71",
+      "sha256": "31d9fa80eec49a55f07c21e1b447badf6e18313ff2f13d77ba371fdf80598749",
+      "note": "Offline studio regression using synthetic inputs."
     },
     {
       "path": "tests/test_voice_evaluation.py",
@@ -2259,9 +2569,9 @@
       "path": "tests/test_youtube_live.py",
       "kind": "adapted",
       "source": "tests/test_youtube_live.py",
-      "sha256": "9d020346c93c820954f288a484d7d04b5cbc43e4e93bc96634ee42f9a3d6f5e3",
-      "source_sha256": "2f562dd6a658826e162d163ee4f3c86740598ef9b9580db7ce52e19f17c2075a",
-      "note": "Studio runtime or synthetic regression port from the development snapshot."
+      "source_sha256": "e594b5445deeb68f44008dc3d6a7b36a2e3def910369ec847e67578ccf45e21c",
+      "sha256": "17d43d7b3d39b08b8b6b6a747df4262dcca2659034ea2fe691f4bbf17c033eb9",
+      "note": "Offline studio regression using synthetic inputs."
     },
     {
       "path": "tests/test_youtube_stream.py",

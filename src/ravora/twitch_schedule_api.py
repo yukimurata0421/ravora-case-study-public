@@ -5,12 +5,13 @@ from urllib.parse import urlencode
 
 import requests
 
-from ravora.twitch_identity import channel_login
 from ravora.settings import read_env
+from ravora.twitch_identity import channel_login
 from ravora.twitch_chat import OAUTH, TwitchError, TwitchOAuth, cli_config_path
 from ravora.youtube_auth import read_private, save_private
 
 HELIX = 'https://api.twitch.tv/helix/'
+
 METADATA_SCOPE = 'channel:manage:broadcast'
 PIN_SCOPES = ('user:write:chat', 'moderator:manage:chat_messages')
 
@@ -24,7 +25,6 @@ def authorize_pin(directory):
 
 
 def authorize_channel(path, scopes, *, announce=print):
-    expected_channel = channel_login()
     requested = ' '.join(scopes)
     client = read_env(cli_config_path())['CLIENTID']
     with requests.Session() as http:
@@ -53,7 +53,7 @@ def authorize_channel(path, scopes, *, announce=print):
                                  timeout=6, allow_redirects=False)
                 identity = check.json()
                 if (check.status_code != 200 or identity.get('client_id') != client
-                        or identity.get('login') != expected_channel or not set(scopes).issubset(identity.get('scopes', []))
+                        or identity.get('login') != channel_login() or not set(scopes).issubset(identity.get('scopes', []))
                         or not re.fullmatch(r'[0-9]{1,32}', str(identity.get('user_id','')))):
                     raise TwitchError('TWITCH_SCHEDULE_AUTHORIZATION_MISMATCH')
                 path.parent.mkdir(mode=0o700,parents=True,exist_ok=True)
@@ -72,7 +72,10 @@ def query(http, headers, endpoint, params):
     response = http.get(HELIX+endpoint, params=params, headers=headers, timeout=6, allow_redirects=False)
     if response.status_code != 200:
         raise TwitchError(f'TWITCH_HELIX_HTTP_{response.status_code}')
-    data = response.json()
+    try:
+        data = response.json()
+    except ValueError:
+        raise TwitchError('TWITCH_HELIX_INVALID_DATA') from None
     if not isinstance(data, dict) or not isinstance(data.get('data'), list):
         raise TwitchError('TWITCH_HELIX_INVALID_DATA')
     return data
@@ -106,9 +109,11 @@ def category_id(http, auth):
     return rows[0]['id']
 
 
-def offline(http, auth, identity, previous=None, until=0):
+def offline(http, auth, identity, previous=None, until=0, stop=None):
     seen_offline = False
     while True:
+        if stop is not None and stop.is_set():
+            raise TwitchError('TWITCH_SLOT_RESTART_CANCELLED')
         rows = query(http, auth, 'streams', {'user_id':identity})['data']
         if not rows:
             if not previous or seen_offline:
@@ -120,7 +125,10 @@ def offline(http, auth, identity, previous=None, until=0):
             seen_offline = False
         if time.time() + 4 >= until:
             raise TwitchError('TWITCH_SLOT_EXPIRED')
-        time.sleep(4)
+        if stop is None:
+            time.sleep(4)
+        else:
+            stop.wait(4)
 
 
 def channel_data(http, auth, identity):
@@ -130,7 +138,40 @@ def channel_data(http, auth, identity):
     return rows[0]
 
 
-def prepare_channel(directory, language, *, update, previous=None, until=0, independent_chat=False):
+def fresh_channel(directory, language, stop):
+    channel = prepare_channel(directory,language,update=False,independent_chat=True,stop=stop)
+    if channel.get('offline') is not True:
+        raise TwitchError('TWITCH_OFFLINE_UNCONFIRMED')
+    if not channel['matches_slot']:
+        raise TwitchError('TWITCH_CHANNEL_UPDATE_UNCONFIRMED')
+    return channel
+
+
+def transient_read(exc):
+    if isinstance(exc, requests.exceptions.SSLError):
+        return False
+    if isinstance(exc, (requests.ConnectionError, requests.Timeout)):
+        return True
+    return isinstance(exc, TwitchError) and str(exc) in {
+        prefix+str(status) for status in (429,500,502,503,504)
+        for prefix in ('TWITCH_HELIX_HTTP_','TWITCH_CHAT_VALIDATE_HTTP_')
+    }
+
+
+def recovery_channel(directory, language, previous, until, stop):
+    # Long outages can affect Helix too. Only repeat the read-only preflight.
+    while not stop.is_set() and time.time() < until:
+        try:
+            return prepare_channel(directory,language,update=False,previous=previous,until=until,
+                                   independent_chat=True,stop=stop)
+        except (requests.RequestException,TwitchError) as exc:
+            if not transient_read(exc):
+                raise
+        stop.wait(min(4,max(0,until-time.time())))
+    raise TwitchError('TWITCH_SLOT_RESTART_CANCELLED' if stop.is_set() else 'TWITCH_SLOT_EXPIRED')
+
+
+def prepare_channel(directory, language, *, update, previous=None, until=0, independent_chat=False, stop=None):
     """Verify the channel, optionally match the chat grant, and reconcile the metadata update."""
     with requests.Session() as http:
         http.trust_env = False
@@ -140,7 +181,7 @@ def prepare_channel(directory, language, *, update, previous=None, until=0, inde
             if chat.validate().get('login') != channel_login() or chat.user_id != meta.user_id:
                 raise TwitchError('TWITCH_CHAT_ACCOUNT_MISMATCH')
         auth = headers(meta)
-        offline(http,auth,meta.user_id,previous,until)
+        offline(http,auth,meta.user_id,previous,until,stop)
         category = category_id(http,auth)
         current = channel_data(http,auth,meta.user_id)
         def matches(row):

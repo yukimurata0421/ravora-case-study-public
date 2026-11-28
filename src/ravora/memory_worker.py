@@ -160,7 +160,14 @@ class MemoryWorker:
             self.store.fail_memory_job(job,code,status='skipped');return
         if self.stop.is_set():
             self.store.memory_call_state(job,key,'cancelled_before_send');self.store.release_memory_job(job);return
-        if not self.store.dispatch_memory_call(job,key):
+        try:
+            dispatched = self.store.dispatch_memory_call(job,key)
+        except ProviderError as exc:
+            code = str(exc)
+            self.store.memory_call_state(job,key,'held',code=code)
+            self.store.fail_memory_job(job,code,status='skipped')
+            return
+        if not dispatched:
             self.store.memory_call_state(job,key,'cancelled_before_send')
             self.store.fail_memory_job(job,'SOURCE_UNAVAILABLE',status='cancelled');return
         if self.stop.is_set():

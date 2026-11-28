@@ -1,0 +1,20 @@
+{
+  "status": "PASS_ISOLATED_CPU_TTS_MEASUREMENT",
+  "validated_at_jst": "2026-11-27T10:12:32+09:00",
+  "scope": "Warm whole-passage synthesis of four English fixtures and one Japanese fixture on a two-CPU budget. Portable GPU worker ceiling aligned with the measured GTX 1070 configuration.",
+  "checks": {
+    "cpu_runs": 15,
+    "successful_non_silent_wavs": 15,
+    "pcm_format": "24000 Hz mono PCM16",
+    "compared_gpu_runs": 9,
+    "kokoro_regression_tests": 6
+  },
+  "included_private_databases_or_recordings": false,
+  "new_inference_api_calls": 0,
+  "new_live_broadcast": false,
+  "limits": [
+    "Kokoro GPU reference has one observation per input.",
+    "The isolated trials do not measure program onset, viewer playback or sustained allocator behavior."
+  ],
+  "earlier_validation_preserved": "publication/history/2026-11-27-bilingual-gpu-validation.json"
+}

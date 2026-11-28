@@ -236,8 +236,27 @@ async def console(port,seconds,*,route=None,avatar_binding=None,evaluation_dir=N
             loop.remove_signal_handler(signal.SIGTERM);signal.signal(signal.SIGTERM,previous)
 
 
+def character_interview():
+    """Run the studio's character selector through two fictional viewer exchanges."""
+    from ravora.ray_self_disclosure import disclosure
+
+    recent, turns = [], []
+    for opener, followups in (
+        ('Are you competitive?', ('Why?', 'For example?', 'Why?', 'For example?')),
+        ('Why do you stream?', ('Why?', 'For example?', 'For example?', 'Why?')),
+    ):
+        for question in (opener, *followups):
+            _, options = disclosure(question, recent[-8:], 'en')
+            if len(options) != 1:
+                raise RuntimeError('Unexpected character interview route')
+            answer = options[0]
+            turns.append(dict(question=question, answer=answer))
+            recent.extend((('user', question), ('model', answer)))
+    return dict(scope='Offline text selection with simulated playback acknowledgements', turns=turns)
+
+
 def main():
-    parser=argparse.ArgumentParser(description=__doc__);parser.add_argument('action',choices=('replay','early-reaction','relationships','media-timing','serve'),nargs='?',default='replay')
+    parser=argparse.ArgumentParser(description=__doc__);parser.add_argument('action',choices=('replay','early-reaction','relationships','media-timing','character-interview','serve'),nargs='?',default='replay')
     parser.add_argument('--report',type=Path);parser.add_argument('--port',type=int);parser.add_argument('--seconds',type=int)
     parser.add_argument('--config',type=Path,help='Console TOML with optional developer_voice and pngtuber sections')
     parser.add_argument('--evaluation-dir',type=Path,help='New private evaluation directory; default: a new directory under .runtime')
@@ -277,6 +296,8 @@ def main():
     else:
         if args.action=='relationships':
             result=relationship_replay()
+        elif args.action=='character-interview':
+            result=character_interview()
         elif args.action=='media-timing':
             result=media_timing_replay()
         else:

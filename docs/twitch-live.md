@@ -41,6 +41,14 @@ control microphone conversation and supplies the fallback for ambiguous chat.
 Set `TWITCH_CHAT_ENABLED=false` for a stream with host conversation alone.
 [Twitch EventSub WebSocket lifecycle](https://dev.twitch.tv/docs/eventsub/handling-websocket-events/)
 
+A second, read-only IRC connection can receive chat during an EventSub handoff.
+To opt in, run `ravora-twitch-schedule authorize-irc` and grant `chat:read` for the
+same broadcaster. Both routes share a bounded inbox and deduplicate the provider
+message ID. Deletions apply across routes, including a deletion that arrives before
+the corresponding message. If both connections are down, messages during that
+interval may be lost. The operator status identifies which route is reading.
+[Twitch receiver](../src/ravora/twitch_chat.py) · [IRC tests](../tests/test_twitch_irc.py)
+
 ## Select the H.264 encoder and start
 
 The default Twitch encoder is `libx264`. Add this section to your local

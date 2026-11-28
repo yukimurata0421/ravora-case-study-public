@@ -103,10 +103,15 @@ class TwitchChatTests(unittest.TestCase):
                           subscription_type=DELETE, message_timestamp=now)
         foreign = packet('notification', {'event': content | {'broadcaster_user_id': '99'}},
                          subscription_type=MESSAGE, message_timestamp=now)
-        reconnect = WS + '?reconnect=fixture'
+        reconnect = 'wss://eventsub.wss.twitch.tv?reconnect=fixture'
         first, second = Mock(), Mock()
+        first.getstatus.return_value = second.getstatus.return_value = 101
+        during_handoff = packet('notification', {'event': content | {'message_id': 'message-2',
+                                'message': {'text': 'during reconnect'}}},
+                                subscription_type=MESSAGE, message_timestamp=now)
         first.recv.side_effect = [welcome('initial'), foreign, received,
-                                  packet('session_reconnect', {'session': {'reconnect_url': reconnect}})]
+                                  packet('session_reconnect', {'session': {'reconnect_url': reconnect}}),
+                                  during_handoff, '']
         replacement = iter([welcome('replacement'), received, deletion])
         def receive():
             item = next(replacement, None)
@@ -128,9 +133,10 @@ class TwitchChatTests(unittest.TestCase):
         first.shutdown.assert_called_once()
         second.shutdown.assert_called_once()
         callback.assert_called_once()
-        self.assertEqual(reader.snapshot()['counts'], {'ignored_channel': 1, 'queued': 1, 'duplicate': 1, 'removed': 1})
-        self.assertEqual(inbox.summary(), {'removed': 1})
-        self.assertEqual(inbox.display_comments(None), [])
+        self.assertEqual(reader.snapshot()['counts'], {'ignored_channel': 1, 'queued': 2, 'duplicate': 1,
+                                                      'removed': 1, 'handoff_completed': 1, 'handoff_failed': 0})
+        self.assertEqual(inbox.summary(), {'queued': 1, 'removed': 1})
+        self.assertEqual([row[2] for row in inbox.display_comments(None)], ['during reconnect'])
 
     def test_refresh_uses_atomic_private_cache_and_detects_wrong_account(self):
         http = Mock()

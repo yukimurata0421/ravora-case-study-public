@@ -14,6 +14,8 @@ import time
 import unicodedata
 import wave
 
+from ravora.settings import streaming_voice
+
 
 class EvaluationError(ValueError):
     pass
@@ -183,7 +185,7 @@ class VoiceEvaluation:
                           'provenance': 'mock' if self.mode == 'mock' else self.config.provenance,
                           'created_at_jst': dt.datetime.now(dt.timezone(dt.timedelta(hours=9))).isoformat(),
                           'input_source': source, 'end_mode': end_mode, 'language': language,
-                          'stt_model': settings.voice_stt_model, 'llm_model': settings.gemini_model, 'tts_voice': settings.voice_tts_voice,
+                          'stt_model': settings.voice_stt_model, 'llm_model': settings.gemini_model, 'tts_voice': streaming_voice(settings.voice_tts_voice, language),
                           'input_chunk_ms': settings.voice_input_chunk_ms, 'outcome': 'recording', 'pcm_bytes': 0,
                           'audio_file': None, 'transcript': None, 'reference': None, 'stt_error': None,
                           'false_endpoint': None, 'note': '', 'browser': {}, 'events': []}

@@ -72,6 +72,8 @@ class LiveProgram:
                           if pipeline.s.mode == 'cloud' and pipeline.s.api_enabled and pipeline.s.stt_api_enabled else None)
         self.reply_profiles = reply_profiles or {}
         self.initiative_language = initiative_language or 'en'
+        self.slot_draining = False
+        self.drain_host = False
         self.interrupt_initiatives = interrupt_initiatives
         self.speech_policy = None
         self.policy_generation = 0
@@ -111,8 +113,6 @@ class LiveProgram:
         self.stage = Stage()
         self.chat_status = {'status': {'youtube': 'waiting_for_live', 'twitch': 'connecting',
                                        'developer': 'host_only'}.get(pipeline.s.comment_source, 'fixture')}
-        if pipeline.s.comment_source == 'twitch':
-            self.chat_status['transport'] = 'twitch_eventsub_websocket'
         self.chat_key = None
         self.chat = ()
         self.chat_ids = ()
@@ -130,6 +130,7 @@ class LiveProgram:
         self.completed = 0
         self.failed = 0
         self.last_error = None
+        self.twitch_intake = None
         self.next_check = 0
         self.initiative_waiting = False
         self.initiative_revision = 0
@@ -154,6 +155,8 @@ class LiveProgram:
     _profile = profile_live_turn
 
     def _prefetch_viewer(self, *, sentence_end=False):
+        if self.slot_draining:
+            return
         pipeline = self.pipeline
         pending = pipeline.prepared
         if pending:
@@ -274,7 +277,23 @@ class LiveProgram:
                 self.pending_host = (comment.receipt, clip, time.monotonic() + self.pipeline.s.comment_ttl)
         return {'status': status}
 
+    def finish_slot_turn(self):
+        """At the slot boundary, finish the current human turn and a host input already underway."""
+        with self.lock:
+            if not self.slot_draining:
+                self.slot_draining = True
+                self.drain_host = bool(self.host_recognition or self.pending_host or self.speech_policy.host_speaking(self))
+                self.pipeline.discard_prepared('slot_ended')
+            host_in_progress = self.drain_host and (self.host_recognition or self.pending_host or self.speech_policy.host_speaking(self))
+            return bool((self.token and not self._interruptible_initiative()) or host_in_progress)
+
     def _begin(self):
+        if self.twitch_intake:
+            self.twitch_intake.wake_idle(self)
+        if self.slot_draining:
+            self.pipeline.reap_prepared()
+            if not self.drain_host or not self.host_recognition:
+                return
         if self.pending_host and time.monotonic() >= self.pending_host[2]:
             self.pending_host = None
         if time.monotonic() < self.next_check:
@@ -307,7 +326,9 @@ class LiveProgram:
         else:
             if self.pipeline.prepared:
                 return
-            value = self.pipeline.next(allow_host_input=True, allow_initiative=quiet, prefer_host=self.interrupt_initiatives)
+            drain_args = {'only_receipt':self.host_recognition[0]} if self.slot_draining else {}
+            value = self.pipeline.next(allow_host_input=True, allow_initiative=quiet and not self.slot_draining,
+                                       prefer_host=self.interrupt_initiatives, **drain_args)
             if not value['available']:
                 return
             comment = value['comment']
@@ -320,6 +341,7 @@ class LiveProgram:
             _, language, self.stt_final, self.latency['stt_ms'] = self.host_recognition
             self.latency['stt_final_to_program_signal_ms'] = None
             self.host_recognition = None
+            self.drain_host = False
         self.prefetched_comment = comment if pending else None
         self.viewer_receipt = receipt if viewer_comment else None
         self.prefetch_revision = None
@@ -462,7 +484,7 @@ class LiveProgram:
                     character.start_opening_window()
             # Keep a new human receipt queued until the unsolicited turn yields.
             # Cancelling an active turn also discards any reply already prefetched behind it.
-            if self.speech_policy and self.token and self.speech_policy.host_interrupt(self):
+            if self.speech_policy and self.token and (not self.slot_draining or self.drain_host) and self.speech_policy.host_interrupt(self):
                 self.pipeline.cancel('host_interrupt')
                 self._end()
                 self.next_check = 0
@@ -584,12 +606,11 @@ class LiveProgram:
             revision = (inbox.display_revision,self.host_recognition)
             changed = self.initiative_revision != revision
             self.initiative_revision = revision
-            audience = self.pipeline.audience_present
             human = (not self._quiet_for_followup(during_playback=not self.initiative_waiting)
                      or (changed and inbox.human_waiting()))
             if self.speech_policy:
                 human = self.speech_policy.yield_initiative(self, human)
-            if human or (self.initiative_waiting and audience and not audience()):
+            if human or (self.last_signal is None and not self.pipeline.audience_allows_initiative()):
                 keep = bool(human and self.speech_policy and self.speech_policy.prepared_viewer(self))
                 self.pipeline.cancel('human_input_priority' if human else 'audience_unavailable', keep_prepared=keep)
                 self._end(keep_prepared=keep)
@@ -599,6 +620,13 @@ class LiveProgram:
                 and (not self.generated or self.bridge.worker.is_alive())):
             # A short opening becomes audible only when its single WAV is accepted
             # and the speech worker is free to start a viewer reply on the next frame.
+            return Stage(), SILENCE
+        # Initial playout checks playable() below. Recheck deleted group/individual
+        # sources before claiming each subsequent sentence that already has a WAV.
+        if (self.viewer_receipt and self.last_signal is not None and self.clip is None and self.audio
+                and self.pipeline.inbox.removed_turn(self.token['turn_id'])):
+            self.pipeline.cancel('unavailable_before_playout')
+            self._end()
             return Stage(), SILENCE
         if self.clip is None and self.audio:
             if self.handsfree.speaking():

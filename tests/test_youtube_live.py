@@ -493,6 +493,7 @@ class LiveTests(unittest.TestCase):
                   patch.object(launcher.ChannelAPI, 'connect') as youtube,
                   patch('ravora.input_pipeline.YouTubeReader') as reader,
                   patch('ravora.twitch_chat.TwitchReader.run', autospec=True) as twitch_reader,
+                  patch('ravora.twitch_voice.warm_twitch_voices', autospec=True) as warm_voices,
                   patch('ravora.live_media.Scene', return_value=scene),
                   patch('ravora.live_media.SIZE', (160, 96)),
                   patch('ravora.live_transport.rtmps_output', redirect_publish),
@@ -506,6 +507,7 @@ class LiveTests(unittest.TestCase):
                 youtube.assert_not_called()
                 reader.assert_not_called()
                 twitch_reader.assert_called_once()
+                warm_voices.assert_called_once()
                 self.assertEqual(twitch_reader.call_args.args[0].inbox.store.path, db)
             self.assertEqual(destination, [f'{TWITCH_INGEST}/{secret}'])
             summary_path, = (root / '.runtime').glob('twitch-live-*/summary.json')

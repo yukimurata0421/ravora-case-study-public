@@ -94,6 +94,15 @@ def admission(db, inbox, comment, now):
     ticket = hashlib.sha256(f'{inbox.session}/{int(now // inbox.ttl)}/{comment.viewer}'.encode()).hexdigest()
     candidate = Candidate(comment.receipt, comment.viewer, comment.text, comment.published_at,
                           now, ticket, comment.reply_parent)
+    # Preserve an unanswered original when the viewer repeats it under a new message ID.
+    repeated = db.execute("""SELECT 1 FROM comment_inbox i LEFT JOIN chat_candidates c USING(receipt)
+        WHERE i.session=? AND i.source=? AND i.stream_id=? AND i.viewer=? AND i.text=?
+        AND c.reply_parent IS ? AND i.status IN ('queued','claimed','processing','generated')
+        AND i.received BETWEEN ? AND ? AND i.expires>? LIMIT 1""",
+        (inbox.session, comment.source, comment.stream_id, comment.viewer, comment.text,
+         comment.reply_parent, now-min(5, inbox.ttl), now, now)).fetchone()
+    if repeated:
+        return 'dropped', 'repeat_pending_comment', candidate
     pool = waiting(db, inbox.session)
     for other in pool:
         if other.viewer == candidate.viewer:

@@ -1,5 +1,5 @@
 """Twitch EventSub receiver for the broadcaster's own chat."""
-from collections import Counter
+from collections import Counter, OrderedDict
 from contextlib import ExitStack, closing
 import hashlib
 import json
@@ -8,6 +8,7 @@ import os
 from pathlib import Path
 import re
 import sqlite3
+import threading
 import time
 from urllib.parse import urlsplit
 
@@ -15,7 +16,7 @@ import requests
 import websocket
 
 from ravora.twitch_identity import TwitchError
-from ravora.comments import Comment, clean, timestamp
+from ravora.twitch_intake import chat_event, Deletion
 from ravora.settings import SettingsError, read_env
 from ravora.youtube_auth import read_private, save_private
 
@@ -27,6 +28,8 @@ SUBSCRIPTIONS = 'https://api.twitch.tv/helix/eventsub/subscriptions'
 SCOPE = 'user:read:chat'
 MESSAGE = 'channel.chat.message'
 DELETE = 'channel.chat.message_delete'
+# The two transports share the publisher identity, consent to moderation and the same inbox.
+STOP_BOTH = {'TWITCH_CHAT_ACCOUNT_MISMATCH', 'TWITCH_CHAT_SUBSCRIPTION_REVOKED_REAUTHORIZE', 'TWITCH_CHAT_DB_ERROR'}
 
 
 class TwitchOAuth:
@@ -132,14 +135,22 @@ def cli_config_path():
 
 
 def _session_url(url):
-    address = urlsplit(url)
-    if (address.scheme, address.netloc, address.path, address.fragment) != ('wss', 'eventsub.wss.twitch.tv', '/ws', ''):
+    # Twitch chooses the handoff path and query. Only the TLS service authority is fixed.
+    if not isinstance(url, str) or not url.isascii() or not url.isprintable() or any(c in url for c in ' #\\'):
+        raise TwitchError('TWITCH_CHAT_UNEXPECTED_WEBSOCKET_URL')
+    try:
+        address = urlsplit(url)
+    except ValueError:
+        raise TwitchError('TWITCH_CHAT_UNEXPECTED_WEBSOCKET_URL') from None
+    if address.scheme != 'wss' or not re.fullmatch(
+            r'(?:[a-z0-9-]+\.)*eventsub\.wss\.twitch\.tv(?::443)?', address.netloc, re.I | re.ASCII):
         raise TwitchError('TWITCH_CHAT_UNEXPECTED_WEBSOCKET_URL')
     return url
 
 
 class TwitchReader:
-    def __init__(self, inbox, token_path, *, config=None, on_removed=None, on_audience=None, is_announcement=None, expected_user_id=None):
+    def __init__(self, inbox, token_path, *, config=None, on_removed=None, on_audience=None, is_announcement=None,
+                 expected_user_id=None, irc_token_path=None):
         self.inbox = inbox
         self.token_path = token_path
         self.config = config or cli_config_path()
@@ -147,13 +158,32 @@ class TwitchReader:
         self.on_audience = on_audience
         self.expected_user_id = expected_user_id
         self.on_removed = on_removed
-        self.status = 'connecting'
+        self.primary_status = 'connecting'
         self.code = None
         self.counts = Counter()
+        self.event_lock = threading.Lock()
+        self.deleted_ids = OrderedDict()
+        self.irc = None
+        if irc_token_path is not None:
+            from ravora.twitch_irc import TwitchIRC
+            self.irc = TwitchIRC(irc_token_path, self.config, self._notification)
+
+    @property
+    def status(self):
+        if (self.primary_status != 'stopped' and self.code not in STOP_BOTH
+                and self.irc and self.irc.status == 'reading'):
+            return 'reading'
+        return self.primary_status
 
     def snapshot(self):
-        return {'status': self.status, 'code': self.code, 'transport': 'twitch_eventsub_websocket',
-                'counts': dict(self.counts)}
+        fallback = self.status == 'reading' and self.primary_status != 'reading'
+        result = {'status': self.status, 'code': None if fallback else self.code,
+                  'transport': 'twitch_irc' if fallback else 'twitch_eventsub_websocket', 'counts': {'handoff_completed': 0, 'handoff_failed': 0, **self.counts}}
+        if self.irc:
+            result['eventsub'] = {'status': self.primary_status, 'code': self.code}
+            result['irc'] = {'status': self.irc.status, 'code': self.irc.code,
+                             'messages': self.irc.messages, 'deletions': self.irc.deletions}
+        return result
 
     @staticmethod
     def _message(ws):
@@ -161,19 +191,21 @@ class TwitchReader:
         if not raw:
             raise TwitchError('TWITCH_CHAT_SOCKET_CLOSED', retryable=True)
         if not isinstance(raw, str) or len(raw) > 65536:
-            raise TwitchError('TWITCH_CHAT_INVALID_WEBSOCKET_MESSAGE')
+            raise TwitchError('TWITCH_CHAT_INVALID_WEBSOCKET_MESSAGE', retryable=True)
         return json.loads(raw)
 
     def _open(self, url):
-        ws = websocket.create_connection(_session_url(url), timeout=5, suppress_origin=True)
+        ws = websocket.create_connection(_session_url(url), timeout=5, suppress_origin=True, redirect_limit=0)
         try:
+            if ws.getstatus() != 101:
+                raise TwitchError('TWITCH_CHAT_EXPECTED_UPGRADE', retryable=True)
             welcome = self._message(ws)
             if welcome['metadata']['message_type'] != 'session_welcome':
                 raise TwitchError('TWITCH_CHAT_EXPECTED_WELCOME', retryable=True)
             session = welcome['payload']['session']
             timeout = session.get('keepalive_timeout_seconds')
             if not isinstance(session.get('id'), str) or not session['id'] or type(timeout) is not int or not 10 <= timeout <= 600:
-                raise TwitchError('TWITCH_CHAT_INVALID_SESSION')
+                raise TwitchError('TWITCH_CHAT_INVALID_SESSION', retryable=True)
             ws.settimeout(1)
             return ws, session['id'], timeout
         except BaseException:
@@ -181,37 +213,25 @@ class TwitchReader:
             raise
 
     def _notification(self, metadata, payload, identity):
-        try:
-            event = payload['event']
-            if event['broadcaster_user_id'] != identity or event.get('source_broadcaster_user_id') not in (None, identity):
-                self.counts['ignored_channel'] += 1
-                return
-            kind = metadata['subscription_type']
-            if kind == MESSAGE:
-                if (self.is_announcement and event['chatter_user_id'] == identity
-                        and self.is_announcement(event['message_id'], event['message']['text'])):
-                    self.counts['ignored_welcome'] += 1
-                    return
-                comment = Comment('twitch', identity, clean(event['message_id'], 128),
-                                  clean(event['chatter_user_id'], 128), clean(event['chatter_user_name'], 100),
-                                  clean(event['message']['text'], 1000), timestamp(metadata['message_timestamp']),
-                                  clean(event['reply']['parent_message_id'],128) if event.get('reply') else None)
-                if not comment.text:
-                    raise ValueError('EMPTY_TWITCH_COMMENT')
-            elif kind == DELETE:
-                removed_id = clean(event['message_id'], 128)
-            else:
-                return
-        except (AttributeError, KeyError, TypeError, ValueError):
-            self.counts['invalid'] += 1
+        event = chat_event(self, metadata, payload, identity)
+        if event is None:
             return
-        if kind == MESSAGE:
-            self.counts[self.inbox.put(comment)] += 1
-        else:
-            self.inbox.remove('twitch', identity, removed_id)
-            self.counts['removed'] += 1
-            if self.on_removed:
-                self.on_removed()
+        with self.event_lock:
+            if not isinstance(event, Deletion):
+                comment = event
+                if comment.message_id in self.deleted_ids:
+                    return
+                self.counts[self.inbox.put(comment)] += 1
+            elif event.message_id not in self.deleted_ids:
+                removed_id = event.message_id
+                self.inbox.remove('twitch', identity, removed_id)
+                # A deletion can overtake the original message on the other socket.
+                self.deleted_ids[removed_id] = None
+                if len(self.deleted_ids) > 4096:
+                    self.deleted_ids.popitem(last=False)
+                self.counts['removed'] += 1
+                if self.on_removed:
+                    self.on_removed()
 
     def _listen(self, oauth, stop, deadline):
         ws, session, keepalive = self._open(WS)
@@ -220,7 +240,7 @@ class TwitchReader:
                 if stop.is_set():
                     return
                 oauth.subscribe(kind, session)
-            self.status, self.code = 'reading', None
+            self.primary_status, self.code = 'reading', None
             LOG.info('TWITCH_CHAT_CONNECTED')
             last = time.monotonic()
             check_at = last + 3590
@@ -240,9 +260,33 @@ class TwitchReader:
                 if kind == 'notification' and not stop.is_set():
                     self._notification(metadata, payload, oauth.user_id)
                 elif kind == 'session_reconnect':
-                    replacement, _, keepalive = self._open(payload['session']['reconnect_url'])
-                    ws.shutdown()
-                    ws = replacement
+                    try:
+                        replacement, _, keepalive = self._open(payload['session']['reconnect_url'])
+                    except TwitchError as exc:
+                        self.counts['handoff_failed'] += 1
+                        raise TwitchError(str(exc), retryable=True) from None
+                    except (KeyError, TypeError, AttributeError, ValueError, OSError, websocket.WebSocketException):
+                        self.counts['handoff_failed'] += 1
+                        raise TwitchError('TWITCH_CHAT_HANDOFF_FAILED', retryable=True) from None
+                    previous, ws = ws, replacement
+                    try:
+                        # Notifications can still arrive on the old socket before the new welcome.
+                        previous.settimeout(0.2)
+                        drain_until = min(deadline, time.monotonic() + 1)
+                        while not stop.is_set() and time.monotonic() < drain_until:
+                            try:
+                                pending = self._message(previous)
+                                old_meta, old_payload = pending['metadata'], pending['payload']
+                                old_kind = old_meta['message_type']
+                            except (TwitchError, websocket.WebSocketException, OSError, KeyError, TypeError, ValueError):
+                                break
+                            if old_kind == 'notification':
+                                self._notification(old_meta, old_payload, oauth.user_id)
+                            elif old_kind == 'revocation':
+                                raise TwitchError('TWITCH_CHAT_SUBSCRIPTION_REVOKED_REAUTHORIZE')
+                    finally:
+                        previous.shutdown()
+                    self.counts['handoff_completed'] += 1
                     last = time.monotonic()
                 elif kind == 'revocation':
                     raise TwitchError('TWITCH_CHAT_SUBSCRIPTION_REVOKED_REAUTHORIZE')
@@ -253,6 +297,10 @@ class TwitchReader:
         deadline = time.monotonic() + seconds if seconds is not None else float('inf')
         delay = 2
         with ExitStack() as stack:
+            if self.irc:
+                stack.callback(self.irc.close)
+                if self.expected_user_id:
+                    self.irc.start(self.expected_user_id, deadline)
             http = stack.enter_context(closing(requests.Session()))
             if self.on_audience:
                 from ravora.twitch_audience import TwitchAudience
@@ -266,28 +314,32 @@ class TwitchReader:
                     oauth.validate()
                     if self.expected_user_id is not None and oauth.user_id != self.expected_user_id:
                         raise TwitchError('TWITCH_CHAT_ACCOUNT_MISMATCH')
+                    if self.irc and not self.expected_user_id:
+                        self.irc.start(oauth.user_id, deadline)
                     self._listen(oauth, stop, deadline)
                     break
                 except TwitchError as exc:
                     self.code = str(exc)
                     if not exc.retryable:
-                        self.status = 'failed'
+                        self.primary_status = 'failed'
                         LOG.warning('%s', self.code)
+                        if self.irc and self.irc.thread and self.code not in STOP_BOTH:
+                            # An EventSub-only refusal does not invalidate the separately authorized IRC login.
+                            stop.wait(None if seconds is None else max(0, deadline - time.monotonic()))
+                            break
                         return
                 except (requests.RequestException, websocket.WebSocketException, OSError):
                     self.code = 'TWITCH_CHAT_CONNECTION_FAILED'
                 except sqlite3.Error:
-                    self.status, self.code = 'failed', 'TWITCH_CHAT_DB_ERROR'
+                    self.primary_status, self.code = 'failed', 'TWITCH_CHAT_DB_ERROR'
                     LOG.warning('%s', self.code)
                     return
                 except (AttributeError, KeyError, TypeError, ValueError):
-                    self.status, self.code = 'failed', 'TWITCH_CHAT_RESPONSE_INVALID'
-                    LOG.warning('%s', self.code)
-                    return
-                if self.status == 'reading':
+                    self.code = 'TWITCH_CHAT_RESPONSE_INVALID'
+                if self.primary_status == 'reading':
                     delay = 2
-                self.status = 'reconnecting'
+                self.primary_status = 'reconnecting'
                 LOG.warning('%s; reconnecting in %ss', self.code, delay)
                 stop.wait(min(delay, max(0, deadline - time.monotonic())))
                 delay = min(delay * 2, 60)
-        self.status = 'stopped'
+        self.primary_status = 'stopped'

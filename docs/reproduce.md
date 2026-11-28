@@ -10,6 +10,7 @@ Run the commands below from the repository root.
 python3 -B scripts/demo.py replay
 python3 -B scripts/demo.py early-reaction
 python3 -B scripts/demo.py relationships
+python3 -B scripts/demo.py character-interview
 python3 -B scripts/demo.py media-timing
 python3 -B scripts/validate_public.py
 ```
@@ -31,6 +32,7 @@ python3 -m venv .venv
 .venv/bin/ravora-case-study replay
 .venv/bin/ravora-case-study early-reaction
 .venv/bin/ravora-case-study relationships
+.venv/bin/ravora-case-study character-interview
 .venv/bin/ravora-case-study media-timing
 .venv/bin/python -m unittest discover -s tests -v
 ```

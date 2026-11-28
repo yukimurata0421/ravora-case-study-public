@@ -1,6 +1,7 @@
 """Bounded RTMPS packet FIFO. Only its consumer owns the network muxer."""
 from collections import deque
-from contextlib import contextmanager
+from contextlib import contextmanager, nullcontext
+import socket
 import ssl
 import threading
 import time
@@ -37,11 +38,17 @@ def rtmps_output(target, streams):
 
 
 class PublishFIFO:
-    def __init__(self, open_output, *, capacity=120, retry_wait=1., max_retries=4):
+    def __init__(self, open_output, *, capacity=120, retry_wait=1., max_retries=4, recovery_seconds=None, peer=None):
         self.open_output = open_output
         self.capacity = capacity
         self.retry_wait = retry_wait
         self.max_retries = max_retries
+        self.recovery_seconds = recovery_seconds
+        self.peer = peer
+        self.ack_state = 'unknown'
+        self.last_ack_at = None
+        self.ack_stalls = 0
+        self.ack_generations = 0
         self.muxed_bytes = self.io_errors = 0
         self.condition = threading.Condition()
         self.packets = deque()
@@ -52,6 +59,7 @@ class PublishFIFO:
         self.error = None
         self.state = 'connecting'
         self.last_io_error = self.last_mux_at = None
+        self.connection_media_started_at = None
         self.overflow_events = self.write_outcome_unknown = 0
         self.attempts = self.connections = self.dropped = self.muxed = 0
         self.thread = threading.Thread(target=self._run, name='ray-rtmps', daemon=True)
@@ -60,7 +68,11 @@ class PublishFIFO:
     def status(self):
         with self.condition:
             return {'state': self.state, 'attempts': self.attempts,
-                    'connections_with_media': self.connections, 'packets_muxed': self.muxed,
+                    'tcp_ack_state': self.ack_state, 'tcp_ack_stalls': self.ack_stalls,
+                    'connections_with_tcp_ack': self.ack_generations,
+                    'last_tcp_ack_age_seconds': None if self.last_ack_at is None else round(time.monotonic()-self.last_ack_at,2),
+                    'connections_with_media': self.connections, 'connection_media_started_at': self.connection_media_started_at,
+                    'packets_muxed': self.muxed,
                     'packets_dropped': self.dropped, 'queue_packets': len(self.packets),
                     'muxed_bytes': self.muxed_bytes, 'io_errors': self.io_errors,
                     'queue_limit': self.capacity, 'queue_overflows': self.overflow_events,
@@ -99,23 +111,82 @@ class PublishFIFO:
 
     def _take(self):
         with self.condition:
-            self.condition.wait_for(lambda: self.packets or self.closing_at is not None)
+            self.condition.wait_for(lambda: self.packets or self.closing_at is not None or
+                                    self.ack_state == 'stalled')
+            if self.ack_state == 'stalled' and self.closing_at is None:
+                raise ConnectionError('PUBLISH_TCP_ACK_STALLED')
             if self.closing_at is not None and time.monotonic() >= self.closing_at + DRAIN_SECONDS:
                 self._discard()
             return self.packets.popleft() if self.packets else None
 
+    @contextmanager
+    def _observe_ack(self, probe):
+        if probe is None:
+            yield None
+            return
+        stopped = threading.Event()
+        stalled = threading.Event()
+
+        def observe():
+            acknowledged = False
+            while not stopped.is_set():
+                now = time.monotonic()
+                sample = probe.sample(now)
+                if sample:
+                    with self.condition:
+                        self.ack_state = sample
+                        if sample == 'progress':
+                            self.last_ack_at = now
+                            if not acknowledged:
+                                self.ack_generations += 1
+                                acknowledged = True
+                        if sample == 'stalled' and self.closing_at is None:
+                            self.ack_stalls += 1
+                            stalled.set()
+                            self.condition.notify_all()
+                    if stalled.is_set():
+                        # Interrupt even a native mux write blocked in the kernel.
+                        try:
+                            probe.connection.shutdown(socket.SHUT_RDWR)
+                        except OSError:
+                            pass
+                        return
+                stopped.wait(1.)
+
+        observer = threading.Thread(target=observe, name='ray-twitch-ack', daemon=True)
+        try:
+            observer.start()
+        except RuntimeError:
+            yield None
+            return
+        try:
+            yield stalled
+        finally:
+            stopped.set()
+            observer.join()
+
     def _run(self):
         failures = 0
+        deadline = None
         try:
             while True:
                 with self.condition:
                     if self.closing_at is not None and (failures or not self.packets):
                         break
+                    if deadline is not None and time.monotonic() >= deadline:
+                        self.error = 'PUBLISH_RECOVERY_EXHAUSTED'
+                        break
+                    self.ack_state = 'unknown'
+                    self.last_ack_at = None
                     self.state = 'connecting'
                     self.attempts += 1
+                stalled = None
                 stage = 'PUBLISH_OPEN_IO'
                 try:
-                    with self.open_output() as output:
+                    before = self.peer.before_open() if self.peer else None
+                    with (self.open_output() as output,
+                          (self.peer.connected(before) if self.peer else nullcontext()) as ack,
+                          self._observe_ack(ack) as stalled):
                         with self.condition:
                             if self.error:
                                 break
@@ -142,6 +213,7 @@ class PublishFIFO:
                             with self.condition:
                                 if previous_write is None:
                                     self.connections += 1
+                                    self.connection_media_started_at = time.time()
                                 if previous_write is None or now - previous_write > 1:
                                     stable_since = now
                                 previous_write = now
@@ -151,14 +223,23 @@ class PublishFIFO:
                                 self.muxed_bytes += size
                                 self.last_mux_at = now
                             # A handshake or one packet cannot renew a flapping link's budget.
-                            if now - stable_since >= 2:
+                            if now - stable_since >= 2 and (not ack or self.ack_state=='unknown' or
+                                    (self.last_ack_at is not None and now-self.last_ack_at <= 2)):
                                 failures = 0
+                                deadline = None
+                            elif deadline is not None and now >= deadline:
+                                raise PublishError('PUBLISH_RECOVERY_EXHAUSTED')
                         stage = 'PUBLISH_CLOSE_IO'
+                    break
+                except PublishError as exc:
+                    with self.condition:
+                        self.error = str(exc)
                     break
                 except (OSError, av.FFmpegError) as exc:
                     with self.condition:
                         self.io_errors += 1
-                        self.last_io_error = stage
+                        self.last_io_error = ('PUBLISH_TCP_ACK_STALLED'
+                                              if stalled is not None and stalled.is_set() else stage)
                         if stage == 'PUBLISH_WRITE_IO':
                             self.write_outcome_unknown += 1
                         self.accepting = False
@@ -167,11 +248,17 @@ class PublishFIFO:
                             self.error = self.error or stage
                             break
                         failures += 1
-                        if isinstance(exc, PermissionError) or failures > self.max_retries:
+                        now = time.monotonic()
+                        if self.recovery_seconds is not None and deadline is None:
+                            deadline = now + self.recovery_seconds
+                        expired = (now >= deadline if deadline is not None else failures > self.max_retries)
+                        if isinstance(exc, PermissionError) or expired:
                             self.error = 'PUBLISH_ACCESS_DENIED' if isinstance(exc, PermissionError) else 'PUBLISH_RECOVERY_EXHAUSTED'
                             break
                         self.state = 'retry_wait'
-                        self.condition.wait_for(lambda: self.closing_at is not None, timeout=self.retry_wait)
+                        wait = self.retry_wait if deadline is None else min(
+                            self.retry_wait * 2**min(failures-1,2),deadline-now)
+                        self.condition.wait_for(lambda: self.closing_at is not None, timeout=wait)
         except Exception:
             with self.condition:
                 self.error = self.error or 'PUBLISH_CONFIGURATION_OR_MUX_FAILED'

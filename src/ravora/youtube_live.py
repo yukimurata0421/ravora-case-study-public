@@ -63,6 +63,11 @@ def run(args, *, scheduled=None):
         twitch_config = config.get('twitch_live', {})
         if not isinstance(twitch_config, dict):
             raise SettingsError('INVALID_PROGRAM_VIDEO_ENCODER')
+        if scheduled:
+            from ravora.budget_status import scheduled_limits
+            limits = scheduled_limits(s)
+            s = replace(s, monthly_reply_llm_usd=limits['reply_llm_usd'],
+                        monthly_tts_chars=limits['tts_characters'], stt_monthly_audio_seconds=limits['cloud_stt_seconds']).validate()
         scheduled_idle = twitch_config.get('scheduled_audience_idle_seconds', 120) if scheduled else None
         if scheduled_idle is not None:
             s = replace(s, character_idle_seconds=scheduled_idle).validate()
@@ -197,6 +202,7 @@ def run(args, *, scheduled=None):
                                   metadata=metadata, made_for_kids=made_for_kids, latency_preference=latency_preference)
         audio = Path(stack.enter_context(tempfile.TemporaryDirectory(dir=run_dir)))
         store = MemoryStore(ROOT / 'state/conversation.sqlite3' if args.mode == 'cloud' else run_dir / 'offline.sqlite3')
+        store.scheduled_budget = bool(scheduled)
         CharacterMemory(store, s.mode).seed_initial_interests()
         language = args.host_language or s.stt_language
         default_locale = s.voice_input_language if s.voice_profile == 'fast_streaming' else s.language
@@ -228,6 +234,11 @@ def run(args, *, scheduled=None):
                               initiative_language=scheduled.language if scheduled else None, interrupt_initiatives=bool(scheduled))
         program.voice_env_file = args.env
         stack.callback(program.close)
+        from ravora.studio_operator import configure
+        configure(program, voice)
+        if args.dell_mic:
+            from ravora.studio_dell_stt import configure as configure_local_microphone
+            configure_local_microphone(program, voice)
         print('Host STT:', program.host_stt_provider, flush=True)
         if program.cloud_stt and language != 'auto':
             from ravora.providers import ProviderError
@@ -356,7 +367,7 @@ def run(args, *, scheduled=None):
                     reused_stream.set()
                     stop.set()
                     return
-                observations.audience(observed,status,stream_id,viewers,started)
+                observations.audience(observed,status,stream_id,viewers,started, transport=writer.transport.status() if scheduled and writer.transport and status == 'live' else None)
                 if welcome and status == 'live':
                     welcome.on_live(stream_id)
             from ravora.twitch_audience import TwitchAudience
@@ -364,7 +375,9 @@ def run(args, *, scheduled=None):
             stack.enter_context(TwitchAudience(ROOT/'state/twitch',record_audience,**account))
             reader = TwitchReader(pipeline.inbox, ROOT / 'state/twitch/oauth.json', on_removed=pipeline.check_removed,
                                   is_announcement=welcome.is_announcement if welcome else None,
-                                  expected_user_id=account.get('user_id'))
+                                  expected_user_id=account.get('user_id'), irc_token_path=ROOT/'state/twitch/irc-oauth.json')
+            from ravora.twitch_intake import attach_intake
+            attach_intake(program, reader)
             pipeline.start(args.seconds, twitch_reader=reader)
         else:
             pipeline.start(args.seconds, wait_for_chat=True)
@@ -375,7 +388,12 @@ def run(args, *, scheduled=None):
         max_lag = 0.0
         finish_event = False
         try:
-            while not stop.is_set() and time.monotonic() < deadline:
+            while not stop.is_set():
+                now = time.monotonic()
+                if now >= deadline:
+                    from ravora.twitch_schedule import DRAIN_SECONDS
+                    if not scheduled or now >= deadline + DRAIN_SECONDS or not program.finish_slot_turn():
+                        break
                 if startup and startup.done():
                     event = startup.result()
                     if event is None:

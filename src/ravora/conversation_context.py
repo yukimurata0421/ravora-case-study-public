@@ -6,6 +6,8 @@ import time
 import uuid
 
 from ravora.memory import safe_summary
+from ravora.relationships import VIEWER_PLATFORMS
+from ravora.viewer_recognition import name_command
 from ravora.context_prompt import context_text
 from ravora.memory_extraction import dialogue_terms, explicit_memory_request, historical_reference, session_recap
 from ravora.developer_identity import DEVELOPER_PLATFORMS, developer_keys
@@ -115,6 +117,13 @@ class ConversationContext:
             for tier in (1,2,3):
                 if tier==1 and not private:continue
                 where='v.scope=? AND v.tier=?';params=[scope,tier]
+                if turn_id and not private and viewer.partition(':')[0] in VIEWER_PLATFORMS:
+                    where += """ AND EXISTS(SELECT 1 FROM source_events prior JOIN conversation_turns active ON active.turn_id=?
+                        JOIN source_events current ON current.id=active.source_event_id WHERE prior.id=v.source_event_id
+                        AND active.viewer=? AND (prior.received_at,prior.rowid)<(current.received_at,current.rowid)
+                        AND NOT EXISTS(SELECT 1 FROM relationship_events r WHERE r.source_event_id=prior.id
+                                       AND r.played_at>current.received_at))"""
+                    params.extend((turn_id,scope+':'+viewer))
                 if stream:
                     where+=' AND EXISTS(SELECT 1 FROM source_events s WHERE s.id=v.source_event_id AND s.stream_id=?)'
                     params.append(stream[0])
@@ -138,7 +147,7 @@ class ConversationContext:
                     evidence = answer if tier == 3 else question
                     if not (any(word in words for word in dialogue_terms(evidence))
                             or any(term in evidence for term in jp_subjects)):continue
-                    if sensitive(question) or sensitive(answer):continue
+                    if sensitive(question) or sensitive(answer) or (not private and name_command(question)[0]):continue
                     text=('Developer: ' if tier==1 else 'Viewer: ')+question[:300]+'\nAssistant: '+answer[:600] if tier!=3 else answer[:800]
                     groups[tier].append({'context_id':f'turn:{tier}:{turn}','tier':tier,'kind':KINDS[tier],
                         'text':text,'source_turn_id':turn,'source_event_id':event})

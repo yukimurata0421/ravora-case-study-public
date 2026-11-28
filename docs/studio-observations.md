@@ -85,7 +85,7 @@ matches leave the reply unmeasured. [Player capture procedure](twitch-live-opera
 
 ## Publish observations from a separate host
 
-The exporter writes `ravora.ray_public_observation.v5`. The site validates both v5 and v4 snapshots.
+The exporter writes `ravora.ray_public_observation.v9`. The site accepts versions v4 through v9 and checks each against its own schema and slot calendar.
 It rejects unexpected fields before rendering. A successful collection writes
 `ray-observation.json`, `ray/index.html` and the two referenced assets. The initial HTML
 contains the measurements. An open tab checks for a newer snapshot every 30 seconds
@@ -140,13 +140,14 @@ there were no eligible speakers. Older sessions have no policy marker.
 
 The slot plan uses JST. Each slot is a separate two-hour broadcast.
 
-| Language | Starts every day | Additional starts |
-| --- | --- | --- |
-| English | 03:00, 05:00, 07:00 | 11:00 Tue, Thu, Sat and Sun |
-| Japanese | 17:00, 19:00, 21:00 | |
+| Language | Daily starts (JST) |
+| --- | --- |
+| English | 01:00, 03:00, 05:00, 07:00, 09:00, 11:00, 13:00 |
+| Japanese | 15:00, 17:00, 19:00, 21:00, 23:00 |
 
 `ravora-twitch-schedule plan` prints the next seven calendar days and next start.
-The 46 weekly slots total 92 scheduled hours. The five-minute market observer tracks
+The calendar contains 84 two-hour slots per week. Actual broadcast coverage is
+measured separately. The five-minute market observer tracks
 tagged Just Chatting streams in the slot language and samples overlap with vedal987.
 The report records incomplete scans and uncovered time. The market observer uses the
 operator's own Twitch application.
@@ -171,9 +172,8 @@ state. Each slot claims a durable database row before starting. Adjacent slots c
 the preceding stream and publisher lock.
 
 The [user timer examples](../examples/systemd/) use `~/ray-studio` and its installed
-virtual environment. Use the slot timer instances `03`, `05`, `07`, `11`, `17`, `19`
-and `21` with the included weekday override for `11`. The market observer has its own
-timer. Installing the Python package leaves scheduling disabled.
+virtual environment. Use one slot timer instance for each two-digit start hour in the table.
+The market timer samples at five-minute intervals. Installing the Python package leaves scheduling disabled.
 
 Scheduled shows prepare one waiting comment while the preceding reply plays. A manual
 studio launch enables this with `--prefetch`. The playout order stays serial. Deletion,
